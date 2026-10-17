@@ -17,6 +17,9 @@ export async function apiFetch<T>(path: string, { accessToken, tenantId, ...init
     },
   });
 
-  if (!response.ok) throw new Error(`Error de API: ${response.status}`);
+  if (!response.ok) {
+    const payload = await response.json().catch(() => null) as { detail?: string } | null;
+    throw new Error(payload?.detail ?? `Error de API: ${response.status}`);
+  }
   return response.json() as Promise<T>;
 }

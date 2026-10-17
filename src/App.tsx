@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Bell, Box, BriefcaseBusiness, ChevronDown, ChevronRight, CircleHelp, ClipboardList,
   FileText, Gauge, LayoutGrid, Menu, MoreHorizontal, PackageSearch, Plus, Search,
@@ -7,6 +7,7 @@ import {
 import { DashboardCanvas } from "./components/DashboardCanvas";
 import { LoginPage } from "./components/LoginPage";
 import { useAuth } from "./auth/AuthProvider";
+import { CustomersPage } from "./components/CustomersPage";
 
 type NavItem = { label: string; icon: typeof Gauge; active?: boolean; badge?: string };
 
@@ -70,6 +71,12 @@ function Metric({ label, value, delta, tone }: { label: string; value: string; d
 export default function App() {
   const { session, tenants, tenantId, isLoading, error, selectTenant, signOut } = useAuth();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [view, setView] = useState(window.location.hash || "#inicio");
+  useEffect(() => {
+    const syncView = () => setView(window.location.hash || "#inicio");
+    window.addEventListener("hashchange", syncView);
+    return () => window.removeEventListener("hashchange", syncView);
+  }, []);
   if (isLoading) return <main className="session-loading"><span className="brand-mark"><span /></span><p>Preparando EnterpriseCloud…</p></main>;
   if (!session) return <LoginPage />;
   if (!tenantId) return <main className="session-loading"><div><span className="brand-mark"><span /></span><h1>Acceso sin empresa asignada</h1><p>{error ?? "Tu usuario no tiene una empresa activa. Solicita acceso a un administrador."}</p><button className="primary-button" onClick={() => void signOut()}>Cerrar sesión</button></div></main>;
@@ -85,6 +92,7 @@ export default function App() {
         <div className="top-actions"><button className="icon-button" aria-label="Notificaciones"><Bell size={20} /><i /></button><span className="avatar top-avatar">SZ</span></div>
       </header>
       <div className="content-wrap">
+        {view === "#clientes" ? <CustomersPage goBack={() => { window.location.hash = "inicio"; }} /> : <>
         <section className="page-heading">
           <div><p className="eyebrow">VIERNES, 17 DE OCTUBRE</p><h1>Buen día, {userName}</h1><p className="subtitle">Aquí tienes una visión de la operación de {activeTenant?.name ?? "tu empresa"}.</p></div>
           <button className="primary-button"><Plus size={18} /> Crear nuevo <ChevronDown size={16} /></button>
@@ -110,6 +118,7 @@ export default function App() {
           <article className="panel activity-panel"><div className="panel-header"><div><p className="card-label">OPERACIÓN</p><h2>Actividad reciente</h2></div><button className="icon-button muted" aria-label="Más opciones"><MoreHorizontal size={20} /></button></div><div className="table-wrap"><table><thead><tr><th>DOCUMENTO</th><th>ACTIVIDAD</th><th>ORIGEN</th><th>CUÁNDO</th></tr></thead><tbody>{activity.map(([code, detail, origin, time, state]) => <tr key={code}><td><span className={`status-dot ${state}`} /> <strong>{code}</strong></td><td>{detail}</td><td>{origin}</td><td className="time">{time}</td></tr>)}</tbody></table></div><button className="table-footer">Ver historial de actividad <ChevronRight size={16} /></button></article>
           <article className="panel modules-panel"><div className="panel-header"><div><p className="card-label">ACCESOS RÁPIDOS</p><h2>Módulos clave</h2></div><LayoutGrid size={20} className="muted-icon" /></div><div className="module-grid"><a href="#ventas"><span className="module-icon sales"><ShoppingCart size={20} /></span><span>Ventas</span></a><a href="#inventario"><span className="module-icon inventory"><Box size={20} /></span><span>Inventario</span></a><a href="#finanzas"><span className="module-icon finance"><WalletCards size={20} /></span><span>Finanzas</span></a><a href="#clientes"><span className="module-icon customers"><UsersRound size={20} /></span><span>Clientes</span></a></div></article>
         </section>
+        </>}
       </div>
     </main>
   </div>;
