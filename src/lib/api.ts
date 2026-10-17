@@ -4,10 +4,17 @@ const baseUrl = (
   import.meta.env.VITE_API_URL ?? "https://erp-enterprisecloud-api.onrender.com/api/v1"
 ).replace(/\/$/, "");
 
-export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise<T> {
+type ApiOptions = RequestInit & { accessToken?: string; tenantId?: string };
+
+export async function apiFetch<T>(path: string, { accessToken, tenantId, ...init }: ApiOptions = {}): Promise<T> {
   const response = await fetch(`${baseUrl}${path}`, {
     ...init,
-    headers: { "Content-Type": "application/json", ...init.headers },
+    headers: {
+      "Content-Type": "application/json",
+      ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+      ...(tenantId ? { "X-Tenant-ID": tenantId } : {}),
+      ...init.headers,
+    },
   });
 
   if (!response.ok) throw new Error(`Error de API: ${response.status}`);

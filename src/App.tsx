@@ -5,6 +5,8 @@ import {
   Settings, ShoppingCart, UsersRound, WalletCards, X,
 } from "lucide-react";
 import { DashboardCanvas } from "./components/DashboardCanvas";
+import { LoginPage } from "./components/LoginPage";
+import { useAuth } from "./auth/AuthProvider";
 
 type NavItem = { label: string; icon: typeof Gauge; active?: boolean; badge?: string };
 
@@ -25,7 +27,7 @@ const activity = [
   ["INV-0408", "Ajuste de inventario", "Almacén principal", "hace 2 h", "neutral"],
 ];
 
-function Sidebar({ open, close }: { open: boolean; close: () => void }) {
+function Sidebar({ open, close, tenantId, tenantName, tenants, userName, onTenantChange, onLogout }: { open: boolean; close: () => void; tenantId: string; tenantName: string; tenants: { id: string; name: string }[]; userName: string; onTenantChange: (id: string) => void; onLogout: () => void }) {
   return <>
     {open && <button className="sidebar-backdrop" aria-label="Cerrar menú" onClick={close} />}
     <aside className={`sidebar ${open ? "is-open" : ""}`}>
@@ -34,11 +36,11 @@ function Sidebar({ open, close }: { open: boolean; close: () => void }) {
         <span>enterprise<span>cloud</span></span>
         <button className="close-menu" onClick={close} aria-label="Cerrar menú"><X size={20} /></button>
       </div>
-      <div className="workspace-switcher">
+      <label className="workspace-switcher">
         <span className="workspace-icon">GN</span>
-        <span><strong>Grupo Nova</strong><small>Organización</small></span>
-        <ChevronDown size={16} />
-      </div>
+        <span><strong>{tenantName}</strong><small>Organización</small></span>
+        <select aria-label="Empresa activa" value={tenantId} onChange={(event) => onTenantChange(event.target.value)}>{tenants.map((tenant) => <option key={tenant.id} value={tenant.id}>{tenant.name}</option>)}</select>
+      </label>
       <nav aria-label="Navegación principal">
         <p className="nav-caption">ESPACIO DE TRABAJO</p>
         {navigation.map(({ label, icon: Icon, active, badge }) => (
@@ -52,7 +54,7 @@ function Sidebar({ open, close }: { open: boolean; close: () => void }) {
       </nav>
       <div className="sidebar-footer">
         <a className="nav-item" href="#ayuda"><CircleHelp size={18} /><span>Centro de ayuda</span></a>
-        <div className="profile-mini"><span className="avatar">SZ</span><span><strong>Sebastián Z.</strong><small>Administrador</small></span><MoreHorizontal size={18} /></div>
+        <div className="profile-mini"><span className="avatar">{userName.slice(0, 2).toUpperCase()}</span><span><strong>{userName}</strong><button onClick={onLogout}>Cerrar sesión</button></span><MoreHorizontal size={18} /></div>
       </div>
     </aside>
   </>;
@@ -66,9 +68,15 @@ function Metric({ label, value, delta, tone }: { label: string; value: string; d
 }
 
 export default function App() {
+  const { session, tenants, tenantId, isLoading, error, selectTenant, signOut } = useAuth();
   const [menuOpen, setMenuOpen] = useState(false);
+  if (isLoading) return <main className="session-loading"><span className="brand-mark"><span /></span><p>Preparando EnterpriseCloud…</p></main>;
+  if (!session) return <LoginPage />;
+  if (!tenantId) return <main className="session-loading"><div><span className="brand-mark"><span /></span><h1>Acceso sin empresa asignada</h1><p>{error ?? "Tu usuario no tiene una empresa activa. Solicita acceso a un administrador."}</p><button className="primary-button" onClick={() => void signOut()}>Cerrar sesión</button></div></main>;
+  const activeTenant = tenants.find((tenant) => tenant.id === tenantId);
+  const userName = session.user.email?.split("@")[0] ?? "Usuario";
   return <div className="app-shell">
-    <Sidebar open={menuOpen} close={() => setMenuOpen(false)} />
+    <Sidebar open={menuOpen} close={() => setMenuOpen(false)} tenantId={tenantId} tenantName={activeTenant?.name ?? "Empresa"} tenants={tenants} userName={userName} onTenantChange={selectTenant} onLogout={() => void signOut()} />
     <main className="main-content">
       <header className="topbar">
         <button className="mobile-menu" onClick={() => setMenuOpen(true)} aria-label="Abrir menú"><Menu size={21} /></button>
@@ -78,7 +86,7 @@ export default function App() {
       </header>
       <div className="content-wrap">
         <section className="page-heading">
-          <div><p className="eyebrow">VIERNES, 17 DE OCTUBRE</p><h1>Buen día, Sebastián</h1><p className="subtitle">Aquí tienes una visión de la operación de Grupo Nova.</p></div>
+          <div><p className="eyebrow">VIERNES, 17 DE OCTUBRE</p><h1>Buen día, {userName}</h1><p className="subtitle">Aquí tienes una visión de la operación de {activeTenant?.name ?? "tu empresa"}.</p></div>
           <button className="primary-button"><Plus size={18} /> Crear nuevo <ChevronDown size={16} /></button>
         </section>
         <section className="metric-grid" aria-label="Indicadores del negocio">
