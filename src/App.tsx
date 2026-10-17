@@ -9,6 +9,7 @@ import { LoginPage } from "./components/LoginPage";
 import { useAuth } from "./auth/AuthProvider";
 import { CustomersPage } from "./components/CustomersPage";
 import { ProductsPage } from "./components/ProductsPage";
+import { SalesPage } from "./components/SalesPage";
 
 type NavItem = { label: string; icon: typeof Gauge; active?: boolean; badge?: string };
 
@@ -94,7 +95,7 @@ export default function App() {
         <div className="top-actions"><button className="icon-button" aria-label="Notificaciones"><Bell size={20} /><i /></button><span className="avatar top-avatar">SZ</span></div>
       </header>
       <div className="content-wrap">
-        {view === "#clientes" ? <CustomersPage goBack={() => { window.location.hash = "inicio"; }} /> : view === "#productos" ? <ProductsPage goBack={() => { window.location.hash = "inicio"; }} /> : <>
+        {view === "#clientes" ? <CustomersPage goBack={() => { window.location.hash = "inicio"; }} /> : view === "#productos" ? <ProductsPage goBack={() => { window.location.hash = "inicio"; }} /> : view === "#ventas" ? <SalesPage goBack={() => { window.location.hash = "inicio"; }} /> : <>
         <section className="page-heading">
           <div><p className="eyebrow">VIERNES, 17 DE OCTUBRE</p><h1>Buen día, {userName}</h1><p className="subtitle">Aquí tienes una visión de la operación de {activeTenant?.name ?? "tu empresa"}.</p></div>
           <button className="primary-button"><Plus size={18} /> Crear nuevo <ChevronDown size={16} /></button>
