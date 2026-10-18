@@ -53,6 +53,13 @@ export function ProfilePage({ goBack }: { goBack: () => void }) {
       if (uploadError) throw uploadError;
       const saved = await save(path);
       if (!saved && path !== avatarPath) await supabase.storage.from("profile-avatars").remove([path]);
+      // Changing the image format creates a different storage path.  Once the
+      // profile points to the new private file, remove the old one so it does
+      // not remain unnecessarily stored under the user's account.
+      if (saved && avatarPath && path !== avatarPath) {
+        const { error: oldAvatarError } = await supabase.storage.from("profile-avatars").remove([avatarPath]);
+        if (oldAvatarError) console.warn("No se pudo eliminar el avatar anterior", oldAvatarError);
+      }
     } catch (cause) { setError(message(cause)); } finally {
       setIsUploading(false);
       if (inputRef.current) inputRef.current.value = "";
