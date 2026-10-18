@@ -17,12 +17,14 @@ import { ReconciliationPage } from "./components/ReconciliationPage";
 import { DocumentsPage } from "./components/DocumentsPage";
 import { DashboardPage } from "./components/DashboardPage";
 import { AdministrationPage } from "./components/AdministrationPage";
+import { QuotesPage } from "./components/QuotesPage";
 
 type NavItem = { label: string; icon: typeof Gauge; active?: boolean; badge?: string };
 
 const navigation: NavItem[] = [
   { label: "Inicio", icon: Gauge, active: true },
   { label: "Ventas", icon: ShoppingCart, badge: "8" },
+  { label: "Cotizaciones", icon: FileText },
   { label: "Compras", icon: ClipboardList },
   { label: "Inventario", icon: Box, badge: "3" },
   { label: "Productos", icon: PackageSearch },
@@ -104,7 +106,7 @@ export default function App() {
       </header>
       <div className="content-wrap">
         {view === "#dashboard" ? <DashboardPage userName={userName} tenantName={activeTenant?.name ?? "tu empresa"} /> : <>
-        {view === "#clientes" ? <CustomersPage goBack={() => { window.location.hash = "inicio"; }} /> : view === "#productos" ? <ProductsPage goBack={() => { window.location.hash = "inicio"; }} /> : view === "#ventas" ? <SalesPage goBack={() => { window.location.hash = "inicio"; }} /> : view === "#inventario" ? <InventoryPage goBack={() => { window.location.hash = "inicio"; }} /> : view === "#compras" ? <PurchasesPage goBack={() => { window.location.hash = "inicio"; }} /> : view === "#finanzas" ? <FinancePage goBack={() => { window.location.hash = "inicio"; }} /> : view === "#conciliacion" ? <ReconciliationPage goBack={() => { window.location.hash = "finanzas"; }} /> : view === "#documentos" ? <DocumentsPage goBack={() => { window.location.hash = "inicio"; }} /> : view === "#administracion" ? <AdministrationPage goBack={() => { window.location.hash = "dashboard"; }} /> : <>
+        {view === "#clientes" ? <CustomersPage goBack={() => { window.location.hash = "inicio"; }} /> : view === "#productos" ? <ProductsPage goBack={() => { window.location.hash = "inicio"; }} /> : view === "#ventas" ? <SalesPage goBack={() => { window.location.hash = "inicio"; }} /> : view === "#cotizaciones" ? <QuotesPage goBack={() => { window.location.hash = "dashboard"; }} /> : view === "#inventario" ? <InventoryPage goBack={() => { window.location.hash = "inicio"; }} /> : view === "#compras" ? <PurchasesPage goBack={() => { window.location.hash = "inicio"; }} /> : view === "#finanzas" ? <FinancePage goBack={() => { window.location.hash = "inicio"; }} /> : view === "#conciliacion" ? <ReconciliationPage goBack={() => { window.location.hash = "finanzas"; }} /> : view === "#documentos" ? <DocumentsPage goBack={() => { window.location.hash = "inicio"; }} /> : view === "#administracion" ? <AdministrationPage goBack={() => { window.location.hash = "dashboard"; }} /> : <>
         <section className="page-heading">
           <div><p className="eyebrow">VIERNES, 17 DE OCTUBRE</p><h1>Buen día, {userName}</h1><p className="subtitle">Aquí tienes una visión de la operación de {activeTenant?.name ?? "tu empresa"}.</p></div>
           <button className="primary-button"><Plus size={18} /> Crear nuevo <ChevronDown size={16} /></button>
