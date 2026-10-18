@@ -7,10 +7,11 @@ const baseUrl = (
 type ApiOptions = RequestInit & { accessToken?: string; tenantId?: string };
 
 export async function apiFetch<T>(path: string, { accessToken, tenantId, ...init }: ApiOptions = {}): Promise<T> {
+  const isFormData = typeof FormData !== "undefined" && init.body instanceof FormData;
   const response = await fetch(`${baseUrl}${path}`, {
     ...init,
     headers: {
-      "Content-Type": "application/json",
+      ...(isFormData ? {} : { "Content-Type": "application/json" }),
       ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
       ...(tenantId ? { "X-Tenant-ID": tenantId } : {}),
       ...init.headers,
