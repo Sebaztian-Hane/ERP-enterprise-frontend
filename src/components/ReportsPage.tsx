@@ -1,27 +1,433 @@
-import { useEffect, useMemo, useState } from "react";
-import { BarChart3, ChevronLeft, Download, LoaderCircle, PackageSearch, WalletCards } from "lucide-react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
+import {
+  BarChart3,
+  ChevronLeft,
+  Download,
+  FileDown,
+  LoaderCircle,
+  PackageSearch,
+  Printer,
+} from "lucide-react";
 import { useAuth } from "../auth/AuthProvider";
 import { apiFetch } from "../lib/api";
 
-type Metrics = { customers: number; products: number; stock_units: string; sales_total: string; purchases_total: string; receipts_total: string; payments_total: string };
-type Balance = { id: string; customer_id?: string; supplier_id?: string; original_amount: string; balance_amount: string; status: string };
-type StockAlert = { product_id: string; sku: string; name: string; minimum_stock: string; current_stock: string };
-const money = new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN" });
+type Metrics = {
+  customers: number;
+  products: number;
+  stock_units: string;
+  sales_total: string;
+  purchases_total: string;
+  receipts_total: string;
+  payments_total: string;
+};
+type Period = {
+  start_date: string;
+  end_date: string;
+  sales_total: string;
+  purchases_total: string;
+  receipts_total: string;
+  payments_total: string;
+};
+type Summary = { current: Period; comparison: Period | null };
+type Balance = {
+  id: string;
+  original_amount: string;
+  balance_amount: string;
+  status: string;
+};
+type StockAlert = {
+  product_id: string;
+  sku: string;
+  name: string;
+  minimum_stock: string;
+  current_stock: string;
+};
+const money = new Intl.NumberFormat("es-MX", {
+  style: "currency",
+  currency: "MXN",
+});
+const iso = (value: Date) => value.toISOString().slice(0, 10);
+const now = new Date(),
+  initialEnd = iso(now),
+  initialStart = iso(new Date(now.getFullYear(), now.getMonth(), 1));
 
-function downloadCsv(name: string, columns: string[], rows: (string | number)[][]) {
-  const csv = [columns, ...rows].map((row) => row.map((value) => `"${String(value).replaceAll('"', '""')}"`).join(",")).join("\n");
-  const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
-  const link = document.createElement("a"); link.href = url; link.download = name; link.click(); URL.revokeObjectURL(url);
+function downloadExcelCsv(
+  name: string,
+  columns: string[],
+  rows: (string | number)[][],
+) {
+  const csv = [columns, ...rows]
+    .map((row) =>
+      row.map((value) => `"${String(value).replaceAll('"', '""')}"`).join(","),
+    )
+    .join("\r\n");
+  const url = URL.createObjectURL(
+    new Blob(["\ufeff" + csv], { type: "text/csv;charset=utf-8" }),
+  );
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = name;
+  link.click();
+  URL.revokeObjectURL(url);
+}
+
+function Comparison({
+  label,
+  value,
+  previous,
+}: {
+  label: string;
+  value: string;
+  previous?: string;
+}) {
+  const delta = Number(value) - Number(previous ?? 0);
+  const positive = delta >= 0;
+  return (
+    <article className="metric-card live-metric">
+      <span className="live-metric-icon blue">
+        <BarChart3 size={18} />
+      </span>
+      <p>{label}</p>
+      <strong>{money.format(Number(value))}</strong>
+      <span className={`trend ${positive ? "positive" : "negative"}`}>
+        {previous === undefined
+          ? "Sin comparativo"
+          : `${positive ? "+" : ""}${money.format(delta)} vs. periodo anterior`}
+      </span>
+    </article>
+  );
 }
 
 export function ReportsPage({ goBack }: { goBack: () => void }) {
   const { session, tenantId } = useAuth();
-  const [metrics, setMetrics] = useState<Metrics | null>(null), [receivables, setReceivables] = useState<Balance[]>([]), [payables, setPayables] = useState<Balance[]>([]), [lowStock, setLowStock] = useState<StockAlert[]>([]), [loading, setLoading] = useState(true), [error, setError] = useState<string | null>(null);
-  const options = { accessToken: session?.access_token, tenantId: tenantId ?? undefined };
-  const load = async () => { if (!session || !tenantId) return; setLoading(true); setError(null); try { const [dashboard, ar, ap, stock] = await Promise.all([apiFetch<Metrics>("/reports/dashboard", options), apiFetch<Balance[]>("/reports/receivables", options), apiFetch<Balance[]>("/reports/payables", options), apiFetch<StockAlert[]>("/reports/low-stock", options)]); setMetrics(dashboard); setReceivables(ar); setPayables(ap); setLowStock(stock); } catch (cause) { setError(cause instanceof Error ? cause.message : "No se pudieron cargar los reportes."); } finally { setLoading(false); } };
-  useEffect(() => { void load(); }, [session?.access_token, tenantId]); // eslint-disable-line react-hooks/exhaustive-deps
-  const receivableTotal = useMemo(() => receivables.reduce((total, item) => total + Number(item.balance_amount), 0), [receivables]);
-  const payableTotal = useMemo(() => payables.reduce((total, item) => total + Number(item.balance_amount), 0), [payables]);
-  const exportReport = () => downloadCsv("erp-resumen-operativo.csv", ["Indicador", "Valor"], [["Ventas", metrics?.sales_total ?? 0], ["Compras", metrics?.purchases_total ?? 0], ["Cobros", metrics?.receipts_total ?? 0], ["Pagos", metrics?.payments_total ?? 0], ["Por cobrar", receivableTotal], ["Por pagar", payableTotal], ["Alertas de stock", lowStock.length]]);
-  return <section className="module-page"><div className="module-heading"><div><button className="back-link" onClick={goBack}><ChevronLeft size={16} /> Panel general</button><p className="eyebrow">ANÁLISIS Y CONTROL</p><h1>Reportes</h1><p className="subtitle">Consulta los principales indicadores operativos y descarga un resumen de la empresa.</p></div><button className="primary-button" onClick={exportReport} disabled={!metrics}><Download size={18} /> Exportar CSV</button></div>{error && <div className="module-error">{error}<button onClick={() => void load()}>Reintentar</button></div>}{loading || !metrics ? <div className="module-state"><LoaderCircle className="spin" size={24} /> Cargando indicadores…</div> : <><section className="metric-grid"><article className="metric-card live-metric"><span className="live-metric-icon blue"><BarChart3 size={18} /></span><p>Ventas registradas</p><strong>{money.format(Number(metrics.sales_total))}</strong><span className="trend neutral">Operación comercial</span></article><article className="metric-card live-metric"><span className="live-metric-icon purple"><WalletCards size={18} /></span><p>Por cobrar</p><strong>{money.format(receivableTotal)}</strong><span className="trend neutral">{receivables.length} documentos abiertos</span></article><article className="metric-card live-metric"><span className="live-metric-icon amber"><WalletCards size={18} /></span><p>Por pagar</p><strong>{money.format(payableTotal)}</strong><span className="trend neutral">{payables.length} documentos abiertos</span></article><article className="metric-card live-metric"><span className="live-metric-icon green"><PackageSearch size={18} /></span><p>Stock bajo</p><strong>{lowStock.length}</strong><span className="trend neutral">Productos por reponer</span></article></section><section className="finance-grid"><article className="panel finance-panel"><div className="panel-header"><div><p className="card-label">CUENTAS POR COBRAR</p><h2>Saldo pendiente</h2></div><strong>{money.format(receivableTotal)}</strong></div><div className="table-wrap"><table><thead><tr><th>ESTADO</th><th>ORIGINAL</th><th>SALDO</th></tr></thead><tbody>{receivables.slice(0, 8).map((item) => <tr key={item.id}><td><span className="status-pill active">{item.status}</span></td><td>{money.format(Number(item.original_amount))}</td><td><strong>{money.format(Number(item.balance_amount))}</strong></td></tr>)}</tbody></table></div></article><article className="panel finance-panel"><div className="panel-header"><div><p className="card-label">CUENTAS POR PAGAR</p><h2>Compromisos vigentes</h2></div><strong>{money.format(payableTotal)}</strong></div><div className="table-wrap"><table><thead><tr><th>ESTADO</th><th>ORIGINAL</th><th>SALDO</th></tr></thead><tbody>{payables.slice(0, 8).map((item) => <tr key={item.id}><td><span className="status-pill active">{item.status}</span></td><td>{money.format(Number(item.original_amount))}</td><td><strong>{money.format(Number(item.balance_amount))}</strong></td></tr>)}</tbody></table></div></article></section><article className="panel customers-panel"><div className="panel-header"><div><p className="card-label">INVENTARIO</p><h2>Productos bajo mínimo</h2></div><span className="table-count">{lowStock.length} alertas</span></div>{lowStock.length === 0 ? <div className="module-state compact"><PackageSearch size={24} /> No hay productos bajo su mínimo.</div> : <div className="table-wrap"><table className="inventory-table"><thead><tr><th>SKU</th><th>PRODUCTO</th><th>ACTUAL</th><th>MÍNIMO</th></tr></thead><tbody>{lowStock.map((item) => <tr key={item.product_id}><td><strong>{item.sku}</strong></td><td>{item.name}</td><td className="stock-zero">{Number(item.current_stock).toLocaleString("es-MX")}</td><td>{Number(item.minimum_stock).toLocaleString("es-MX")}</td></tr>)}</tbody></table></div>}</article></>}</section>;
+  const [metrics, setMetrics] = useState<Metrics | null>(null),
+    [summary, setSummary] = useState<Summary | null>(null),
+    [receivables, setReceivables] = useState<Balance[]>([]),
+    [payables, setPayables] = useState<Balance[]>([]),
+    [lowStock, setLowStock] = useState<StockAlert[]>([]),
+    [loading, setLoading] = useState(true),
+    [error, setError] = useState<string | null>(null);
+  const [startDate, setStartDate] = useState(initialStart),
+    [endDate, setEndDate] = useState(initialEnd),
+    [compare, setCompare] = useState(true);
+  const options = {
+    accessToken: session?.access_token,
+    tenantId: tenantId ?? undefined,
+  };
+  const query = () => {
+    const params = new URLSearchParams({
+      start_date: startDate,
+      end_date: endDate,
+    });
+    if (compare) {
+      const start = new Date(startDate + "T00:00:00");
+      const end = new Date(endDate + "T00:00:00");
+      const days = Math.round((end.getTime() - start.getTime()) / 86400000) + 1;
+      start.setDate(start.getDate() - days);
+      end.setDate(end.getDate() - days);
+      params.set("compare_start_date", iso(start));
+      params.set("compare_end_date", iso(end));
+    }
+    return params.toString();
+  };
+  const load = async () => {
+    if (!session || !tenantId) return;
+    setLoading(true);
+    setError(null);
+    try {
+      const [dashboard, period, ar, ap, stock] = await Promise.all([
+        apiFetch<Metrics>("/reports/dashboard", options),
+        apiFetch<Summary>("/reports/summary?" + query(), options),
+        apiFetch<Balance[]>("/reports/receivables", options),
+        apiFetch<Balance[]>("/reports/payables", options),
+        apiFetch<StockAlert[]>("/reports/low-stock", options),
+      ]);
+      setMetrics(dashboard);
+      setSummary(period);
+      setReceivables(ar);
+      setPayables(ap);
+      setLowStock(stock);
+    } catch (cause) {
+      setError(
+        cause instanceof Error
+          ? cause.message
+          : "No se pudieron cargar los reportes.",
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+  useEffect(() => {
+    void load();
+  }, [session?.access_token, tenantId]); // eslint-disable-line react-hooks/exhaustive-deps
+  const receivableTotal = useMemo(
+    () =>
+      receivables.reduce(
+        (total, item) => total + Number(item.balance_amount),
+        0,
+      ),
+    [receivables],
+  );
+  const payableTotal = useMemo(
+    () =>
+      payables.reduce((total, item) => total + Number(item.balance_amount), 0),
+    [payables],
+  );
+  const applyFilters = (event: FormEvent) => {
+    event.preventDefault();
+    void load();
+  };
+  const exportReport = () => {
+    if (!summary) return;
+    const p = summary.current,
+      prior = summary.comparison;
+    downloadExcelCsv(
+      "erp-reporte-" + startDate + "-" + endDate + ".csv",
+      ["Periodo", "Indicador", "Valor actual", "Valor previo"],
+      [
+        [
+          startDate + " a " + endDate,
+          "Ventas",
+          p.sales_total,
+          prior?.sales_total ?? "—",
+        ],
+        [
+          startDate + " a " + endDate,
+          "Compras",
+          p.purchases_total,
+          prior?.purchases_total ?? "—",
+        ],
+        [
+          startDate + " a " + endDate,
+          "Cobros",
+          p.receipts_total,
+          prior?.receipts_total ?? "—",
+        ],
+        [
+          startDate + " a " + endDate,
+          "Pagos",
+          p.payments_total,
+          prior?.payments_total ?? "—",
+        ],
+        [startDate + " a " + endDate, "Por cobrar", receivableTotal, "—"],
+        [startDate + " a " + endDate, "Por pagar", payableTotal, "—"],
+        [startDate + " a " + endDate, "Stock bajo", lowStock.length, "—"],
+      ],
+    );
+  };
+  const p = summary?.current,
+    previous = summary?.comparison;
+  return (
+    <section className="module-page report-print">
+      <div className="module-heading">
+        <div>
+          <button className="back-link no-print" onClick={goBack}>
+            <ChevronLeft size={16} /> Panel general
+          </button>
+          <p className="eyebrow">ANÁLISIS Y CONTROL</p>
+          <h1>Reportes</h1>
+          <p className="subtitle">
+            Indicadores por periodo, comparativos y exportación para análisis
+            ejecutivo.
+          </p>
+        </div>
+        <div className="heading-actions no-print">
+          <button
+            className="secondary-button"
+            onClick={() => window.print()}
+            disabled={!summary}
+          >
+            <Printer size={17} /> PDF
+          </button>
+          <button
+            className="primary-button"
+            onClick={exportReport}
+            disabled={!summary}
+          >
+            <Download size={18} /> Excel (CSV)
+          </button>
+        </div>
+      </div>
+      <form
+        className="panel customers-toolbar no-print"
+        onSubmit={applyFilters}
+      >
+        <label>
+          Desde
+          <input
+            type="date"
+            required
+            value={startDate}
+            onChange={(e) => setStartDate(e.target.value)}
+          />
+        </label>
+        <label>
+          Hasta
+          <input
+            type="date"
+            required
+            min={startDate}
+            value={endDate}
+            onChange={(e) => setEndDate(e.target.value)}
+          />
+        </label>
+        <label className="check-control">
+          <input
+            type="checkbox"
+            checked={compare}
+            onChange={(e) => setCompare(e.target.checked)}
+          />{" "}
+          Comparar periodo anterior
+        </label>
+        <button className="secondary-button">
+          <FileDown size={16} /> Aplicar
+        </button>
+      </form>
+      {error && (
+        <div className="module-error">
+          {error}
+          <button onClick={() => void load()}>Reintentar</button>
+        </div>
+      )}
+      {loading || !metrics || !p ? (
+        <div className="module-state">
+          <LoaderCircle className="spin" size={24} /> Cargando indicadores…
+        </div>
+      ) : (
+        <>
+          <p className="report-period">
+            Periodo: <strong>{p.start_date}</strong> a{" "}
+            <strong>{p.end_date}</strong>
+            {previous
+              ? ` · comparación: ${previous.start_date} a ${previous.end_date}`
+              : ""}
+          </p>
+          <section className="metric-grid">
+            <Comparison
+              label="Ventas del periodo"
+              value={p.sales_total}
+              previous={previous?.sales_total}
+            />
+            <Comparison
+              label="Compras del periodo"
+              value={p.purchases_total}
+              previous={previous?.purchases_total}
+            />
+            <Comparison
+              label="Cobros del periodo"
+              value={p.receipts_total}
+              previous={previous?.receipts_total}
+            />
+            <Comparison
+              label="Pagos del periodo"
+              value={p.payments_total}
+              previous={previous?.payments_total}
+            />
+          </section>
+          <section className="finance-grid">
+            <BalancePanel
+              title="CUENTAS POR COBRAR"
+              total={receivableTotal}
+              balances={receivables}
+            />
+            <BalancePanel
+              title="CUENTAS POR PAGAR"
+              total={payableTotal}
+              balances={payables}
+            />
+          </section>
+          <article className="panel customers-panel">
+            <div className="panel-header">
+              <div>
+                <p className="card-label">INVENTARIO</p>
+                <h2>Productos bajo mínimo</h2>
+              </div>
+              <span className="table-count">{lowStock.length} alertas</span>
+            </div>
+            {lowStock.length === 0 ? (
+              <div className="module-state compact">
+                <PackageSearch size={24} /> No hay productos por debajo de su
+                mínimo.
+              </div>
+            ) : (
+              <div className="table-wrap">
+                <table className="inventory-table">
+                  <thead>
+                    <tr>
+                      <th>SKU</th>
+                      <th>PRODUCTO</th>
+                      <th>ACTUAL</th>
+                      <th>MÍNIMO</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {lowStock.map((item) => (
+                      <tr key={item.product_id}>
+                        <td>
+                          <strong>{item.sku}</strong>
+                        </td>
+                        <td>{item.name}</td>
+                        <td className="stock-zero">
+                          {Number(item.current_stock).toLocaleString("es-MX")}
+                        </td>
+                        <td>
+                          {Number(item.minimum_stock).toLocaleString("es-MX")}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </article>
+        </>
+      )}
+    </section>
+  );
+}
+
+function BalancePanel({
+  title,
+  total,
+  balances,
+}: {
+  title: string;
+  total: number;
+  balances: Balance[];
+}) {
+  return (
+    <article className="panel finance-panel">
+      <div className="panel-header">
+        <div>
+          <p className="card-label">{title}</p>
+          <h2>Saldo pendiente</h2>
+        </div>
+        <strong>{money.format(total)}</strong>
+      </div>
+      <div className="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>ESTADO</th>
+              <th>ORIGINAL</th>
+              <th>SALDO</th>
+            </tr>
+          </thead>
+          <tbody>
+            {balances.slice(0, 8).map((item) => (
+              <tr key={item.id}>
+                <td>
+                  <span className="status-pill active">{item.status}</span>
+                </td>
+                <td>{money.format(Number(item.original_amount))}</td>
+                <td>
+                  <strong>{money.format(Number(item.balance_amount))}</strong>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </article>
+  );
 }

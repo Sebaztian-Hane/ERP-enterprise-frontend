@@ -1,18 +1,357 @@
 import { FormEvent, useEffect, useState } from "react";
-import { ChevronLeft, History, LoaderCircle, ShieldCheck, UserPlus, UsersRound } from "lucide-react";
+import {
+  ChevronLeft,
+  History,
+  LoaderCircle,
+  ShieldCheck,
+  UserPlus,
+  UsersRound,
+} from "lucide-react";
 import { useAuth } from "../auth/AuthProvider";
 import { apiFetch } from "../lib/api";
-type Membership = { id: string; user_id: string; role_code: string; is_active: boolean };
-type AuditLog = { id: string; action: string; module: string; outcome: string; created_at: string };
-const roles = ["owner", "admin", "sales", "purchases", "inventory", "finance", "viewer"];
-const labels: Record<string, string> = { owner: "Propietario", admin: "Administrador", sales: "Ventas", purchases: "Compras", inventory: "Inventario", finance: "Finanzas", viewer: "Consulta" };
-const date = new Intl.DateTimeFormat("es-MX", { dateStyle: "medium", timeStyle: "short" });
+type Membership = {
+  id: string;
+  user_id: string;
+  role_code: string;
+  is_active: boolean;
+};
+type AuditLog = {
+  id: string;
+  action: string;
+  module: string;
+  outcome: string;
+  created_at: string;
+};
+const roles = [
+  "owner",
+  "admin",
+  "sales",
+  "purchases",
+  "inventory",
+  "finance",
+  "viewer",
+];
+const labels: Record<string, string> = {
+  owner: "Propietario",
+  admin: "Administrador",
+  sales: "Ventas",
+  purchases: "Compras",
+  inventory: "Inventario",
+  finance: "Finanzas",
+  viewer: "Consulta",
+};
+const date = new Intl.DateTimeFormat("es-MX", {
+  dateStyle: "medium",
+  timeStyle: "short",
+});
 export function AdministrationPage({ goBack }: { goBack: () => void }) {
-  const { session, tenantId } = useAuth(); const [memberships, setMemberships] = useState<Membership[]>([]), [logs, setLogs] = useState<AuditLog[]>([]), [loading, setLoading] = useState(true), [saving, setSaving] = useState<string | null>(null), [error, setError] = useState<string | null>(null), [email, setEmail] = useState(""), [newRole, setNewRole] = useState("viewer");
-  const options = { accessToken: session?.access_token, tenantId: tenantId ?? undefined };
-  const load = async () => { if (!session || !tenantId) return; setLoading(true); setError(null); try { const [members, activity] = await Promise.all([apiFetch<Membership[]>("/tenants/memberships", options), apiFetch<AuditLog[]>("/tenants/audit-logs", options)]); setMemberships(members); setLogs(activity); } catch (cause) { setError(cause instanceof Error ? cause.message : "No fue posible cargar la administración."); } finally { setLoading(false); } };
-  useEffect(() => { void load(); }, [session?.access_token, tenantId]); // eslint-disable-line react-hooks/exhaustive-deps
-  const update = async (member: Membership, changes: Partial<Pick<Membership, "role_code" | "is_active">>) => { setSaving(member.id); setError(null); try { await apiFetch<Membership>(`/tenants/memberships/${member.id}`, { ...options, method: "PATCH", body: JSON.stringify(changes) }); await load(); } catch (cause) { setError(cause instanceof Error ? cause.message : "No se pudo actualizar el acceso."); } finally { setSaving(null); } };
-  const invite = async (event: FormEvent) => { event.preventDefault(); setSaving("invite"); setError(null); try { await apiFetch<Membership>("/tenants/invitations", { ...options, method: "POST", body: JSON.stringify({ email: email.trim(), role_code: newRole }) }); setEmail(""); setNewRole("viewer"); await load(); } catch (cause) { setError(cause instanceof Error ? cause.message : "No se pudo enviar la invitación."); } finally { setSaving(null); } };
-  return <section className="module-page administration-page"><div className="module-heading"><div><button className="back-link" onClick={goBack}><ChevronLeft size={16} /> Panel general</button><p className="eyebrow">GOBIERNO Y SEGURIDAD</p><h1>Administración</h1><p className="subtitle">Controla accesos de la empresa y consulta la trazabilidad de cambios.</p></div></div>{error && <div className="module-error">{error}<button onClick={() => void load()}>Reintentar</button></div>}<section className="customer-summary"><article><span className="summary-icon"><UsersRound size={19} /></span><div><small>USUARIOS ASIGNADOS</small><strong>{memberships.length}</strong></div></article><article><span className="summary-icon green"><ShieldCheck size={19} /></span><div><small>ACCESOS ACTIVOS</small><strong>{memberships.filter((member) => member.is_active).length}</strong></div></article></section><section className="admin-grid"><article className="panel customers-panel"><div className="panel-header"><div><p className="card-label">USUARIOS</p><h2>Accesos y roles</h2></div><UsersRound size={20} className="muted-icon" /></div>{loading ? <div className="module-state"><LoaderCircle className="spin" size={22} /> Cargando usuarios…</div> : <div className="table-wrap"><table><thead><tr><th>USUARIO</th><th>ROL</th><th>ESTADO</th><th>ACCIÓN</th></tr></thead><tbody>{memberships.map((member) => <tr key={member.id}><td><strong className="user-id">{member.user_id}</strong></td><td><select aria-label="Rol" disabled={saving === member.id} value={member.role_code} onChange={(event) => void update(member, { role_code: event.target.value })}>{roles.map((role) => <option value={role} key={role}>{labels[role]}</option>)}</select></td><td><span className={`status-pill ${member.is_active ? "active" : "inactive"}`}>{member.is_active ? "Activo" : "Suspendido"}</span></td><td><button className="text-button" disabled={saving === member.id} onClick={() => void update(member, { is_active: !member.is_active })}>{saving === member.id ? "Guardando…" : member.is_active ? "Suspender" : "Activar"}</button></td></tr>)}</tbody></table></div>}</article><article className="panel admin-invite"><div className="panel-header"><div><p className="card-label">NUEVO ACCESO</p><h2>Invitar usuario</h2></div><UserPlus size={20} className="muted-icon" /></div><p>Envía una invitación por correo. La persona creará su contraseña y recibirá el rol seleccionado al aceptar.</p><form className="customer-form" onSubmit={invite}><label>Correo electrónico<input required type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="usuario@empresa.com" /></label><label>Rol<select value={newRole} onChange={(event) => setNewRole(event.target.value)}>{roles.map((role) => <option value={role} key={role}>{labels[role]}</option>)}</select></label><button className="primary-button" disabled={saving === "invite"}>{saving === "invite" ? "Enviando…" : "Enviar invitación"}</button></form></article></section><article className="panel audit-panel"><div className="panel-header"><div><p className="card-label">TRAZABILIDAD</p><h2>Actividad reciente</h2></div><History size={20} className="muted-icon" /></div>{loading ? <div className="module-state compact"><LoaderCircle className="spin" size={20} /> Cargando historial…</div> : logs.length === 0 ? <div className="module-state compact"><History size={24} /> Aún no hay eventos registrados.</div> : <div className="table-wrap"><table><thead><tr><th>CUÁNDO</th><th>ACCIÓN</th><th>MÓDULO</th><th>RESULTADO</th></tr></thead><tbody>{logs.map((log) => <tr key={log.id}><td>{date.format(new Date(log.created_at))}</td><td><strong>{log.action.replaceAll("_", " ")}</strong></td><td>{log.module}</td><td><span className="status-pill active">{log.outcome}</span></td></tr>)}</tbody></table></div>}</article></section>;
+  const { session, tenantId } = useAuth();
+  const [memberships, setMemberships] = useState<Membership[]>([]),
+    [logs, setLogs] = useState<AuditLog[]>([]),
+    [loading, setLoading] = useState(true),
+    [saving, setSaving] = useState<string | null>(null),
+    [error, setError] = useState<string | null>(null),
+    [email, setEmail] = useState(""),
+    [newRole, setNewRole] = useState("viewer"),
+    [auditQuery, setAuditQuery] = useState("");
+  const options = {
+    accessToken: session?.access_token,
+    tenantId: tenantId ?? undefined,
+  };
+  const load = async () => {
+    if (!session || !tenantId) return;
+    setLoading(true);
+    setError(null);
+    try {
+      const [members, activity] = await Promise.all([
+        apiFetch<Membership[]>("/tenants/memberships", options),
+        apiFetch<AuditLog[]>("/tenants/audit-logs", options),
+      ]);
+      setMemberships(members);
+      setLogs(activity);
+    } catch (cause) {
+      setError(
+        cause instanceof Error
+          ? cause.message
+          : "No fue posible cargar la administración.",
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+  useEffect(() => {
+    void load();
+  }, [session?.access_token, tenantId]); // eslint-disable-line react-hooks/exhaustive-deps
+  const update = async (
+    member: Membership,
+    changes: Partial<Pick<Membership, "role_code" | "is_active">>,
+  ) => {
+    setSaving(member.id);
+    setError(null);
+    try {
+      await apiFetch<Membership>(`/tenants/memberships/${member.id}`, {
+        ...options,
+        method: "PATCH",
+        body: JSON.stringify(changes),
+      });
+      await load();
+    } catch (cause) {
+      setError(
+        cause instanceof Error
+          ? cause.message
+          : "No se pudo actualizar el acceso.",
+      );
+    } finally {
+      setSaving(null);
+    }
+  };
+  const invite = async (event: FormEvent) => {
+    event.preventDefault();
+    setSaving("invite");
+    setError(null);
+    try {
+      await apiFetch<Membership>("/tenants/invitations", {
+        ...options,
+        method: "POST",
+        body: JSON.stringify({ email: email.trim(), role_code: newRole }),
+      });
+      setEmail("");
+      setNewRole("viewer");
+      await load();
+    } catch (cause) {
+      setError(
+        cause instanceof Error
+          ? cause.message
+          : "No se pudo enviar la invitación.",
+      );
+    } finally {
+      setSaving(null);
+    }
+  };
+  const filteredLogs = logs.filter((log) =>
+    `${log.action} ${log.module} ${log.outcome}`
+      .toLowerCase()
+      .includes(auditQuery.trim().toLowerCase()),
+  );
+  return (
+    <section className="module-page administration-page">
+      <div className="module-heading">
+        <div>
+          <button className="back-link" onClick={goBack}>
+            <ChevronLeft size={16} /> Panel general
+          </button>
+          <p className="eyebrow">GOBIERNO Y SEGURIDAD</p>
+          <h1>Administración</h1>
+          <p className="subtitle">
+            Controla accesos de la empresa y consulta la trazabilidad de
+            cambios.
+          </p>
+        </div>
+      </div>
+      {error && (
+        <div className="module-error">
+          {error}
+          <button onClick={() => void load()}>Reintentar</button>
+        </div>
+      )}
+      <section className="customer-summary">
+        <article>
+          <span className="summary-icon">
+            <UsersRound size={19} />
+          </span>
+          <div>
+            <small>USUARIOS ASIGNADOS</small>
+            <strong>{memberships.length}</strong>
+          </div>
+        </article>
+        <article>
+          <span className="summary-icon green">
+            <ShieldCheck size={19} />
+          </span>
+          <div>
+            <small>ACCESOS ACTIVOS</small>
+            <strong>
+              {memberships.filter((member) => member.is_active).length}
+            </strong>
+          </div>
+        </article>
+      </section>
+      <section className="admin-grid">
+        <article className="panel customers-panel">
+          <div className="panel-header">
+            <div>
+              <p className="card-label">USUARIOS</p>
+              <h2>Accesos y roles</h2>
+            </div>
+            <UsersRound size={20} className="muted-icon" />
+          </div>
+          {loading ? (
+            <div className="module-state">
+              <LoaderCircle className="spin" size={22} /> Cargando usuarios…
+            </div>
+          ) : (
+            <div className="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>USUARIO</th>
+                    <th>ROL</th>
+                    <th>ESTADO</th>
+                    <th>ACCIÓN</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {memberships.map((member) => (
+                    <tr key={member.id}>
+                      <td>
+                        <strong className="user-id">{member.user_id}</strong>
+                      </td>
+                      <td>
+                        <select
+                          aria-label="Rol"
+                          disabled={saving === member.id}
+                          value={member.role_code}
+                          onChange={(event) =>
+                            void update(member, {
+                              role_code: event.target.value,
+                            })
+                          }
+                        >
+                          {roles.map((role) => (
+                            <option value={role} key={role}>
+                              {labels[role]}
+                            </option>
+                          ))}
+                        </select>
+                      </td>
+                      <td>
+                        <span
+                          className={`status-pill ${member.is_active ? "active" : "inactive"}`}
+                        >
+                          {member.is_active ? "Activo" : "Suspendido"}
+                        </span>
+                      </td>
+                      <td>
+                        <button
+                          className="text-button"
+                          disabled={saving === member.id}
+                          onClick={() =>
+                            void update(member, {
+                              is_active: !member.is_active,
+                            })
+                          }
+                        >
+                          {saving === member.id
+                            ? "Guardando…"
+                            : member.is_active
+                              ? "Suspender"
+                              : "Activar"}
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </article>
+        <article className="panel admin-invite">
+          <div className="panel-header">
+            <div>
+              <p className="card-label">NUEVO ACCESO</p>
+              <h2>Invitar usuario</h2>
+            </div>
+            <UserPlus size={20} className="muted-icon" />
+          </div>
+          <p>
+            Envía una invitación por correo. Si la persona ya estaba invitada,
+            se reenvía el acceso y se actualiza su rol seleccionado.
+          </p>
+          <form className="customer-form" onSubmit={invite}>
+            <label>
+              Correo electrónico
+              <input
+                required
+                type="email"
+                value={email}
+                onChange={(event) => setEmail(event.target.value)}
+                placeholder="usuario@empresa.com"
+              />
+            </label>
+            <label>
+              Rol
+              <select
+                value={newRole}
+                onChange={(event) => setNewRole(event.target.value)}
+              >
+                {roles.map((role) => (
+                  <option value={role} key={role}>
+                    {labels[role]}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <button className="primary-button" disabled={saving === "invite"}>
+              {saving === "invite"
+                ? "Enviando…"
+                : "Enviar / reenviar invitación"}
+            </button>
+          </form>
+        </article>
+      </section>
+      <article className="panel audit-panel">
+        <div className="panel-header">
+          <div>
+            <p className="card-label">TRAZABILIDAD</p>
+            <h2>Actividad reciente</h2>
+          </div>
+          <label className="search customer-search">
+            <History size={17} />
+            <input
+              value={auditQuery}
+              onChange={(event) => setAuditQuery(event.target.value)}
+              placeholder="Filtrar actividad"
+              aria-label="Filtrar actividad"
+            />
+          </label>
+        </div>
+        {loading ? (
+          <div className="module-state compact">
+            <LoaderCircle className="spin" size={20} /> Cargando historial…
+          </div>
+        ) : logs.length === 0 ? (
+          <div className="module-state compact">
+            <History size={24} /> Aún no hay eventos registrados.
+          </div>
+        ) : (
+          <div className="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>CUÁNDO</th>
+                  <th>ACCIÓN</th>
+                  <th>MÓDULO</th>
+                  <th>RESULTADO</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredLogs.map((log) => (
+                  <tr key={log.id}>
+                    <td>{date.format(new Date(log.created_at))}</td>
+                    <td>
+                      <strong>{log.action.replaceAll("_", " ")}</strong>
+                    </td>
+                    <td>{log.module}</td>
+                    <td>
+                      <span className="status-pill active">{log.outcome}</span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </article>
+    </section>
+  );
 }
