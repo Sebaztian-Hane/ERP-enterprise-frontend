@@ -15,6 +15,7 @@ import { PurchasesPage } from "./components/PurchasesPage";
 import { FinancePage } from "./components/FinancePage";
 import { ReconciliationPage } from "./components/ReconciliationPage";
 import { DocumentsPage } from "./components/DocumentsPage";
+import { DashboardPage } from "./components/DashboardPage";
 
 type NavItem = { label: string; icon: typeof Gauge; active?: boolean; badge?: string };
 
@@ -54,7 +55,7 @@ function Sidebar({ open, close, tenantId, tenantName, tenants, userName, onTenan
       <nav aria-label="Navegación principal">
         <p className="nav-caption">ESPACIO DE TRABAJO</p>
         {navigation.map(({ label, icon: Icon, active, badge }) => (
-          <a className={`nav-item ${active ? "active" : ""}`} key={label} href={`#${label.toLowerCase()}`}>
+          <a className={`nav-item ${active ? "active" : ""}`} key={label} href={label === "Inicio" ? "#dashboard" : `#${label.toLowerCase()}`}>
             <Icon size={18} strokeWidth={active ? 2.2 : 1.8} /><span>{label}</span>{badge && <b>{badge}</b>}
           </a>
         ))}
@@ -80,9 +81,9 @@ function Metric({ label, value, delta, tone }: { label: string; value: string; d
 export default function App() {
   const { session, tenants, tenantId, isLoading, error, selectTenant, signOut } = useAuth();
   const [menuOpen, setMenuOpen] = useState(false);
-  const [view, setView] = useState(window.location.hash || "#inicio");
+  const [view, setView] = useState(window.location.hash || "#dashboard");
   useEffect(() => {
-    const syncView = () => setView(window.location.hash || "#inicio");
+    const syncView = () => setView(window.location.hash || "#dashboard");
     window.addEventListener("hashchange", syncView);
     return () => window.removeEventListener("hashchange", syncView);
   }, []);
@@ -101,6 +102,7 @@ export default function App() {
         <div className="top-actions"><button className="icon-button" aria-label="Notificaciones"><Bell size={20} /><i /></button><span className="avatar top-avatar">SZ</span></div>
       </header>
       <div className="content-wrap">
+        {view === "#dashboard" ? <DashboardPage userName={userName} tenantName={activeTenant?.name ?? "tu empresa"} /> : <>
         {view === "#clientes" ? <CustomersPage goBack={() => { window.location.hash = "inicio"; }} /> : view === "#productos" ? <ProductsPage goBack={() => { window.location.hash = "inicio"; }} /> : view === "#ventas" ? <SalesPage goBack={() => { window.location.hash = "inicio"; }} /> : view === "#inventario" ? <InventoryPage goBack={() => { window.location.hash = "inicio"; }} /> : view === "#compras" ? <PurchasesPage goBack={() => { window.location.hash = "inicio"; }} /> : view === "#finanzas" ? <FinancePage goBack={() => { window.location.hash = "inicio"; }} /> : view === "#conciliacion" ? <ReconciliationPage goBack={() => { window.location.hash = "finanzas"; }} /> : view === "#documentos" ? <DocumentsPage goBack={() => { window.location.hash = "inicio"; }} /> : <>
         <section className="page-heading">
           <div><p className="eyebrow">VIERNES, 17 DE OCTUBRE</p><h1>Buen día, {userName}</h1><p className="subtitle">Aquí tienes una visión de la operación de {activeTenant?.name ?? "tu empresa"}.</p></div>
@@ -127,7 +129,7 @@ export default function App() {
           <article className="panel activity-panel"><div className="panel-header"><div><p className="card-label">OPERACIÓN</p><h2>Actividad reciente</h2></div><button className="icon-button muted" aria-label="Más opciones"><MoreHorizontal size={20} /></button></div><div className="table-wrap"><table><thead><tr><th>DOCUMENTO</th><th>ACTIVIDAD</th><th>ORIGEN</th><th>CUÁNDO</th></tr></thead><tbody>{activity.map(([code, detail, origin, time, state]) => <tr key={code}><td><span className={`status-dot ${state}`} /> <strong>{code}</strong></td><td>{detail}</td><td>{origin}</td><td className="time">{time}</td></tr>)}</tbody></table></div><button className="table-footer">Ver historial de actividad <ChevronRight size={16} /></button></article>
           <article className="panel modules-panel"><div className="panel-header"><div><p className="card-label">ACCESOS RÁPIDOS</p><h2>Módulos clave</h2></div><LayoutGrid size={20} className="muted-icon" /></div><div className="module-grid"><a href="#ventas"><span className="module-icon sales"><ShoppingCart size={20} /></span><span>Ventas</span></a><a href="#inventario"><span className="module-icon inventory"><Box size={20} /></span><span>Inventario</span></a><a href="#finanzas"><span className="module-icon finance"><WalletCards size={20} /></span><span>Finanzas</span></a><a href="#clientes"><span className="module-icon customers"><UsersRound size={20} /></span><span>Clientes</span></a></div></article>
         </section>
-        </>}
+        </>}</>}
       </div>
     </main>
   </div>;
