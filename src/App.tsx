@@ -309,6 +309,7 @@ export default function App() {
     signOut,
   } = useAuth();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [quickQuery, setQuickQuery] = useState("");
   const [view, setView] = useState(readView);
   useEffect(() => {
     const syncView = () => {
@@ -352,6 +353,28 @@ export default function App() {
     );
   const activeTenant = tenants.find((tenant) => tenant.id === tenantId);
   const userName = session.user.email?.split("@")[0] ?? "Usuario";
+  const allQuickLinks = [
+    ...navigation,
+    {
+      label: "Administración",
+      icon: BriefcaseBusiness,
+      href: "#administracion",
+    },
+  ];
+  const quickLinks = allQuickLinks.filter((item) =>
+    item.label
+      .toLocaleLowerCase("es-MX")
+      .includes(quickQuery.toLocaleLowerCase("es-MX")),
+  );
+  const breadcrumbLabel =
+    view === "#dashboard"
+      ? "Panel general"
+      : (allQuickLinks.find((item) => item.href === view)?.label ??
+        "Panel general");
+  const openQuickLink = (href: string) => {
+    window.location.hash = href;
+    setQuickQuery("");
+  };
   return (
     <div className="app-shell">
       <Sidebar
@@ -377,21 +400,56 @@ export default function App() {
           <div className="breadcrumb">
             <span>Inicio</span>
             <ChevronRight size={15} />
-            <strong>Panel general</strong>
+            <strong>{breadcrumbLabel}</strong>
           </div>
-          <label className="search">
+          <div className="search global-search">
             <Search size={18} />
             <input
               aria-label="Buscar"
               placeholder="Buscar en EnterpriseCloud"
+              value={quickQuery}
+              onChange={(event) => setQuickQuery(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" && quickLinks[0]) {
+                  event.preventDefault();
+                  openQuickLink(quickLinks[0].href);
+                }
+                if (event.key === "Escape") setQuickQuery("");
+              }}
+              aria-expanded={Boolean(quickQuery)}
+              aria-controls="global-search-results"
             />
             <kbd>⌘ K</kbd>
-          </label>
+            {quickQuery && (
+              <div id="global-search-results" className="global-search-results">
+                {quickLinks.length ? (
+                  quickLinks.map(({ label, icon: Icon, href }) => (
+                    <button
+                      key={href}
+                      type="button"
+                      onClick={() => openQuickLink(href)}
+                    >
+                      <Icon size={16} />
+                      <span>{label}</span>
+                      <ChevronRight size={15} />
+                    </button>
+                  ))
+                ) : (
+                  <p>No se encontró un módulo con ese nombre.</p>
+                )}
+              </div>
+            )}
+          </div>
           <div className="top-actions">
-            <button className="icon-button" aria-label="Notificaciones">
+            <a
+              className="icon-button"
+              href="#reportes"
+              aria-label="Ver indicadores y alertas"
+              title="Ver indicadores y alertas"
+            >
               <Bell size={20} />
               <i />
-            </button>
+            </a>
             <span className="avatar top-avatar">SZ</span>
           </div>
         </header>
