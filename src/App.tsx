@@ -10,7 +10,6 @@ import {
   AlertTriangle,
   ArrowLeftRight,
   BarChart3,
-  Bell,
   Box,
   BriefcaseBusiness,
   ChevronDown,
@@ -34,6 +33,7 @@ import {
 } from "lucide-react";
 import { DashboardCanvas } from "./components/DashboardCanvas";
 import { LoginPage } from "./components/LoginPage";
+import { NotificationsMenu } from "./components/NotificationsMenu";
 import { useAuth } from "./auth/AuthProvider";
 
 const DashboardPage = lazy(() =>
@@ -556,15 +556,7 @@ export default function App() {
             )}
           </div>
           <div className="top-actions">
-            <a
-              className="icon-button"
-              href="#reportes"
-              aria-label="Ver indicadores y alertas"
-              title="Ver indicadores y alertas"
-            >
-              <Bell size={20} />
-              <i />
-            </a>
+            <NotificationsMenu />
             <span className="avatar top-avatar">{userName.slice(0, 2).toUpperCase()}</span>
           </div>
         </header>
