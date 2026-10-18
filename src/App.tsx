@@ -34,6 +34,7 @@ import {
 import { DashboardCanvas } from "./components/DashboardCanvas";
 import { LoginPage } from "./components/LoginPage";
 import { NotificationsMenu } from "./components/NotificationsMenu";
+import { UserAvatar } from "./components/UserAvatar";
 import { useAuth } from "./auth/AuthProvider";
 
 const DashboardPage = lazy(() =>
@@ -111,6 +112,11 @@ const AdministrationPage = lazy(() =>
     default: module.AdministrationPage,
   })),
 );
+const ProfilePage = lazy(() =>
+  import("./components/ProfilePage").then((module) => ({
+    default: module.ProfilePage,
+  })),
+);
 
 type NavItem = {
   label: string;
@@ -156,6 +162,7 @@ const appModules: AppModule[] = [
 const supportedViews = new Set([
   ...navigation.map((item) => item.href),
   "#administracion",
+  "#perfil",
 ]);
 const readView = () => {
   const requested = window.location.hash || "#dashboard";
@@ -472,7 +479,9 @@ export default function App() {
       </main>
     );
   const activeTenant = tenants.find((tenant) => tenant.id === tenantId);
-  const userName = session.user.email?.split("@")[0] ?? "Usuario";
+  const profileName = typeof session.user.user_metadata.full_name === "string" ? session.user.user_metadata.full_name.trim() : "";
+  const userName = profileName || (session.user.email?.split("@")[0] ?? "Usuario");
+  const avatarPath = typeof session.user.user_metadata.avatar_path === "string" ? session.user.user_metadata.avatar_path : null;
   const allQuickLinks = [
     ...navigation,
     {
@@ -480,6 +489,7 @@ export default function App() {
       icon: BriefcaseBusiness,
       href: "#administracion",
     },
+    { label: "Mi perfil", icon: UsersRound, href: "#perfil" },
   ];
   const quickLinks = allQuickLinks.filter((item) =>
     item.label
@@ -557,7 +567,9 @@ export default function App() {
           </div>
           <div className="top-actions">
             <NotificationsMenu />
-            <span className="avatar top-avatar">{userName.slice(0, 2).toUpperCase()}</span>
+            <button className="top-profile-trigger" type="button" onClick={() => { window.location.hash = "#perfil"; }} aria-label="Abrir mi perfil" title="Mi perfil">
+              <UserAvatar name={userName} avatarPath={avatarPath} className="top-avatar" />
+            </button>
           </div>
         </header>
         <div className="content-wrap">
@@ -569,7 +581,9 @@ export default function App() {
                 </div>
               }
             >
-              {view === "#dashboard" ? (
+              {view === "#perfil" ? (
+                <ProfilePage goBack={() => { window.location.hash = "dashboard"; }} />
+              ) : view === "#dashboard" ? (
                 <DashboardPage
                   userName={userName}
                   tenantName={activeTenant?.name ?? "tu empresa"}

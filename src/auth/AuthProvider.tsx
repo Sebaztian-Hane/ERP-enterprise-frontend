@@ -13,6 +13,7 @@ type AuthContextValue = {
   signIn: (email: string, password: string) => Promise<string | null>;
   signOut: () => Promise<void>;
   selectTenant: (tenantId: string) => void;
+  refreshSession: () => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -67,8 +68,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return signInError?.message ?? null;
   };
   const signOut = async () => { await supabase.auth.signOut(); };
+  const refreshSession = async () => {
+    const { data: { session: refreshed } } = await supabase.auth.getSession();
+    setSession(refreshed);
+  };
   const selectTenant = (nextId: string) => { setTenantId(nextId); localStorage.setItem(storedTenantKey, nextId); };
-  const value = useMemo(() => ({ session, tenants, tenantId, isLoading, error, signIn, signOut, selectTenant }), [session, tenants, tenantId, isLoading, error]);
+  const value = useMemo(() => ({ session, tenants, tenantId, isLoading, error, signIn, signOut, selectTenant, refreshSession }), [session, tenants, tenantId, isLoading, error]);
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
