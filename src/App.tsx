@@ -27,6 +27,8 @@ import {
   Search,
   Settings,
   ShoppingCart,
+  Sun,
+  Moon,
   UsersRound,
   WalletCards,
   X,
@@ -438,6 +440,13 @@ export default function App() {
   const [launcherOpen, setLauncherOpen] = useState(false);
   const [quickQuery, setQuickQuery] = useState("");
   const [view, setView] = useState(readView);
+  const [theme, setTheme] = useState<"light" | "dark">(() =>
+    localStorage.getItem("enterprisecloud.theme") === "dark" ? "dark" : "light",
+  );
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme;
+    localStorage.setItem("enterprisecloud.theme", theme);
+  }, [theme]);
   useEffect(() => {
     const syncView = () => {
       const nextView = readView();
@@ -566,6 +575,16 @@ export default function App() {
             )}
           </div>
           <div className="top-actions">
+            <button
+              className="icon-button theme-toggle"
+              type="button"
+              onClick={() => setTheme((current) => current === "dark" ? "light" : "dark")}
+              aria-label={theme === "dark" ? "Cambiar a modo claro" : "Cambiar a modo noche"}
+              aria-pressed={theme === "dark"}
+              title={theme === "dark" ? "Modo noche activo" : "Modo claro activo"}
+            >
+              {theme === "dark" ? <Moon size={20} /> : <Sun size={20} />}
+            </button>
             <NotificationsMenu />
             <button className="top-profile-trigger" type="button" onClick={() => { window.location.hash = "#perfil"; }} aria-label="Abrir mi perfil" title="Mi perfil">
               <UserAvatar name={userName} avatarPath={avatarPath} className="top-avatar" />
