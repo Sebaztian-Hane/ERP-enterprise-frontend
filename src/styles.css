@@ -182,6 +182,7 @@ a {
 .avatar {
   width: 31px;
   height: 31px;
+  overflow: hidden;
   border-radius: 50%;
   display: grid;
   place-items: center;
@@ -341,6 +342,7 @@ a {
   height: 100%;
   display: block;
   object-fit: cover;
+  border-radius: inherit;
 }
 .top-actions .icon-button {
   width: 40px;
