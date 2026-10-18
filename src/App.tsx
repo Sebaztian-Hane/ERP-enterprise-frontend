@@ -428,7 +428,6 @@ export default function App() {
     selectTenant,
     signOut,
   } = useAuth();
-  const [menuOpen, setMenuOpen] = useState(false);
   const [launcherOpen, setLauncherOpen] = useState(false);
   const [quickQuery, setQuickQuery] = useState("");
   const [view, setView] = useState(readView);
@@ -498,27 +497,18 @@ export default function App() {
   };
   return (
     <div className="app-shell">
-      <Sidebar
-        open={menuOpen}
-        close={() => setMenuOpen(false)}
-        tenantId={tenantId}
-        tenantName={activeTenant?.name ?? "Empresa"}
-        tenants={tenants}
-        userName={userName}
-        view={view}
-        onLauncher={() => setLauncherOpen(true)}
-        onTenantChange={selectTenant}
-        onLogout={() => void signOut()}
-      />
       <main className="main-content">
-        <header className="topbar">
-          <button
-            className="mobile-menu"
-            onClick={() => setMenuOpen(true)}
-            aria-label="Abrir menú"
-          >
-            <Menu size={21} />
+        <header className="topbar workspace-topbar">
+          <button className="top-brand" onClick={() => setLauncherOpen(true)} aria-label="Abrir aplicaciones">
+            <span className="brand-mark"><span /></span>
+            <span>enterprise<span>cloud</span></span>
           </button>
+          <label className="top-workspace">
+            <span className="workspace-icon">GN</span>
+            <select aria-label="Empresa activa" value={tenantId} onChange={(event) => selectTenant(event.target.value)}>
+              {tenants.map((tenant) => <option key={tenant.id} value={tenant.id}>{tenant.name}</option>)}
+            </select>
+          </label>
           <div className="breadcrumb">
             <span>Inicio</span>
             <ChevronRight size={15} />
@@ -575,7 +565,7 @@ export default function App() {
               <Bell size={20} />
               <i />
             </a>
-            <span className="avatar top-avatar">SZ</span>
+            <span className="avatar top-avatar">{userName.slice(0, 2).toUpperCase()}</span>
           </div>
         </header>
         <div className="content-wrap">
@@ -934,7 +924,6 @@ export default function App() {
           tenantName={activeTenant?.name ?? "tu empresa"}
           onClose={() => {
             setLauncherOpen(false);
-            setMenuOpen(false);
           }}
         />
       )}
