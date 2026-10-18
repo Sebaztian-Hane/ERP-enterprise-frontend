@@ -5,7 +5,7 @@ import { apiFetch } from "../lib/api";
 
 type Order = { id: string; number: string; customer_id: string; warehouse_id: string; status: string; total: string };
 type Customer = { id: string; code: string; name: string };
-const currency = new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN" });
+const currency = new Intl.NumberFormat("es-PE", { style: "currency", currency: "PEN" });
 
 export function SalesOrdersPage({ goBack }: { goBack: () => void }) {
   const { session, tenantId } = useAuth();

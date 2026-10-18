@@ -34,9 +34,9 @@ type Purchase = {
   note: string | null;
 };
 type Line = { product_id: string; quantity: number; unit_cost: number };
-const money = new Intl.NumberFormat("es-MX", {
+const money = new Intl.NumberFormat("es-PE", {
   style: "currency",
-  currency: "MXN",
+  currency: "PEN",
 });
 
 export function PurchasesPage({ goBack }: { goBack: () => void }) {

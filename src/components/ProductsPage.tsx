@@ -38,9 +38,9 @@ const blankProduct: ProductForm = {
   unit: "unit",
   sale_price: "0",
 };
-const money = new Intl.NumberFormat("es-MX", {
+const money = new Intl.NumberFormat("es-PE", {
   style: "currency",
-  currency: "MXN",
+  currency: "PEN",
 });
 
 export function ProductsPage({ goBack }: { goBack: () => void }) {

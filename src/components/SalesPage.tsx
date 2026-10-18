@@ -5,7 +5,7 @@ import { apiFetch } from "../lib/api";
 
 type Customer = { id: string; code: string; name: string }; type Product = { id: string; sku: string; name: string; sale_price: string }; type Warehouse = { id: string; code: string; name: string; is_active: boolean }; type Sale = { id: string; number: string; customer_id: string; warehouse_id: string; status: string; total: string; note: string | null };
 type Line = { product_id: string; quantity: number; unit_price: number };
-const currency = new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN" });
+const currency = new Intl.NumberFormat("es-PE", { style: "currency", currency: "PEN" });
 
 export function SalesPage({ goBack }: { goBack: () => void }) {
   const { session, tenantId } = useAuth(); const [sales, setSales] = useState<Sale[]>([]); const [customers, setCustomers] = useState<Customer[]>([]); const [products, setProducts] = useState<Product[]>([]); const [warehouses, setWarehouses] = useState<Warehouse[]>([]);

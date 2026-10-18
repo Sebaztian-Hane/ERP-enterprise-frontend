@@ -8,7 +8,7 @@ type Supplier = { id: string; code: string; name: string };
 type Product = { id: string; sku: string; name: string };
 type Warehouse = { id: string; code: string; name: string; is_active: boolean };
 type Line = { product_id: string; quantity: number; unit_value: number };
-const currency = new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN" });
+const currency = new Intl.NumberFormat("es-PE", { style: "currency", currency: "PEN" });
 
 export function PurchaseOrdersPage({ goBack }: { goBack: () => void }) {
   const { session, tenantId } = useAuth();

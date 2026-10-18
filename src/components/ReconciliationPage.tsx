@@ -6,7 +6,7 @@ import { apiFetch } from "../lib/api";
 type CashAccount = { id: string; code: string; name: string; account_type: "cash" | "bank"; currency: string; is_active: boolean };
 type StatementLine = { id: string; cash_account_id: string; transaction_date: string; description: string; amount: string; reference: string | null; reconciled: boolean; cash_movement_id: string | null };
 type Movement = { id: string; cash_account_id: string; payment_id: string | null; movement_type: "inflow" | "outflow"; amount: string; reference: string | null; note: string | null; created_at: string };
-const money = new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN" });
+const money = new Intl.NumberFormat("es-PE", { style: "currency", currency: "PEN" });
 
 export function ReconciliationPage({ goBack }: { goBack: () => void }) {
   const { session, tenantId } = useAuth(); const [accounts, setAccounts] = useState<CashAccount[]>([]); const [accountId, setAccountId] = useState(""); const [lines, setLines] = useState<StatementLine[]>([]); const [movements, setMovements] = useState<Movement[]>([]); const [loading, setLoading] = useState(true); const [error, setError] = useState<string | null>(null); const [open, setOpen] = useState(false); const [saving, setSaving] = useState(false); const [matching, setMatching] = useState<string | null>(null); const [form, setForm] = useState({ transaction_date: new Date().toISOString().slice(0, 10), description: "", amount: "", reference: "" });

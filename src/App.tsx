@@ -118,6 +118,7 @@ type NavItem = {
   href: string;
   badge?: string;
 };
+type AppModule = NavItem & { description: string; tone: string };
 
 const navigation: NavItem[] = [
   { label: "Inicio", icon: Gauge, href: "#dashboard" },
@@ -134,6 +135,23 @@ const navigation: NavItem[] = [
   { label: "Clientes", icon: UsersRound, href: "#clientes" },
   { label: "Documentos", icon: FileText, href: "#documentos" },
   { label: "Reportes", icon: BarChart3, href: "#reportes" },
+];
+const appModules: AppModule[] = [
+  { label: "Panel ejecutivo", icon: Gauge, href: "#dashboard", description: "Indicadores de tu operación", tone: "sky" },
+  { label: "Ventas", icon: ShoppingCart, href: "#ventas", description: "Facturación y registro comercial", tone: "blue" },
+  { label: "Cotizaciones", icon: FileText, href: "#cotizaciones", description: "Propuestas para tus clientes", tone: "violet" },
+  { label: "Pedidos de venta", icon: ClipboardList, href: "#pedidos-de-venta", description: "Seguimiento de pedidos", tone: "indigo" },
+  { label: "Compras", icon: ClipboardList, href: "#compras", description: "Registro de adquisiciones", tone: "orange" },
+  { label: "Órdenes de compra", icon: FileText, href: "#ordenes-de-compra", description: "Solicitudes y aprobaciones", tone: "amber" },
+  { label: "Inventario", icon: Box, href: "#inventario", description: "Existencias y almacenes", tone: "teal" },
+  { label: "Kardex", icon: ArrowLeftRight, href: "#kardex", description: "Trazabilidad de movimientos", tone: "cyan" },
+  { label: "Productos", icon: PackageSearch, href: "#productos", description: "Catálogo y precios", tone: "lime" },
+  { label: "Finanzas", icon: WalletCards, href: "#finanzas", description: "Cobros, pagos y caja", tone: "emerald" },
+  { label: "Conciliación", icon: ArrowLeftRight, href: "#conciliacion", description: "Movimientos bancarios", tone: "rose" },
+  { label: "Clientes", icon: UsersRound, href: "#clientes", description: "Relaciones comerciales", tone: "purple" },
+  { label: "Documentos", icon: FileText, href: "#documentos", description: "Archivo empresarial", tone: "slate" },
+  { label: "Reportes", icon: BarChart3, href: "#reportes", description: "Análisis y exportación", tone: "pink" },
+  { label: "Administración", icon: BriefcaseBusiness, href: "#administracion", description: "Usuarios y permisos", tone: "navy" },
 ];
 const supportedViews = new Set([
   ...navigation.map((item) => item.href),
@@ -177,6 +195,7 @@ function Sidebar({
   tenants,
   userName,
   view,
+  onLauncher,
   onTenantChange,
   onLogout,
 }: {
@@ -187,6 +206,7 @@ function Sidebar({
   tenants: { id: string; name: string }[];
   userName: string;
   view: string;
+  onLauncher: () => void;
   onTenantChange: (id: string) => void;
   onLogout: () => void;
 }) {
@@ -201,9 +221,9 @@ function Sidebar({
       )}
       <aside className={`sidebar ${open ? "is-open" : ""}`}>
         <div className="brand">
-          <span className="brand-mark">
+          <button className="brand-mark app-switcher" onClick={onLauncher} aria-label="Abrir aplicaciones">
             <span />
-          </span>
+          </button>
           <span>
             enterprise<span>cloud</span>
           </span>
@@ -280,6 +300,55 @@ function Sidebar({
         </div>
       </aside>
     </>
+  );
+}
+
+function ModuleLauncher({
+  onClose,
+  tenantName,
+}: {
+  onClose: () => void;
+  tenantName: string;
+}) {
+  useEffect(() => {
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [onClose]);
+
+  const openModule = (href: string) => {
+    window.location.hash = href;
+    onClose();
+  };
+
+  return (
+    <div className="app-launcher-layer" role="presentation">
+      <button className="app-launcher-backdrop" aria-label="Cerrar aplicaciones" onClick={onClose} />
+      <section className="app-launcher" role="dialog" aria-modal="true" aria-label="Aplicaciones de EnterpriseCloud">
+        <DashboardCanvas />
+        <header className="app-launcher-heading">
+          <div>
+            <p className="eyebrow">APLICACIONES</p>
+            <h1>Tu espacio de trabajo</h1>
+            <p>Selecciona un módulo para operar {tenantName}.</p>
+          </div>
+          <button className="icon-button launcher-close" onClick={onClose} aria-label="Cerrar aplicaciones">
+            <X size={20} />
+          </button>
+        </header>
+        <div className="app-module-grid">
+          {appModules.map(({ label, icon: Icon, href, description, tone }) => (
+            <button className="app-module-card" key={href} onClick={() => openModule(href)}>
+              <span className={`app-module-icon ${tone}`}><Icon size={25} /></span>
+              <span><strong>{label}</strong><small>{description}</small></span>
+              <ChevronRight size={17} />
+            </button>
+          ))}
+        </div>
+      </section>
+    </div>
   );
 }
 
@@ -360,6 +429,7 @@ export default function App() {
     signOut,
   } = useAuth();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [launcherOpen, setLauncherOpen] = useState(false);
   const [quickQuery, setQuickQuery] = useState("");
   const [view, setView] = useState(readView);
   useEffect(() => {
@@ -436,6 +506,7 @@ export default function App() {
         tenants={tenants}
         userName={userName}
         view={view}
+        onLauncher={() => setLauncherOpen(true)}
         onTenantChange={selectTenant}
         onLogout={() => void signOut()}
       />
@@ -453,6 +524,9 @@ export default function App() {
             <ChevronRight size={15} />
             <strong>{breadcrumbLabel}</strong>
           </div>
+          <button className="app-launcher-button" onClick={() => setLauncherOpen(true)}>
+            <LayoutGrid size={18} /> Aplicaciones
+          </button>
           <div className="search global-search">
             <Search size={18} />
             <input
@@ -626,13 +700,13 @@ export default function App() {
                       >
                         <Metric
                           label="Ventas del mes"
-                          value="$1,248,600"
+                          value="S/ 1,248,600"
                           delta="12.8%"
                           tone="positive"
                         />
                         <Metric
                           label="Por cobrar"
-                          value="$286,420"
+                          value="S/ 286,420"
                           delta="8 documentos vencidos"
                           tone="negative"
                         />
@@ -644,7 +718,7 @@ export default function App() {
                         />
                         <Metric
                           label="Valor de inventario"
-                          value="$856,910"
+                          value="S/ 856,910"
                           delta="2.4%"
                           tone="positive"
                         />
@@ -658,7 +732,7 @@ export default function App() {
                                 RENDIMIENTO COMERCIAL
                               </p>
                               <h2>Ventas netas</h2>
-                              <strong>$1,248,600</strong>
+                              <strong>S/ 1,248,600</strong>
                               <span className="revenue-trend">
                                 ↑ 12.8% <small>respecto a septiembre</small>
                               </span>
@@ -736,7 +810,7 @@ export default function App() {
                               </span>
                               <span>
                                 <strong>8 facturas por cobrar</strong>
-                                <small>$86,430 vencidos</small>
+                                <small>S/ 86,430 vencidos</small>
                               </span>
                               <ChevronRight size={18} />
                             </div>
@@ -855,6 +929,15 @@ export default function App() {
           </ModuleErrorBoundary>
         </div>
       </main>
+      {launcherOpen && (
+        <ModuleLauncher
+          tenantName={activeTenant?.name ?? "tu empresa"}
+          onClose={() => {
+            setLauncherOpen(false);
+            setMenuOpen(false);
+          }}
+        />
+      )}
     </div>
   );
 }

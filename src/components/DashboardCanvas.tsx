@@ -11,6 +11,7 @@ export function DashboardCanvas() {
     const context = canvas.getContext("2d");
     if (!context) return;
     let frame = 0;
+    let isVisible = true;
     let width = 0;
     let height = 0;
     const dots = Array.from({ length: 22 }, (_, index) => ({
@@ -30,6 +31,10 @@ export function DashboardCanvas() {
       context.setTransform(ratio, 0, 0, ratio, 0, 0);
     };
     const draw = (time: number) => {
+      if (!isVisible) {
+        frame = 0;
+        return;
+      }
       context.clearRect(0, 0, width, height);
       const gradient = context.createRadialGradient(width * 0.78, height * 0.1, 5, width * 0.78, height * 0.1, width * 0.55);
       gradient.addColorStop(0, "rgba(102, 211, 255, .23)");
@@ -49,8 +54,17 @@ export function DashboardCanvas() {
     resize();
     const observer = new ResizeObserver(resize);
     observer.observe(canvas);
+    const visibilityObserver = new IntersectionObserver(([entry]) => {
+      isVisible = entry?.isIntersecting ?? true;
+      if (isVisible && !frame) frame = requestAnimationFrame(draw);
+    });
+    visibilityObserver.observe(canvas);
     frame = requestAnimationFrame(draw);
-    return () => { cancelAnimationFrame(frame); observer.disconnect(); };
+    return () => {
+      cancelAnimationFrame(frame);
+      observer.disconnect();
+      visibilityObserver.disconnect();
+    };
   }, []);
 
   return <canvas ref={canvasRef} className="dashboard-canvas" aria-hidden="true" />;

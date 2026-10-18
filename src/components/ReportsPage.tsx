@@ -33,9 +33,9 @@ type StockAlert = {
   minimum_stock: string;
   current_stock: string;
 };
-const money = new Intl.NumberFormat("es-MX", {
+const money = new Intl.NumberFormat("es-PE", {
   style: "currency",
-  currency: "MXN",
+  currency: "PEN",
 });
 const iso = (value: Date) => value.toISOString().slice(0, 10);
 const escapeXml = (value: string | number) =>
