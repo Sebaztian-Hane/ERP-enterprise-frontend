@@ -65,6 +65,14 @@ const navigation: NavItem[] = [
   { label: "Documentos", icon: FileText, href: "#documentos" },
   { label: "Reportes", icon: BarChart3, href: "#reportes" },
 ];
+const supportedViews = new Set([
+  ...navigation.map((item) => item.href),
+  "#administracion",
+]);
+const readView = () => {
+  const requested = window.location.hash || "#dashboard";
+  return supportedViews.has(requested) ? requested : "#dashboard";
+};
 
 const activity = [
   [
@@ -239,9 +247,16 @@ export default function App() {
     signOut,
   } = useAuth();
   const [menuOpen, setMenuOpen] = useState(false);
-  const [view, setView] = useState(window.location.hash || "#dashboard");
+  const [view, setView] = useState(readView);
   useEffect(() => {
-    const syncView = () => setView(window.location.hash || "#dashboard");
+    const syncView = () => {
+      const nextView = readView();
+      if (nextView !== window.location.hash) {
+        window.history.replaceState(null, "", nextView);
+      }
+      setView(nextView);
+    };
+    syncView();
     window.addEventListener("hashchange", syncView);
     return () => window.removeEventListener("hashchange", syncView);
   }, []);
