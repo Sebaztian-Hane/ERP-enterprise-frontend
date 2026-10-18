@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import {
-  ArrowLeftRight, Bell, Box, BriefcaseBusiness, ChevronDown, ChevronRight, CircleHelp, ClipboardList,
+  ArrowLeftRight, BarChart3, Bell, Box, BriefcaseBusiness, ChevronDown, ChevronRight, CircleHelp, ClipboardList,
   FileText, Gauge, LayoutGrid, Menu, MoreHorizontal, PackageSearch, Plus, Search,
   Settings, ShoppingCart, UsersRound, WalletCards, X,
 } from "lucide-react";
@@ -21,6 +21,7 @@ import { QuotesPage } from "./components/QuotesPage";
 import { PurchaseOrdersPage } from "./components/PurchaseOrdersPage";
 import { SalesOrdersPage } from "./components/SalesOrdersPage";
 import { InventoryHistoryPage } from "./components/InventoryHistoryPage";
+import { ReportsPage } from "./components/ReportsPage";
 
 type NavItem = { label: string; icon: typeof Gauge; active?: boolean; badge?: string };
 
@@ -38,6 +39,7 @@ const navigation: NavItem[] = [
   { label: "Conciliación", icon: ArrowLeftRight },
   { label: "Clientes", icon: UsersRound },
   { label: "Documentos", icon: FileText },
+  { label: "Reportes", icon: BarChart3 },
 ];
 
 const activity = [
@@ -112,7 +114,7 @@ export default function App() {
       </header>
       <div className="content-wrap">
         {view === "#dashboard" ? <DashboardPage userName={userName} tenantName={activeTenant?.name ?? "tu empresa"} /> : <>
-        {view === "#clientes" ? <CustomersPage goBack={() => { window.location.hash = "inicio"; }} /> : view === "#productos" ? <ProductsPage goBack={() => { window.location.hash = "inicio"; }} /> : view === "#ventas" ? <SalesPage goBack={() => { window.location.hash = "inicio"; }} /> : view === "#cotizaciones" ? <QuotesPage goBack={() => { window.location.hash = "dashboard"; }} /> : view === "#pedidos-de-venta" ? <SalesOrdersPage goBack={() => { window.location.hash = "dashboard"; }} /> : view === "#ordenes-de-compra" ? <PurchaseOrdersPage goBack={() => { window.location.hash = "dashboard"; }} /> : view === "#inventario" ? <InventoryPage goBack={() => { window.location.hash = "inicio"; }} /> : view === "#kardex" ? <InventoryHistoryPage goBack={() => { window.location.hash = "inventario"; }} /> : view === "#compras" ? <PurchasesPage goBack={() => { window.location.hash = "inicio"; }} /> : view === "#finanzas" ? <FinancePage goBack={() => { window.location.hash = "inicio"; }} /> : view === "#conciliacion" ? <ReconciliationPage goBack={() => { window.location.hash = "finanzas"; }} /> : view === "#documentos" ? <DocumentsPage goBack={() => { window.location.hash = "inicio"; }} /> : view === "#administracion" ? <AdministrationPage goBack={() => { window.location.hash = "dashboard"; }} /> : <>
+        {view === "#clientes" ? <CustomersPage goBack={() => { window.location.hash = "inicio"; }} /> : view === "#productos" ? <ProductsPage goBack={() => { window.location.hash = "inicio"; }} /> : view === "#ventas" ? <SalesPage goBack={() => { window.location.hash = "inicio"; }} /> : view === "#cotizaciones" ? <QuotesPage goBack={() => { window.location.hash = "dashboard"; }} /> : view === "#pedidos-de-venta" ? <SalesOrdersPage goBack={() => { window.location.hash = "dashboard"; }} /> : view === "#ordenes-de-compra" ? <PurchaseOrdersPage goBack={() => { window.location.hash = "dashboard"; }} /> : view === "#inventario" ? <InventoryPage goBack={() => { window.location.hash = "inicio"; }} /> : view === "#kardex" ? <InventoryHistoryPage goBack={() => { window.location.hash = "inventario"; }} /> : view === "#compras" ? <PurchasesPage goBack={() => { window.location.hash = "inicio"; }} /> : view === "#finanzas" ? <FinancePage goBack={() => { window.location.hash = "inicio"; }} /> : view === "#conciliacion" ? <ReconciliationPage goBack={() => { window.location.hash = "finanzas"; }} /> : view === "#documentos" ? <DocumentsPage goBack={() => { window.location.hash = "inicio"; }} /> : view === "#reportes" ? <ReportsPage goBack={() => { window.location.hash = "dashboard"; }} /> : view === "#administracion" ? <AdministrationPage goBack={() => { window.location.hash = "dashboard"; }} /> : <>
         <section className="page-heading">
           <div><p className="eyebrow">VIERNES, 17 DE OCTUBRE</p><h1>Buen día, {userName}</h1><p className="subtitle">Aquí tienes una visión de la operación de {activeTenant?.name ?? "tu empresa"}.</p></div>
           <button className="primary-button"><Plus size={18} /> Crear nuevo <ChevronDown size={16} /></button>
