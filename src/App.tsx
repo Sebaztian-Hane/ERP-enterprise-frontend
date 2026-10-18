@@ -1,5 +1,13 @@
-import { lazy, Suspense, useEffect, useState } from "react";
 import {
+  Component,
+  lazy,
+  Suspense,
+  type ReactNode,
+  useEffect,
+  useState,
+} from "react";
+import {
+  AlertTriangle,
   ArrowLeftRight,
   BarChart3,
   Bell,
@@ -298,6 +306,49 @@ function Metric({
   );
 }
 
+class ModuleErrorBoundary extends Component<
+  { children: ReactNode; view: string },
+  { hasError: boolean }
+> {
+  state = { hasError: false };
+
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+
+  componentDidUpdate(previousProps: { view: string }) {
+    if (previousProps.view !== this.props.view && this.state.hasError) {
+      this.setState({ hasError: false });
+    }
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="module-state dashboard-state">
+          <AlertTriangle size={27} />
+          <strong>No se pudo abrir este módulo</strong>
+          <span>
+            Actualiza la aplicación o vuelve al panel e inténtalo de nuevo.
+          </span>
+          <div className="module-recovery-actions">
+            <a className="secondary-button" href="#dashboard">
+              Volver al panel
+            </a>
+            <button
+              className="primary-button"
+              onClick={() => window.location.reload()}
+            >
+              Actualizar aplicación
+            </button>
+          </div>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 export default function App() {
   const {
     session,
@@ -454,346 +505,354 @@ export default function App() {
           </div>
         </header>
         <div className="content-wrap">
-          <Suspense
-            fallback={
-              <div className="module-state dashboard-state">
-                <LoaderCircle className="spin" size={24} /> Cargando módulo…
-              </div>
-            }
-          >
-            {view === "#dashboard" ? (
-              <DashboardPage
-                userName={userName}
-                tenantName={activeTenant?.name ?? "tu empresa"}
-              />
-            ) : (
-              <>
-                {view === "#clientes" ? (
-                  <CustomersPage
-                    goBack={() => {
-                      window.location.hash = "dashboard";
-                    }}
-                  />
-                ) : view === "#productos" ? (
-                  <ProductsPage
-                    goBack={() => {
-                      window.location.hash = "dashboard";
-                    }}
-                  />
-                ) : view === "#ventas" ? (
-                  <SalesPage
-                    goBack={() => {
-                      window.location.hash = "dashboard";
-                    }}
-                  />
-                ) : view === "#cotizaciones" ? (
-                  <QuotesPage
-                    goBack={() => {
-                      window.location.hash = "dashboard";
-                    }}
-                  />
-                ) : view === "#pedidos-de-venta" ? (
-                  <SalesOrdersPage
-                    goBack={() => {
-                      window.location.hash = "dashboard";
-                    }}
-                  />
-                ) : view === "#ordenes-de-compra" ? (
-                  <PurchaseOrdersPage
-                    goBack={() => {
-                      window.location.hash = "dashboard";
-                    }}
-                  />
-                ) : view === "#inventario" ? (
-                  <InventoryPage
-                    goBack={() => {
-                      window.location.hash = "dashboard";
-                    }}
-                  />
-                ) : view === "#kardex" ? (
-                  <InventoryHistoryPage
-                    goBack={() => {
-                      window.location.hash = "inventario";
-                    }}
-                  />
-                ) : view === "#compras" ? (
-                  <PurchasesPage
-                    goBack={() => {
-                      window.location.hash = "dashboard";
-                    }}
-                  />
-                ) : view === "#finanzas" ? (
-                  <FinancePage
-                    goBack={() => {
-                      window.location.hash = "dashboard";
-                    }}
-                  />
-                ) : view === "#conciliacion" ? (
-                  <ReconciliationPage
-                    goBack={() => {
-                      window.location.hash = "finanzas";
-                    }}
-                  />
-                ) : view === "#documentos" ? (
-                  <DocumentsPage
-                    goBack={() => {
-                      window.location.hash = "dashboard";
-                    }}
-                  />
-                ) : view === "#reportes" ? (
-                  <ReportsPage
-                    goBack={() => {
-                      window.location.hash = "dashboard";
-                    }}
-                  />
-                ) : view === "#administracion" ? (
-                  <AdministrationPage
-                    goBack={() => {
-                      window.location.hash = "dashboard";
-                    }}
-                  />
-                ) : (
-                  <>
-                    <section className="page-heading">
-                      <div>
-                        <p className="eyebrow">VIERNES, 17 DE OCTUBRE</p>
-                        <h1>Buen día, {userName}</h1>
-                        <p className="subtitle">
-                          Aquí tienes una visión de la operación de{" "}
-                          {activeTenant?.name ?? "tu empresa"}.
-                        </p>
-                      </div>
-                      <button className="primary-button">
-                        <Plus size={18} /> Crear nuevo <ChevronDown size={16} />
-                      </button>
-                    </section>
-                    <section
-                      className="metric-grid"
-                      aria-label="Indicadores del negocio"
-                    >
-                      <Metric
-                        label="Ventas del mes"
-                        value="$1,248,600"
-                        delta="12.8%"
-                        tone="positive"
-                      />
-                      <Metric
-                        label="Por cobrar"
-                        value="$286,420"
-                        delta="8 documentos vencidos"
-                        tone="negative"
-                      />
-                      <Metric
-                        label="Órdenes activas"
-                        value="42"
-                        delta="6 por entregar esta semana"
-                        tone="neutral"
-                      />
-                      <Metric
-                        label="Valor de inventario"
-                        value="$856,910"
-                        delta="2.4%"
-                        tone="positive"
-                      />
-                    </section>
-                    <section className="dashboard-grid">
-                      <article className="revenue-card">
-                        <DashboardCanvas />
-                        <div className="revenue-content">
-                          <div>
-                            <p className="card-label">RENDIMIENTO COMERCIAL</p>
-                            <h2>Ventas netas</h2>
-                            <strong>$1,248,600</strong>
-                            <span className="revenue-trend">
-                              ↑ 12.8% <small>respecto a septiembre</small>
-                            </span>
-                          </div>
-                          <button className="period-button">
-                            Últimos 6 meses <ChevronDown size={15} />
-                          </button>
+          <ModuleErrorBoundary view={view}>
+            <Suspense
+              fallback={
+                <div className="module-state dashboard-state">
+                  <LoaderCircle className="spin" size={24} /> Cargando módulo…
+                </div>
+              }
+            >
+              {view === "#dashboard" ? (
+                <DashboardPage
+                  userName={userName}
+                  tenantName={activeTenant?.name ?? "tu empresa"}
+                />
+              ) : (
+                <>
+                  {view === "#clientes" ? (
+                    <CustomersPage
+                      goBack={() => {
+                        window.location.hash = "dashboard";
+                      }}
+                    />
+                  ) : view === "#productos" ? (
+                    <ProductsPage
+                      goBack={() => {
+                        window.location.hash = "dashboard";
+                      }}
+                    />
+                  ) : view === "#ventas" ? (
+                    <SalesPage
+                      goBack={() => {
+                        window.location.hash = "dashboard";
+                      }}
+                    />
+                  ) : view === "#cotizaciones" ? (
+                    <QuotesPage
+                      goBack={() => {
+                        window.location.hash = "dashboard";
+                      }}
+                    />
+                  ) : view === "#pedidos-de-venta" ? (
+                    <SalesOrdersPage
+                      goBack={() => {
+                        window.location.hash = "dashboard";
+                      }}
+                    />
+                  ) : view === "#ordenes-de-compra" ? (
+                    <PurchaseOrdersPage
+                      goBack={() => {
+                        window.location.hash = "dashboard";
+                      }}
+                    />
+                  ) : view === "#inventario" ? (
+                    <InventoryPage
+                      goBack={() => {
+                        window.location.hash = "dashboard";
+                      }}
+                    />
+                  ) : view === "#kardex" ? (
+                    <InventoryHistoryPage
+                      goBack={() => {
+                        window.location.hash = "inventario";
+                      }}
+                    />
+                  ) : view === "#compras" ? (
+                    <PurchasesPage
+                      goBack={() => {
+                        window.location.hash = "dashboard";
+                      }}
+                    />
+                  ) : view === "#finanzas" ? (
+                    <FinancePage
+                      goBack={() => {
+                        window.location.hash = "dashboard";
+                      }}
+                    />
+                  ) : view === "#conciliacion" ? (
+                    <ReconciliationPage
+                      goBack={() => {
+                        window.location.hash = "finanzas";
+                      }}
+                    />
+                  ) : view === "#documentos" ? (
+                    <DocumentsPage
+                      goBack={() => {
+                        window.location.hash = "dashboard";
+                      }}
+                    />
+                  ) : view === "#reportes" ? (
+                    <ReportsPage
+                      goBack={() => {
+                        window.location.hash = "dashboard";
+                      }}
+                    />
+                  ) : view === "#administracion" ? (
+                    <AdministrationPage
+                      goBack={() => {
+                        window.location.hash = "dashboard";
+                      }}
+                    />
+                  ) : (
+                    <>
+                      <section className="page-heading">
+                        <div>
+                          <p className="eyebrow">VIERNES, 17 DE OCTUBRE</p>
+                          <h1>Buen día, {userName}</h1>
+                          <p className="subtitle">
+                            Aquí tienes una visión de la operación de{" "}
+                            {activeTenant?.name ?? "tu empresa"}.
+                          </p>
                         </div>
-                        <div
-                          className="chart"
-                          aria-label="Ventas netas de mayo a octubre"
-                        >
-                          <div className="chart-lines">
-                            <i />
-                            <i />
-                            <i />
-                            <i />
-                          </div>
-                          <svg
-                            viewBox="0 0 700 170"
-                            role="img"
-                            aria-hidden="true"
-                            preserveAspectRatio="none"
-                          >
-                            <defs>
-                              <linearGradient
-                                id="chart-fill"
-                                x1="0"
-                                x2="0"
-                                y1="0"
-                                y2="1"
-                              >
-                                <stop stopColor="#57c7f3" stopOpacity=".42" />
-                                <stop
-                                  offset="1"
-                                  stopColor="#57c7f3"
-                                  stopOpacity="0"
-                                />
-                              </linearGradient>
-                            </defs>
-                            <path
-                              d="M0 130 C50 121 76 105 115 113 S185 138 235 102 S305 100 350 81 S410 94 462 65 S540 75 576 43 S650 58 700 13 L700 170 L0 170Z"
-                              fill="url(#chart-fill)"
-                            />
-                            <path
-                              d="M0 130 C50 121 76 105 115 113 S185 138 235 102 S305 100 350 81 S410 94 462 65 S540 75 576 43 S650 58 700 13"
-                              fill="none"
-                              stroke="#9ae2ff"
-                              strokeWidth="3"
-                              vectorEffect="non-scaling-stroke"
-                            />
-                          </svg>
-                          <div className="chart-labels">
-                            <span>May</span>
-                            <span>Jun</span>
-                            <span>Jul</span>
-                            <span>Ago</span>
-                            <span>Sep</span>
-                            <span>Oct</span>
-                          </div>
-                        </div>
-                      </article>
-                      <article className="tasks-card panel">
-                        <div className="panel-header">
-                          <div>
-                            <p className="card-label">TU ATENCIÓN</p>
-                            <h2>Por resolver</h2>
-                          </div>
-                          <button className="text-button">Ver todo</button>
-                        </div>
-                        <div className="task-list">
-                          <div className="task">
-                            <span className="task-icon amber">
-                              <FileText size={18} />
-                            </span>
-                            <span>
-                              <strong>8 facturas por cobrar</strong>
-                              <small>$86,430 vencidos</small>
-                            </span>
-                            <ChevronRight size={18} />
-                          </div>
-                          <div className="task">
-                            <span className="task-icon blue">
-                              <PackageSearch size={18} />
-                            </span>
-                            <span>
-                              <strong>3 alertas de inventario</strong>
-                              <small>Stock mínimo alcanzado</small>
-                            </span>
-                            <ChevronRight size={18} />
-                          </div>
-                          <div className="task">
-                            <span className="task-icon purple">
-                              <ClipboardList size={18} />
-                            </span>
-                            <span>
-                              <strong>5 órdenes por aprobar</strong>
-                              <small>Compras y gastos</small>
-                            </span>
-                            <ChevronRight size={18} />
-                          </div>
-                        </div>
-                      </article>
-                    </section>
-                    <section className="lower-grid">
-                      <article className="panel activity-panel">
-                        <div className="panel-header">
-                          <div>
-                            <p className="card-label">OPERACIÓN</p>
-                            <h2>Actividad reciente</h2>
-                          </div>
-                          <button
-                            className="icon-button muted"
-                            aria-label="Más opciones"
-                          >
-                            <MoreHorizontal size={20} />
-                          </button>
-                        </div>
-                        <div className="table-wrap">
-                          <table>
-                            <thead>
-                              <tr>
-                                <th>DOCUMENTO</th>
-                                <th>ACTIVIDAD</th>
-                                <th>ORIGEN</th>
-                                <th>CUÁNDO</th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {activity.map(
-                                ([code, detail, origin, time, state]) => (
-                                  <tr key={code}>
-                                    <td>
-                                      <span className={`status-dot ${state}`} />{" "}
-                                      <strong>{code}</strong>
-                                    </td>
-                                    <td>{detail}</td>
-                                    <td>{origin}</td>
-                                    <td className="time">{time}</td>
-                                  </tr>
-                                ),
-                              )}
-                            </tbody>
-                          </table>
-                        </div>
-                        <button className="table-footer">
-                          Ver historial de actividad <ChevronRight size={16} />
+                        <button className="primary-button">
+                          <Plus size={18} /> Crear nuevo{" "}
+                          <ChevronDown size={16} />
                         </button>
-                      </article>
-                      <article className="panel modules-panel">
-                        <div className="panel-header">
-                          <div>
-                            <p className="card-label">ACCESOS RÁPIDOS</p>
-                            <h2>Módulos clave</h2>
+                      </section>
+                      <section
+                        className="metric-grid"
+                        aria-label="Indicadores del negocio"
+                      >
+                        <Metric
+                          label="Ventas del mes"
+                          value="$1,248,600"
+                          delta="12.8%"
+                          tone="positive"
+                        />
+                        <Metric
+                          label="Por cobrar"
+                          value="$286,420"
+                          delta="8 documentos vencidos"
+                          tone="negative"
+                        />
+                        <Metric
+                          label="Órdenes activas"
+                          value="42"
+                          delta="6 por entregar esta semana"
+                          tone="neutral"
+                        />
+                        <Metric
+                          label="Valor de inventario"
+                          value="$856,910"
+                          delta="2.4%"
+                          tone="positive"
+                        />
+                      </section>
+                      <section className="dashboard-grid">
+                        <article className="revenue-card">
+                          <DashboardCanvas />
+                          <div className="revenue-content">
+                            <div>
+                              <p className="card-label">
+                                RENDIMIENTO COMERCIAL
+                              </p>
+                              <h2>Ventas netas</h2>
+                              <strong>$1,248,600</strong>
+                              <span className="revenue-trend">
+                                ↑ 12.8% <small>respecto a septiembre</small>
+                              </span>
+                            </div>
+                            <button className="period-button">
+                              Últimos 6 meses <ChevronDown size={15} />
+                            </button>
                           </div>
-                          <LayoutGrid size={20} className="muted-icon" />
-                        </div>
-                        <div className="module-grid">
-                          <a href="#ventas">
-                            <span className="module-icon sales">
-                              <ShoppingCart size={20} />
-                            </span>
-                            <span>Ventas</span>
-                          </a>
-                          <a href="#inventario">
-                            <span className="module-icon inventory">
-                              <Box size={20} />
-                            </span>
-                            <span>Inventario</span>
-                          </a>
-                          <a href="#finanzas">
-                            <span className="module-icon finance">
-                              <WalletCards size={20} />
-                            </span>
-                            <span>Finanzas</span>
-                          </a>
-                          <a href="#clientes">
-                            <span className="module-icon customers">
-                              <UsersRound size={20} />
-                            </span>
-                            <span>Clientes</span>
-                          </a>
-                        </div>
-                      </article>
-                    </section>
-                  </>
-                )}
-              </>
-            )}
-          </Suspense>
+                          <div
+                            className="chart"
+                            aria-label="Ventas netas de mayo a octubre"
+                          >
+                            <div className="chart-lines">
+                              <i />
+                              <i />
+                              <i />
+                              <i />
+                            </div>
+                            <svg
+                              viewBox="0 0 700 170"
+                              role="img"
+                              aria-hidden="true"
+                              preserveAspectRatio="none"
+                            >
+                              <defs>
+                                <linearGradient
+                                  id="chart-fill"
+                                  x1="0"
+                                  x2="0"
+                                  y1="0"
+                                  y2="1"
+                                >
+                                  <stop stopColor="#57c7f3" stopOpacity=".42" />
+                                  <stop
+                                    offset="1"
+                                    stopColor="#57c7f3"
+                                    stopOpacity="0"
+                                  />
+                                </linearGradient>
+                              </defs>
+                              <path
+                                d="M0 130 C50 121 76 105 115 113 S185 138 235 102 S305 100 350 81 S410 94 462 65 S540 75 576 43 S650 58 700 13 L700 170 L0 170Z"
+                                fill="url(#chart-fill)"
+                              />
+                              <path
+                                d="M0 130 C50 121 76 105 115 113 S185 138 235 102 S305 100 350 81 S410 94 462 65 S540 75 576 43 S650 58 700 13"
+                                fill="none"
+                                stroke="#9ae2ff"
+                                strokeWidth="3"
+                                vectorEffect="non-scaling-stroke"
+                              />
+                            </svg>
+                            <div className="chart-labels">
+                              <span>May</span>
+                              <span>Jun</span>
+                              <span>Jul</span>
+                              <span>Ago</span>
+                              <span>Sep</span>
+                              <span>Oct</span>
+                            </div>
+                          </div>
+                        </article>
+                        <article className="tasks-card panel">
+                          <div className="panel-header">
+                            <div>
+                              <p className="card-label">TU ATENCIÓN</p>
+                              <h2>Por resolver</h2>
+                            </div>
+                            <button className="text-button">Ver todo</button>
+                          </div>
+                          <div className="task-list">
+                            <div className="task">
+                              <span className="task-icon amber">
+                                <FileText size={18} />
+                              </span>
+                              <span>
+                                <strong>8 facturas por cobrar</strong>
+                                <small>$86,430 vencidos</small>
+                              </span>
+                              <ChevronRight size={18} />
+                            </div>
+                            <div className="task">
+                              <span className="task-icon blue">
+                                <PackageSearch size={18} />
+                              </span>
+                              <span>
+                                <strong>3 alertas de inventario</strong>
+                                <small>Stock mínimo alcanzado</small>
+                              </span>
+                              <ChevronRight size={18} />
+                            </div>
+                            <div className="task">
+                              <span className="task-icon purple">
+                                <ClipboardList size={18} />
+                              </span>
+                              <span>
+                                <strong>5 órdenes por aprobar</strong>
+                                <small>Compras y gastos</small>
+                              </span>
+                              <ChevronRight size={18} />
+                            </div>
+                          </div>
+                        </article>
+                      </section>
+                      <section className="lower-grid">
+                        <article className="panel activity-panel">
+                          <div className="panel-header">
+                            <div>
+                              <p className="card-label">OPERACIÓN</p>
+                              <h2>Actividad reciente</h2>
+                            </div>
+                            <button
+                              className="icon-button muted"
+                              aria-label="Más opciones"
+                            >
+                              <MoreHorizontal size={20} />
+                            </button>
+                          </div>
+                          <div className="table-wrap">
+                            <table>
+                              <thead>
+                                <tr>
+                                  <th>DOCUMENTO</th>
+                                  <th>ACTIVIDAD</th>
+                                  <th>ORIGEN</th>
+                                  <th>CUÁNDO</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {activity.map(
+                                  ([code, detail, origin, time, state]) => (
+                                    <tr key={code}>
+                                      <td>
+                                        <span
+                                          className={`status-dot ${state}`}
+                                        />{" "}
+                                        <strong>{code}</strong>
+                                      </td>
+                                      <td>{detail}</td>
+                                      <td>{origin}</td>
+                                      <td className="time">{time}</td>
+                                    </tr>
+                                  ),
+                                )}
+                              </tbody>
+                            </table>
+                          </div>
+                          <button className="table-footer">
+                            Ver historial de actividad{" "}
+                            <ChevronRight size={16} />
+                          </button>
+                        </article>
+                        <article className="panel modules-panel">
+                          <div className="panel-header">
+                            <div>
+                              <p className="card-label">ACCESOS RÁPIDOS</p>
+                              <h2>Módulos clave</h2>
+                            </div>
+                            <LayoutGrid size={20} className="muted-icon" />
+                          </div>
+                          <div className="module-grid">
+                            <a href="#ventas">
+                              <span className="module-icon sales">
+                                <ShoppingCart size={20} />
+                              </span>
+                              <span>Ventas</span>
+                            </a>
+                            <a href="#inventario">
+                              <span className="module-icon inventory">
+                                <Box size={20} />
+                              </span>
+                              <span>Inventario</span>
+                            </a>
+                            <a href="#finanzas">
+                              <span className="module-icon finance">
+                                <WalletCards size={20} />
+                              </span>
+                              <span>Finanzas</span>
+                            </a>
+                            <a href="#clientes">
+                              <span className="module-icon customers">
+                                <UsersRound size={20} />
+                              </span>
+                              <span>Clientes</span>
+                            </a>
+                          </div>
+                        </article>
+                      </section>
+                    </>
+                  )}
+                </>
+              )}
+            </Suspense>
+          </ModuleErrorBoundary>
         </div>
       </main>
     </div>
