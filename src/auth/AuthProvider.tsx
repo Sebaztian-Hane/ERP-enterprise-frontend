@@ -57,11 +57,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (initialSession) void loadTenants(initialSession.access_token);
       else setIsLoading(false);
     });
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, nextSession) => {
       setSession(nextSession);
-      if (nextSession) void loadTenants(nextSession.access_token);
-      else { setTenants([]); setTenantId(null); setError(null); }
-      if (!nextSession) setIsLoading(false);
+      if (!nextSession) {
+        setTenants([]); setTenantId(null); setError(null); setIsLoading(false);
+        return;
+      }
+      // Supabase refreshes a token when a tab returns to the foreground.
+      // Refreshing tenant data there set `isLoading` to true and unmounted the
+      // whole application, which made an in-progress form look like a reload.
+      // A token refresh preserves the same identity and active tenant, so it
+      // must only update the session in memory.
+      if (event === "SIGNED_IN") void loadTenants(nextSession.access_token);
     });
     return () => { active = false; subscription.unsubscribe(); };
   }, [loadTenants]);
