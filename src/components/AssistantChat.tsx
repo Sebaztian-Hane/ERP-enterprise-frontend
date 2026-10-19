@@ -32,7 +32,10 @@ function responseText(payload: ChatResponse) {
   const response = payload.answer?.trim() || payload.output?.trim() || payload.message?.trim();
   // A workflow that is being configured can return a raw validation string with HTTP 200.
   // Keep those implementation details out of the ERP interface.
-  if (!response || /field required|validation error|unprocessable entity/i.test(response)) {
+  if (
+    !response ||
+    /field required|validation error|unprocessable entity|asistente no pudo procesar/i.test(response)
+  ) {
     return "El asistente está temporalmente en mantenimiento. Inténtalo más tarde.";
   }
   return response;
