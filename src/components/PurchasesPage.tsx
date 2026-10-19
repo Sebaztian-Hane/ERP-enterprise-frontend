@@ -32,6 +32,11 @@ type Purchase = {
   status: string;
   total: string;
   note: string | null;
+  supplier_document_type: string | null;
+  supplier_document_series: string | null;
+  supplier_document_number: string | null;
+  supplier_document_date: string | null;
+  supplier_tax_amount: string | null;
 };
 type Line = { product_id: string; quantity: number; unit_cost: number };
 const money = new Intl.NumberFormat("es-PE", {
@@ -59,6 +64,7 @@ export function PurchasesPage({ goBack }: { goBack: () => void }) {
   const [number, setNumber] = useState("");
   const [note, setNote] = useState("");
   const [lines, setLines] = useState<Line[]>([]);
+  const [supplierDocument, setSupplierDocument] = useState({ type: "01", series: "", number: "", date: "", tax: "" });
   const [supplier, setSupplier] = useState({
     code: "",
     name: "",
@@ -113,6 +119,7 @@ export function PurchasesPage({ goBack }: { goBack: () => void }) {
     );
     setNote("");
     setLines([]);
+    setSupplierDocument({ type: "01", series: "", number: "", date: "", tax: "" });
     setMode("purchase");
   };
   const addLine = () => {
@@ -152,6 +159,11 @@ export function PurchasesPage({ goBack }: { goBack: () => void }) {
           warehouse_id: warehouseId,
           lines,
           note: note || null,
+          supplier_document_type: supplierDocument.number ? supplierDocument.type : null,
+          supplier_document_series: supplierDocument.series || null,
+          supplier_document_number: supplierDocument.number || null,
+          supplier_document_date: supplierDocument.date || null,
+          supplier_tax_amount: supplierDocument.tax || null,
         }),
       });
       setPurchases((current) => [created, ...current]);
@@ -389,6 +401,7 @@ export function PurchasesPage({ goBack }: { goBack: () => void }) {
                   <th>ESTADO</th>
                   <th>TOTAL</th>
                   <th>NOTA</th>
+                  <th>COMPROBANTE</th>
                 </tr>
               </thead>
               <tbody>
@@ -407,6 +420,7 @@ export function PurchasesPage({ goBack }: { goBack: () => void }) {
                       <strong>{money.format(Number(item.total))}</strong>
                     </td>
                     <td>{item.note || "—"}</td>
+                    <td>{item.supplier_document_number ? <><strong>{item.supplier_document_series}-{item.supplier_document_number}</strong><small>{item.supplier_document_type === "01" ? "Factura proveedor" : "Documento proveedor"}</small></> : "—"}</td>
                   </tr>
                 ))}
               </tbody>
@@ -643,6 +657,18 @@ export function PurchasesPage({ goBack }: { goBack: () => void }) {
                     placeholder="Opcional"
                   />
                 </label>
+                <div className="purchase-document-fields">
+                  <div><p className="card-label">COMPROBANTE DEL PROVEEDOR</p><small>Registra la factura o boleta recibida. No se emite desde el ERP.</small></div>
+                  <div className="form-grid">
+                    <label>Tipo<select value={supplierDocument.type} onChange={(e) => setSupplierDocument((current) => ({ ...current, type: e.target.value }))}><option value="01">Factura</option><option value="03">Boleta</option><option value="07">Nota de crédito</option></select></label>
+                    <label>Fecha de emisión<input type="date" value={supplierDocument.date} onChange={(e) => setSupplierDocument((current) => ({ ...current, date: e.target.value }))} /></label>
+                  </div>
+                  <div className="form-grid">
+                    <label>Serie<input maxLength={8} value={supplierDocument.series} onChange={(e) => setSupplierDocument((current) => ({ ...current, series: e.target.value.toUpperCase() }))} placeholder="F001" /></label>
+                    <label>Número<input maxLength={16} value={supplierDocument.number} onChange={(e) => setSupplierDocument((current) => ({ ...current, number: e.target.value }))} placeholder="00000001" /></label>
+                  </div>
+                  <label>IGV del comprobante<input type="number" min="0" step="0.01" value={supplierDocument.tax} onChange={(e) => setSupplierDocument((current) => ({ ...current, tax: e.target.value }))} placeholder="Opcional" /></label>
+                </div>
                 <FormError error={error} />
                 <div className="sale-total">
                   <span>Total de la compra</span>

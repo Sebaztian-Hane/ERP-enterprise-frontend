@@ -1,16 +1,18 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import {
   ChevronLeft,
+  FileText,
   LoaderCircle,
   Minus,
   Plus,
   ReceiptText,
+  RefreshCw,
   ShoppingCart,
   Trash2,
   X,
 } from "lucide-react";
 import { useAuth } from "../auth/AuthProvider";
-import { apiFetch } from "../lib/api";
+import { ApiError, apiFetch } from "../lib/api";
 
 type Customer = { id: string; code: string; name: string };
 type Product = { id: string; sku: string; name: string; sale_price: string };
@@ -25,6 +27,17 @@ type Sale = {
   note: string | null;
 };
 type Line = { product_id: string; quantity: number; unit_price: number };
+type ElectronicDocument = {
+  id: string;
+  document_type: "01" | "03";
+  series: string;
+  correlative: string;
+  file_name: string;
+  status: string;
+  xml_url: string | null;
+  cdr_url: string | null;
+  last_error: string | null;
+};
 const currency = new Intl.NumberFormat("es-PE", {
   style: "currency",
   currency: "PEN",
@@ -45,6 +58,10 @@ export function SalesPage({ goBack }: { goBack: () => void }) {
   const [number, setNumber] = useState("");
   const [note, setNote] = useState("");
   const [lines, setLines] = useState<Line[]>([]);
+  const [billingSale, setBillingSale] = useState<Sale | null>(null);
+  const [billingDocument, setBillingDocument] = useState<ElectronicDocument | null>(null);
+  const [billingType, setBillingType] = useState<"01" | "03">("03");
+  const [billingBusy, setBillingBusy] = useState(false);
   const options = {
     accessToken: session?.access_token,
     tenantId: tenantId ?? undefined,
@@ -144,6 +161,44 @@ export function SalesPage({ goBack }: { goBack: () => void }) {
   };
   const nameFor = (id: string) =>
     customers.find((customer) => customer.id === id)?.name ?? "Cliente";
+  const openBilling = async (sale: Sale) => {
+    setError(null);
+    setBillingSale(sale);
+    setBillingDocument(null);
+    try {
+      const document = await apiFetch<ElectronicDocument | null>(`/sales/${sale.id}/electronic-document`, options);
+      setBillingDocument(document);
+      setBillingType(document?.document_type ?? "03");
+    } catch (cause) {
+      if (!(cause instanceof ApiError && cause.status === 404)) {
+        setError(cause instanceof Error ? cause.message : "No se pudo consultar el comprobante.");
+      }
+    }
+  };
+  const issueDocument = async () => {
+    if (!billingSale) return;
+    setBillingBusy(true);
+    setError(null);
+    try {
+      const document = await apiFetch<ElectronicDocument>(`/sales/${billingSale.id}/electronic-document`, {
+        ...options, method: "POST", body: JSON.stringify({ document_type: billingType }),
+      });
+      setBillingDocument(document);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "No se pudo emitir el comprobante.");
+    } finally { setBillingBusy(false); }
+  };
+  const refreshDocument = async () => {
+    if (!billingSale) return;
+    setBillingBusy(true);
+    try {
+      const document = await apiFetch<ElectronicDocument>(`/sales/${billingSale.id}/electronic-document/refresh`, { ...options, method: "POST" });
+      setBillingDocument(document);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "No se pudo actualizar el estado.");
+    } finally { setBillingBusy(false); }
+  };
+  const billingStatus = (value: string) => ({ pending: "Pendiente", accepted: "Aceptado", rejected: "Rechazado", exception: "Con excepción", void_pending: "Anulación pendiente", voided: "Anulado", error: "Error" }[value] ?? value);
   return (
     <section className="module-page">
       <div className="module-heading">
@@ -225,6 +280,7 @@ export function SalesPage({ goBack }: { goBack: () => void }) {
                   <th>ESTADO</th>
                   <th>TOTAL</th>
                   <th>NOTA</th>
+                  <th aria-label="Facturación electrónica" />
                 </tr>
               </thead>
               <tbody>
@@ -243,6 +299,7 @@ export function SalesPage({ goBack }: { goBack: () => void }) {
                       <strong>{currency.format(Number(sale.total))}</strong>
                     </td>
                     <td>{sale.note || "—"}</td>
+                    <td><button className="table-action-button" onClick={() => void openBilling(sale)}><FileText size={15} /> Comprobante</button></td>
                   </tr>
                 ))}
               </tbody>
@@ -434,6 +491,15 @@ export function SalesPage({ goBack }: { goBack: () => void }) {
                 </button>
               </div>
             </form>
+          </section>
+        </div>
+      )}
+      {billingSale && (
+        <div className="modal-layer">
+          <section className="sale-modal billing-modal" role="dialog" aria-modal="true" aria-label="Facturación electrónica">
+            <div className="modal-header"><div><p className="eyebrow">FACTURACIÓN ELECTRÓNICA · DESARROLLO</p><h2>Comprobante de venta</h2></div><button className="icon-button" onClick={() => setBillingSale(null)} aria-label="Cerrar"><X size={20} /></button></div>
+            <div className="billing-summary"><span>{billingSale.number}</span><strong>{nameFor(billingSale.customer_id)}</strong><b>{currency.format(Number(billingSale.total))}</b></div>
+            {billingDocument ? <div className="billing-result"><span className={`status-pill ${billingDocument.status === "accepted" ? "active" : "inactive"}`}>{billingStatus(billingDocument.status)}</span><strong>{billingDocument.document_type === "01" ? "Factura" : "Boleta"} {billingDocument.series}-{billingDocument.correlative}</strong><small>Documento de prueba APISUNAT · {billingDocument.file_name}</small>{billingDocument.last_error && <p className="login-error">{billingDocument.last_error}</p>}<div className="billing-links">{billingDocument.xml_url && <a href={billingDocument.xml_url} target="_blank" rel="noreferrer">XML</a>}{billingDocument.cdr_url && <a href={billingDocument.cdr_url} target="_blank" rel="noreferrer">CDR</a>}<button className="secondary-button" onClick={() => void refreshDocument()} disabled={billingBusy}><RefreshCw size={15} className={billingBusy ? "spin" : ""} /> Actualizar estado</button></div></div> : <div className="billing-choice"><p>Elige el tipo de comprobante. Se emitirá únicamente en el ambiente de pruebas.</p><label>Tipo de comprobante<select value={billingType} onChange={(event) => setBillingType(event.target.value as "01" | "03")}><option value="03">Boleta de venta</option><option value="01">Factura</option></select></label><small>Factura requiere RUC de 11 dígitos; Boleta requiere DNI o RUC registrado en el cliente.</small><button className="primary-button" onClick={() => void issueDocument()} disabled={billingBusy}>{billingBusy ? "Emitiendo…" : "Emitir comprobante de prueba"}</button></div>}
           </section>
         </div>
       )}

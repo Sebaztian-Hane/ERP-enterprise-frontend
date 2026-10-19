@@ -3296,6 +3296,26 @@ html[data-theme="dark"] .login-card .field input { color: #eef8fb; background: t
 .assistant-history-empty svg { color: #4fa9c8; }
 .assistant-history-empty strong { color: #456475; }
 .assistant-history-empty p { margin: 0; line-height: 1.45; }
+
+/* Electronic billing keeps a sales document and its external CPE status together. */
+.table-action-button { display: inline-flex; align-items: center; gap: 5px; padding: 7px 8px; color: #176f93; background: #f0f9fc; border: 1px solid #c2e0eb; border-radius: 6px; font: inherit; font-size: 11px; font-weight: 750; white-space: nowrap; cursor: pointer; }
+.table-action-button:hover { color: #0c5775; background: #dff4fa; }
+.billing-modal { width: min(510px, calc(100vw - 32px)); }
+.billing-summary { display: grid; gap: 4px; padding: 15px 19px; background: #f1f8fb; border-bottom: 1px solid #d9e8ee; }
+.billing-summary span { color: #64808d; font-size: 11px; font-weight: 750; }
+.billing-summary strong { color: #21485c; font-size: 15px; }
+.billing-summary b { color: #176f93; font-size: 19px; }
+.billing-choice, .billing-result { display: grid; gap: 13px; padding: 20px; }
+.billing-choice p, .billing-choice small, .billing-result small { margin: 0; color: #617d8b; font-size: 12px; line-height: 1.45; }
+.billing-choice label { display: grid; gap: 6px; color: #345566; font-size: 12px; font-weight: 750; }
+.billing-choice select { height: 40px; padding: 0 10px; color: #214454; background: #fff; border: 1px solid #c8dce4; border-radius: 7px; font: inherit; }
+.billing-choice .primary-button { justify-content: center; }
+.billing-result > strong { color: #22485b; font-size: 16px; }
+.billing-links { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.billing-links a { padding: 7px 9px; color: #176f93; background: #edf9fc; border: 1px solid #bfdeeb; border-radius: 6px; font-size: 11px; font-weight: 750; text-decoration: none; }
+.purchase-document-fields { display: grid; gap: 11px; padding: 14px; background: #f5fafc; border: 1px solid #d9e8ee; border-radius: 8px; }
+.purchase-document-fields p { margin: 0 0 3px; }
+.purchase-document-fields small { color: #6a8591; font-size: 11px; }
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
 
 html[data-theme="dark"] .assistant-trigger.is-active { color: #a6e7fb; background: #1b4c61; box-shadow: inset 0 0 0 1px #4b8299; }
@@ -3325,6 +3345,15 @@ html[data-theme="dark"] .assistant-history-empty strong { color: #d3e5eb; }
 html[data-theme="dark"] .assistant-delete-conversation { color: #a6c0cb; }
 html[data-theme="dark"] .assistant-delete-conversation:hover, html[data-theme="dark"] .assistant-delete-conversation:focus-visible { color: #ffaba0; background: #4b2c2c; }
 html[data-theme="dark"] .assistant-inline-error, html[data-theme="dark"] .assistant-history-error { color: #ffc3b9; background: #432d30; border-color: #765154; }
+html[data-theme="dark"] .table-action-button { color: #a8e5f7; background: #173b4a; border-color: #44768a; }
+html[data-theme="dark"] .billing-summary { background: #183440; border-color: #365d6d; }
+html[data-theme="dark"] .billing-summary strong, html[data-theme="dark"] .billing-result > strong { color: #dcecf2; }
+html[data-theme="dark"] .billing-summary span, html[data-theme="dark"] .billing-choice p, html[data-theme="dark"] .billing-choice small, html[data-theme="dark"] .billing-result small { color: #abc5cf; }
+html[data-theme="dark"] .billing-choice label { color: #d3e5eb; }
+html[data-theme="dark"] .billing-choice select { color: #e3f1f5; background: #10242e; border-color: #456a7b; }
+html[data-theme="dark"] .billing-links a { color: #a8e5f7; background: #193d4c; border-color: #47788c; }
+html[data-theme="dark"] .purchase-document-fields { background: #142d38; border-color: #3d6272; }
+html[data-theme="dark"] .purchase-document-fields small { color: #abc5cf; }
 
 @media (max-width: 760px) {
   .assistant-backdrop { display: block; background: rgba(1, 11, 17, .35); }
