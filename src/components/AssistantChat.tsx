@@ -29,8 +29,13 @@ const suggestions = [
 ];
 
 function responseText(payload: ChatResponse) {
-  return payload.answer?.trim() || payload.output?.trim() || payload.message?.trim() ||
-    "No pude generar una respuesta para esa consulta. Inténtalo de nuevo.";
+  const response = payload.answer?.trim() || payload.output?.trim() || payload.message?.trim();
+  // A workflow that is being configured can return a raw validation string with HTTP 200.
+  // Keep those implementation details out of the ERP interface.
+  if (!response || /field required|validation error|unprocessable entity/i.test(response)) {
+    return "El asistente está temporalmente en mantenimiento. Inténtalo más tarde.";
+  }
+  return response;
 }
 
 function serviceMessage(cause: unknown) {
