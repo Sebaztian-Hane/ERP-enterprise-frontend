@@ -43,6 +43,7 @@ import { LoginPage } from "./components/LoginPage";
 import { NotificationsMenu } from "./components/NotificationsMenu";
 import { UserAvatar } from "./components/UserAvatar";
 import { useAuth } from "./auth/AuthProvider";
+import { canAccessModule, defaultModuleFor } from "./lib/roleAccess";
 
 const CHUNK_RELOAD_PARAM = "ec-reload";
 
@@ -353,9 +354,11 @@ function Sidebar({
 function ModuleLauncher({
   onClose,
   tenantName,
+  roleCode,
 }: {
   onClose: () => void;
   tenantName: string;
+  roleCode: string | null;
 }) {
   useEffect(() => {
     const closeOnEscape = (event: KeyboardEvent) => {
@@ -386,7 +389,7 @@ function ModuleLauncher({
           </button>
         </header>
         <div className="app-module-grid">
-          {appModules.map(({ label, icon: Icon, href, description, tone }) => (
+          {appModules.filter((module) => canAccessModule(roleCode, module.href)).map(({ label, icon: Icon, href, description, tone }) => (
             <button className="app-module-card" key={href} onClick={() => openModule(href)}>
               <span className={`app-module-icon ${tone}`}><Icon size={25} /></span>
               <span><strong>{label}</strong><small>{description}</small></span>
@@ -470,6 +473,9 @@ export default function App() {
     session,
     tenants,
     tenantId,
+    roleCode,
+    isRoleLoading,
+    roleError,
     isLoading,
     error,
     selectTenant,
@@ -501,6 +507,13 @@ export default function App() {
     window.addEventListener("hashchange", syncView);
     return () => window.removeEventListener("hashchange", syncView);
   }, []);
+  useEffect(() => {
+    if (isRoleLoading || !roleCode) return;
+    const allowed = view === "#perfil" || canAccessModule(roleCode, view);
+    if (allowed) return;
+    const fallback = defaultModuleFor(roleCode);
+    if (fallback) window.location.hash = fallback;
+  }, [isRoleLoading, roleCode, view]);
   if (isLoading)
     return (
       <main className="session-loading">
@@ -529,17 +542,20 @@ export default function App() {
         </div>
       </main>
     );
+  if (isRoleLoading)
+    return <main className="session-loading"><p>Configurando tu espacio de trabajo…</p></main>;
+  if (!roleCode)
+    return <main className="session-loading"><div><h1>No se pudo validar tu acceso</h1><p>{roleError ?? "Tu cuenta no tiene un rol operativo válido."}</p><button className="primary-button" onClick={() => void signOut()}>Cerrar sesión</button></div></main>;
   const activeTenant = tenants.find((tenant) => tenant.id === tenantId);
   const profileName = typeof session.user.user_metadata.full_name === "string" ? session.user.user_metadata.full_name.trim() : "";
   const userName = profileName || (session.user.email?.split("@")[0] ?? "Usuario");
   const avatarPath = typeof session.user.user_metadata.avatar_path === "string" ? session.user.user_metadata.avatar_path : null;
+  const allowedNavigation = navigation.filter((item) => canAccessModule(roleCode, item.href));
   const allQuickLinks = [
-    ...navigation,
-    {
-      label: "Administración",
-      icon: BriefcaseBusiness,
-      href: "#administracion",
-    },
+    ...allowedNavigation,
+    ...(canAccessModule(roleCode, "#administracion")
+      ? [{ label: "Administración", icon: BriefcaseBusiness, href: "#administracion" }]
+      : []),
     { label: "Mi perfil", icon: UsersRound, href: "#perfil" },
   ];
   const quickLinks = allQuickLinks.filter((item) =>
@@ -567,7 +583,7 @@ export default function App() {
           <label className="top-workspace">
             <span className="workspace-icon">GN</span>
             <select aria-label="Empresa activa" value={tenantId} onChange={(event) => selectTenant(event.target.value)}>
-              {tenants.map((tenant) => <option key={tenant.id} value={tenant.id}>{tenant.name}</option>)}
+            {tenants.map((tenant) => <option key={tenant.id} value={tenant.id}>{tenant.name}</option>)}
             </select>
           </label>
           <div className="breadcrumb">
@@ -653,7 +669,13 @@ export default function App() {
                 </div>
               }
             >
-              {view === "#perfil" ? (
+              {view !== "#perfil" && !canAccessModule(roleCode, view) ? (
+                <section className="module-state dashboard-state">
+                  <AlertTriangle size={27} />
+                  <strong>No tienes acceso a este módulo</strong>
+                  <span>Te redirigiremos a las herramientas asignadas a tu rol.</span>
+                </section>
+              ) : view === "#perfil" ? (
                 <ProfilePage goBack={() => { window.location.hash = "dashboard"; }} />
               ) : view === "#dashboard" ? (
                 <DashboardPage
@@ -1017,6 +1039,7 @@ export default function App() {
       {launcherOpen && (
         <ModuleLauncher
           tenantName={activeTenant?.name ?? "tu empresa"}
+          roleCode={roleCode}
           onClose={() => {
             setLauncherOpen(false);
           }}

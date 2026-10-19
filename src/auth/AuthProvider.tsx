@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
 import { apiFetch } from "../lib/api";
+import type { RoleCode } from "../lib/roleAccess";
 import { supabase } from "../lib/supabase";
 
 export type Tenant = { id: string; name: string; timezone: string };
@@ -8,6 +9,9 @@ type AuthContextValue = {
   session: Session | null;
   tenants: Tenant[];
   tenantId: string | null;
+  roleCode: RoleCode | null;
+  isRoleLoading: boolean;
+  roleError: string | null;
   isLoading: boolean;
   error: string | null;
   signIn: (email: string, password: string) => Promise<string | null>;
@@ -27,6 +31,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [tenants, setTenants] = useState<Tenant[]>([]);
   const [tenantId, setTenantId] = useState<string | null>(null);
+  const [roleCode, setRoleCode] = useState<RoleCode | null>(null);
+  const [isRoleLoading, setIsRoleLoading] = useState(false);
+  const [roleError, setRoleError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -52,6 +59,32 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (blockApplication) setIsLoading(false);
     }
   }, []);
+
+  useEffect(() => {
+    let active = true;
+    if (!session || !tenantId) {
+      setRoleCode(null);
+      setRoleError(null);
+      setIsRoleLoading(false);
+      return () => { active = false; };
+    }
+    setIsRoleLoading(true);
+    setRoleError(null);
+    void apiFetch<{ role_code: RoleCode }>("/auth/me", {
+      accessToken: session.access_token,
+      tenantId,
+    }).then((actor) => {
+      if (active) setRoleCode(actor.role_code);
+    }).catch((cause) => {
+      if (active) {
+        setRoleCode(null);
+        setRoleError(`No se pudo validar tu rol de acceso: ${message(cause)}`);
+      }
+    }).finally(() => {
+      if (active) setIsRoleLoading(false);
+    });
+    return () => { active = false; };
+  }, [session?.access_token, tenantId]);
 
   useEffect(() => {
     let active = true;
@@ -84,8 +117,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const { data: { session: refreshed } } = await supabase.auth.getSession();
     setSession(refreshed);
   };
-  const selectTenant = (nextId: string) => { setTenantId(nextId); localStorage.setItem(storedTenantKey, nextId); };
-  const value = useMemo(() => ({ session, tenants, tenantId, isLoading, error, signIn, signOut, selectTenant, refreshSession }), [session, tenants, tenantId, isLoading, error]);
+  const selectTenant = (nextId: string) => { setRoleCode(null); setTenantId(nextId); localStorage.setItem(storedTenantKey, nextId); };
+  const value = useMemo(() => ({ session, tenants, tenantId, roleCode, isRoleLoading, roleError, isLoading, error, signIn, signOut, selectTenant, refreshSession }), [session, tenants, tenantId, roleCode, isRoleLoading, roleError, isLoading, error]);
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
