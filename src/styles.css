@@ -3313,6 +3313,10 @@ html[data-theme="dark"] .login-card .field input { color: #eef8fb; background: t
 .billing-result > strong { color: #22485b; font-size: 16px; }
 .billing-links { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .billing-links a { padding: 7px 9px; color: #176f93; background: #edf9fc; border: 1px solid #bfdeeb; border-radius: 6px; font-size: 11px; font-weight: 750; text-decoration: none; }
+.billing-void { display: grid; gap: 8px; margin: 0 20px 20px; padding: 14px; background: #fff7f5; border: 1px solid #f0d3cb; border-radius: 8px; }
+.billing-void label { display: grid; gap: 6px; color: #6e463d; font-size: 12px; font-weight: 750; }
+.billing-void input { height: 38px; padding: 0 10px; color: #2b4652; background: #fff; border: 1px solid #d7b8b0; border-radius: 7px; font: inherit; }
+.danger-button { justify-content: center; color: #a53a28; border-color: #e7b3a9; }
 .purchase-document-fields { display: grid; gap: 11px; padding: 14px; background: #f5fafc; border: 1px solid #d9e8ee; border-radius: 8px; }
 .purchase-document-fields p { margin: 0 0 3px; }
 .purchase-document-fields small { color: #6a8591; font-size: 11px; }
@@ -3352,6 +3356,10 @@ html[data-theme="dark"] .billing-summary span, html[data-theme="dark"] .billing-
 html[data-theme="dark"] .billing-choice label { color: #d3e5eb; }
 html[data-theme="dark"] .billing-choice select { color: #e3f1f5; background: #10242e; border-color: #456a7b; }
 html[data-theme="dark"] .billing-links a { color: #a8e5f7; background: #193d4c; border-color: #47788c; }
+html[data-theme="dark"] .billing-void { background: #382529; border-color: #70494d; }
+html[data-theme="dark"] .billing-void label { color: #f0c6bd; }
+html[data-theme="dark"] .billing-void input { color: #f3dfda; background: #241a1d; border-color: #70494d; }
+html[data-theme="dark"] .danger-button { color: #ffb4a7; border-color: #8a5552; }
 html[data-theme="dark"] .purchase-document-fields { background: #142d38; border-color: #3d6272; }
 html[data-theme="dark"] .purchase-document-fields small { color: #abc5cf; }
 

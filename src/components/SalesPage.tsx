@@ -62,6 +62,7 @@ export function SalesPage({ goBack }: { goBack: () => void }) {
   const [billingDocument, setBillingDocument] = useState<ElectronicDocument | null>(null);
   const [billingType, setBillingType] = useState<"01" | "03">("03");
   const [billingBusy, setBillingBusy] = useState(false);
+  const [voidReason, setVoidReason] = useState("Anulación solicitada desde EnterpriseCloud");
   const options = {
     accessToken: session?.access_token,
     tenantId: tenantId ?? undefined,
@@ -165,6 +166,7 @@ export function SalesPage({ goBack }: { goBack: () => void }) {
     setError(null);
     setBillingSale(sale);
     setBillingDocument(null);
+    setVoidReason("Anulación solicitada desde EnterpriseCloud");
     try {
       const document = await apiFetch<ElectronicDocument | null>(`/sales/${sale.id}/electronic-document`, options);
       setBillingDocument(document);
@@ -196,6 +198,19 @@ export function SalesPage({ goBack }: { goBack: () => void }) {
       setBillingDocument(document);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "No se pudo actualizar el estado.");
+    } finally { setBillingBusy(false); }
+  };
+  const voidDocument = async () => {
+    if (!billingSale || !billingDocument || !voidReason.trim()) return;
+    setBillingBusy(true);
+    setError(null);
+    try {
+      const document = await apiFetch<ElectronicDocument>(`/sales/${billingSale.id}/electronic-document/void`, {
+        ...options, method: "POST", body: JSON.stringify({ reason: voidReason.trim() }),
+      });
+      setBillingDocument(document);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "No se pudo solicitar la anulación.");
     } finally { setBillingBusy(false); }
   };
   const billingStatus = (value: string) => ({ pending: "Pendiente", accepted: "Aceptado", rejected: "Rechazado", exception: "Con excepción", void_pending: "Anulación pendiente", voided: "Anulado", error: "Error" }[value] ?? value);
@@ -499,7 +514,7 @@ export function SalesPage({ goBack }: { goBack: () => void }) {
           <section className="sale-modal billing-modal" role="dialog" aria-modal="true" aria-label="Facturación electrónica">
             <div className="modal-header"><div><p className="eyebrow">FACTURACIÓN ELECTRÓNICA · DESARROLLO</p><h2>Comprobante de venta</h2></div><button className="icon-button" onClick={() => setBillingSale(null)} aria-label="Cerrar"><X size={20} /></button></div>
             <div className="billing-summary"><span>{billingSale.number}</span><strong>{nameFor(billingSale.customer_id)}</strong><b>{currency.format(Number(billingSale.total))}</b></div>
-            {billingDocument ? <div className="billing-result"><span className={`status-pill ${billingDocument.status === "accepted" ? "active" : "inactive"}`}>{billingStatus(billingDocument.status)}</span><strong>{billingDocument.document_type === "01" ? "Factura" : "Boleta"} {billingDocument.series}-{billingDocument.correlative}</strong><small>Documento de prueba APISUNAT · {billingDocument.file_name}</small>{billingDocument.last_error && <p className="login-error">{billingDocument.last_error}</p>}<div className="billing-links">{billingDocument.xml_url && <a href={billingDocument.xml_url} target="_blank" rel="noreferrer">XML</a>}{billingDocument.cdr_url && <a href={billingDocument.cdr_url} target="_blank" rel="noreferrer">CDR</a>}<button className="secondary-button" onClick={() => void refreshDocument()} disabled={billingBusy}><RefreshCw size={15} className={billingBusy ? "spin" : ""} /> Actualizar estado</button></div></div> : <div className="billing-choice"><p>Elige el tipo de comprobante. Se emitirá únicamente en el ambiente de pruebas.</p><label>Tipo de comprobante<select value={billingType} onChange={(event) => setBillingType(event.target.value as "01" | "03")}><option value="03">Boleta de venta</option><option value="01">Factura</option></select></label><small>Factura requiere RUC de 11 dígitos; Boleta requiere DNI o RUC registrado en el cliente.</small><button className="primary-button" onClick={() => void issueDocument()} disabled={billingBusy}>{billingBusy ? "Emitiendo…" : "Emitir comprobante de prueba"}</button></div>}
+            {billingDocument ? <div className="billing-result"><span className={`status-pill ${billingDocument.status === "accepted" ? "active" : "inactive"}`}>{billingStatus(billingDocument.status)}</span><strong>{billingDocument.document_type === "01" ? "Factura" : "Boleta"} {billingDocument.series}-{billingDocument.correlative}</strong><small>Documento de prueba APISUNAT · {billingDocument.file_name}</small>{billingDocument.last_error && <p className="login-error">{billingDocument.last_error}</p>}<div className="billing-links">{billingDocument.xml_url && <a href={billingDocument.xml_url} target="_blank" rel="noreferrer">XML</a>}{billingDocument.cdr_url && <a href={billingDocument.cdr_url} target="_blank" rel="noreferrer">CDR</a>}<button className="secondary-button" onClick={() => void refreshDocument()} disabled={billingBusy}><RefreshCw size={15} className={billingBusy ? "spin" : ""} /> Actualizar estado</button></div>{!['voided', 'void_pending'].includes(billingDocument.status) && <div className="billing-void"><label>Motivo de anulación<input value={voidReason} maxLength={250} onChange={(event) => setVoidReason(event.target.value)} /></label><button className="secondary-button danger-button" onClick={() => void voidDocument()} disabled={billingBusy || !voidReason.trim()}>Solicitar anulación</button></div>}</div> : <div className="billing-choice"><p>Elige el tipo de comprobante. Se emitirá únicamente en el ambiente de pruebas.</p><label>Tipo de comprobante<select value={billingType} onChange={(event) => setBillingType(event.target.value as "01" | "03")}><option value="03">Boleta de venta</option><option value="01">Factura</option></select></label><small>Factura requiere RUC de 11 dígitos; Boleta requiere DNI o RUC registrado en el cliente.</small><button className="primary-button" onClick={() => void issueDocument()} disabled={billingBusy}>{billingBusy ? "Emitiendo…" : "Emitir comprobante de prueba"}</button></div>}
           </section>
         </div>
       )}
