@@ -2,6 +2,7 @@ import {
   Component,
   lazy,
   Suspense,
+  type ComponentType,
   type ReactNode,
   useEffect,
   useState,
@@ -39,82 +40,103 @@ import { NotificationsMenu } from "./components/NotificationsMenu";
 import { UserAvatar } from "./components/UserAvatar";
 import { useAuth } from "./auth/AuthProvider";
 
-const DashboardPage = lazy(() =>
+const CHUNK_RELOAD_KEY = "enterprisecloud.chunk-reload";
+
+function lazyWithRetry<T extends ComponentType<any>>(
+  factory: () => Promise<{ default: T }>,
+) {
+  return lazy(async (): Promise<{ default: T }> => {
+    try {
+      const module = await factory();
+      sessionStorage.removeItem(CHUNK_RELOAD_KEY);
+      return module;
+    } catch (error) {
+      if (!sessionStorage.getItem(CHUNK_RELOAD_KEY)) {
+        sessionStorage.setItem(CHUNK_RELOAD_KEY, "1");
+        window.location.reload();
+        return new Promise<{ default: T }>(() => undefined);
+      }
+      throw error;
+    }
+  });
+}
+
+const DashboardPage = lazyWithRetry(() =>
   import("./components/DashboardPage").then((module) => ({
     default: module.DashboardPage,
   })),
 );
-const CustomersPage = lazy(() =>
+const CustomersPage = lazyWithRetry(() =>
   import("./components/CustomersPage").then((module) => ({
     default: module.CustomersPage,
   })),
 );
-const ProductsPage = lazy(() =>
+const ProductsPage = lazyWithRetry(() =>
   import("./components/ProductsPage").then((module) => ({
     default: module.ProductsPage,
   })),
 );
-const SalesPage = lazy(() =>
+const SalesPage = lazyWithRetry(() =>
   import("./components/SalesPage").then((module) => ({
     default: module.SalesPage,
   })),
 );
-const QuotesPage = lazy(() =>
+const QuotesPage = lazyWithRetry(() =>
   import("./components/QuotesPage").then((module) => ({
     default: module.QuotesPage,
   })),
 );
-const SalesOrdersPage = lazy(() =>
+const SalesOrdersPage = lazyWithRetry(() =>
   import("./components/SalesOrdersPage").then((module) => ({
     default: module.SalesOrdersPage,
   })),
 );
-const PurchasesPage = lazy(() =>
+const PurchasesPage = lazyWithRetry(() =>
   import("./components/PurchasesPage").then((module) => ({
     default: module.PurchasesPage,
   })),
 );
-const PurchaseOrdersPage = lazy(() =>
+const PurchaseOrdersPage = lazyWithRetry(() =>
   import("./components/PurchaseOrdersPage").then((module) => ({
     default: module.PurchaseOrdersPage,
   })),
 );
-const InventoryPage = lazy(() =>
+const InventoryPage = lazyWithRetry(() =>
   import("./components/InventoryPage").then((module) => ({
     default: module.InventoryPage,
   })),
 );
-const InventoryHistoryPage = lazy(() =>
+const InventoryHistoryPage = lazyWithRetry(() =>
   import("./components/InventoryHistoryPage").then((module) => ({
     default: module.InventoryHistoryPage,
   })),
 );
-const FinancePage = lazy(() =>
+const FinancePage = lazyWithRetry(() =>
   import("./components/FinancePage").then((module) => ({
     default: module.FinancePage,
   })),
 );
-const ReconciliationPage = lazy(() =>
+const ReconciliationPage = lazyWithRetry(() =>
   import("./components/ReconciliationPage").then((module) => ({
     default: module.ReconciliationPage,
   })),
 );
-const DocumentsPage = lazy(() =>
+const DocumentsPage = lazyWithRetry(() =>
   import("./components/DocumentsPage").then((module) => ({
     default: module.DocumentsPage,
   })),
 );
-const ReportsPage = lazy(() =>
+const ReportsPage = lazyWithRetry(() =>
   import("./components/ReportsPage").then((module) => ({
     default: module.ReportsPage,
   })),
 );
-const AdministrationPage = lazy(() =>
+const AdministrationPage = lazyWithRetry(() =>
   import("./components/AdministrationPage").then((module) => ({
     default: module.AdministrationPage,
   })),
 );
-const ProfilePage = lazy(() =>
+const ProfilePage = lazyWithRetry(() =>
   import("./components/ProfilePage").then((module) => ({
     default: module.ProfilePage,
   })),
