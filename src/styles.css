@@ -1695,6 +1695,27 @@ td strong {
   border-color: #2d83a8;
   box-shadow: 0 0 0 3px rgba(55, 147, 185, 0.12);
 }
+.ruc-input-group {
+  display: flex;
+  gap: 8px;
+}
+.ruc-input-group .secondary-button { flex: 0 0 auto; }
+.field-help {
+  margin: -8px 0 0;
+  color: #668092;
+  font-size: 11px;
+  line-height: 1.45;
+}
+.supplier-lookup-notice {
+  margin: -2px 0 0;
+  padding: 10px;
+  color: #17617a;
+  background: #e7f6fb;
+  border-radius: 5px;
+  font-size: 12px;
+}
+html[data-theme="dark"] .field-help { color: #a9becb; }
+html[data-theme="dark"] .supplier-lookup-notice { color: #b8e9f8; background: #164657; }
 .form-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;

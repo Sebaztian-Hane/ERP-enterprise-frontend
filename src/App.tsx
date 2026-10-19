@@ -19,6 +19,7 @@ import {
   CircleHelp,
   ClipboardList,
   FileText,
+  Factory,
   Gauge,
   LayoutGrid,
   LoaderCircle,
@@ -80,6 +81,11 @@ const DashboardPage = lazyWithRetry(() =>
 const CustomersPage = lazyWithRetry(() =>
   import("./components/CustomersPage").then((module) => ({
     default: module.CustomersPage,
+  })),
+);
+const SuppliersPage = lazyWithRetry(() =>
+  import("./components/SuppliersPage").then((module) => ({
+    default: module.SuppliersPage,
   })),
 );
 const ProductsPage = lazyWithRetry(() =>
@@ -167,6 +173,7 @@ const navigation: NavItem[] = [
   { label: "Cotizaciones", icon: FileText, href: "#cotizaciones" },
   { label: "Pedidos de venta", icon: ClipboardList, href: "#pedidos-de-venta" },
   { label: "Compras", icon: ClipboardList, href: "#compras" },
+  { label: "Proveedores", icon: Factory, href: "#proveedores" },
   { label: "Órdenes de compra", icon: FileText, href: "#ordenes-de-compra" },
   { label: "Inventario", icon: Box, href: "#inventario" },
   { label: "Kardex", icon: ClipboardList, href: "#kardex" },
@@ -183,6 +190,7 @@ const appModules: AppModule[] = [
   { label: "Cotizaciones", icon: FileText, href: "#cotizaciones", description: "Propuestas para tus clientes", tone: "violet" },
   { label: "Pedidos de venta", icon: ClipboardList, href: "#pedidos-de-venta", description: "Seguimiento de pedidos", tone: "indigo" },
   { label: "Compras", icon: ClipboardList, href: "#compras", description: "Registro de adquisiciones", tone: "orange" },
+  { label: "Proveedores", icon: Factory, href: "#proveedores", description: "RUC, contactos y abastecimiento", tone: "teal" },
   { label: "Órdenes de compra", icon: FileText, href: "#ordenes-de-compra", description: "Solicitudes y aprobaciones", tone: "amber" },
   { label: "Inventario", icon: Box, href: "#inventario", description: "Existencias y almacenes", tone: "teal" },
   { label: "Kardex", icon: ArrowLeftRight, href: "#kardex", description: "Trazabilidad de movimientos", tone: "cyan" },
@@ -659,6 +667,12 @@ export default function App() {
                 <>
                   {view === "#clientes" ? (
                     <CustomersPage
+                      goBack={() => {
+                        window.location.hash = "dashboard";
+                      }}
+                    />
+                  ) : view === "#proveedores" ? (
+                    <SuppliersPage
                       goBack={() => {
                         window.location.hash = "dashboard";
                       }}
