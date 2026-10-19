@@ -9,6 +9,7 @@ import {
 } from "react";
 import {
   AlertTriangle,
+  BadgeCheck,
   ArrowLeftRight,
   BarChart3,
   Bot,
@@ -146,6 +147,11 @@ const ProfilePage = lazyWithRetry(() =>
     default: module.ProfilePage,
   })),
 );
+const OperationsPage = lazyWithRetry(() =>
+  import("./components/OperationsPage").then((module) => ({
+    default: module.OperationsPage,
+  })),
+);
 
 type NavItem = {
   label: string;
@@ -171,6 +177,7 @@ const navigation: NavItem[] = [
   { label: "Clientes", icon: UsersRound, href: "#clientes" },
   { label: "Documentos", icon: FileText, href: "#documentos" },
   { label: "Reportes", icon: BarChart3, href: "#reportes" },
+  { label: "Control operativo", icon: BadgeCheck, href: "#control-operativo" },
 ];
 const appModules: AppModule[] = [
   { label: "Panel ejecutivo", icon: Gauge, href: "#dashboard", description: "Indicadores de tu operación", tone: "sky" },
@@ -189,10 +196,12 @@ const appModules: AppModule[] = [
   { label: "Documentos", icon: FileText, href: "#documentos", description: "Archivo empresarial", tone: "slate" },
   { label: "Reportes", icon: BarChart3, href: "#reportes", description: "Análisis y exportación", tone: "pink" },
   { label: "Administración", icon: BriefcaseBusiness, href: "#administracion", description: "Usuarios y permisos", tone: "navy" },
+  { label: "Control operativo", icon: BadgeCheck, href: "#control-operativo", description: "Aprobaciones y contabilidad", tone: "indigo" },
 ];
 const supportedViews = new Set([
   ...navigation.map((item) => item.href),
   "#administracion",
+  "#control-operativo",
   "#perfil",
 ]);
 const readView = () => {
@@ -739,6 +748,12 @@ export default function App() {
                     />
                   ) : view === "#administracion" ? (
                     <AdministrationPage
+                      goBack={() => {
+                        window.location.hash = "dashboard";
+                      }}
+                    />
+                  ) : view === "#control-operativo" ? (
+                    <OperationsPage
                       goBack={() => {
                         window.location.hash = "dashboard";
                       }}
