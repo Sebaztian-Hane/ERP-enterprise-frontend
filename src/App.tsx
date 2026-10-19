@@ -11,6 +11,7 @@ import {
   AlertTriangle,
   ArrowLeftRight,
   BarChart3,
+  Bot,
   Box,
   BriefcaseBusiness,
   ChevronDown,
@@ -35,6 +36,7 @@ import {
   X,
 } from "lucide-react";
 import { DashboardCanvas } from "./components/DashboardCanvas";
+import { AssistantChat } from "./components/AssistantChat";
 import { LoginPage } from "./components/LoginPage";
 import { NotificationsMenu } from "./components/NotificationsMenu";
 import { UserAvatar } from "./components/UserAvatar";
@@ -469,6 +471,7 @@ export default function App() {
     signOut,
   } = useAuth();
   const [launcherOpen, setLauncherOpen] = useState(false);
+  const [assistantOpen, setAssistantOpen] = useState(false);
   const [quickQuery, setQuickQuery] = useState("");
   const [view, setView] = useState(readView);
   const [theme, setTheme] = useState<"light" | "dark">(() =>
@@ -609,6 +612,17 @@ export default function App() {
             )}
           </div>
           <div className="top-actions">
+            <button
+              className={`icon-button assistant-trigger ${assistantOpen ? "is-active" : ""}`}
+              type="button"
+              onClick={() => setAssistantOpen((current) => !current)}
+              aria-label="Abrir asistente EnterpriseCloud"
+              aria-expanded={assistantOpen}
+              aria-controls="erp-assistant"
+              title="Asistente EnterpriseCloud"
+            >
+              <Bot size={20} />
+            </button>
             <button
               className="icon-button theme-toggle"
               type="button"
@@ -978,6 +992,11 @@ export default function App() {
           </ModuleErrorBoundary>
         </div>
       </main>
+      <AssistantChat
+        isOpen={assistantOpen}
+        onClose={() => setAssistantOpen(false)}
+        tenantName={activeTenant?.name ?? "tu empresa"}
+      />
       {launcherOpen && (
         <ModuleLauncher
           tenantName={activeTenant?.name ?? "tu empresa"}
