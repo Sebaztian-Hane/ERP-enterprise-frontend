@@ -20,13 +20,19 @@ export function OperationsPage({ goBack }: { goBack: () => void }) {
   const [loading, setLoading] = useState(true); const [error, setError] = useState<string | null>(null);
   const options = { accessToken: session?.access_token, tenantId: tenantId ?? undefined };
   const load = async () => { if (!session || !tenantId) return; setLoading(true); setError(null); try {
-    const [requests, rules, entries, trial, currentMaster] = await Promise.all([
-      apiFetch<Approval[]>("/operations/approvals", options), apiFetch<Policy[]>("/operations/approvals/policies", options),
-      apiFetch<Journal[]>("/operations/accounting/journal", options), apiFetch<Balance[]>("/operations/accounting/trial-balance", options),
-      apiFetch<Master[]>(`/operations/configuration/${catalog}`, options),
-    ]); setApprovals(requests); setPolicies(rules); setJournal(entries); setBalance(trial); setMaster(currentMaster);
+    // Do not make hidden tabs a permission dependency. A finance user, for
+    // example, can review the ledger even if they cannot administer policies.
+    if (tab === "approvals") {
+      const [requests, rules] = await Promise.all([apiFetch<Approval[]>("/operations/approvals", options), apiFetch<Policy[]>("/operations/approvals/policies", options)]);
+      setApprovals(requests); setPolicies(rules);
+    } else if (tab === "accounting") {
+      const [entries, trial] = await Promise.all([apiFetch<Journal[]>("/operations/accounting/journal", options), apiFetch<Balance[]>("/operations/accounting/trial-balance", options)]);
+      setJournal(entries); setBalance(trial);
+    } else {
+      setMaster(await apiFetch<Master[]>(`/operations/configuration/${catalog}`, options));
+    }
   } catch (cause) { setError(cause instanceof Error ? cause.message : "No se pudo cargar el control operativo."); } finally { setLoading(false); } };
-  useEffect(() => { void load(); }, [session?.access_token, tenantId, catalog]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { void load(); }, [session?.access_token, tenantId, catalog, tab]); // eslint-disable-line react-hooks/exhaustive-deps
   const decide = async (id: string, decision: "approve" | "reject") => { try { await apiFetch(`/operations/approvals/${id}/${decision}`, { ...options, method: "POST", body: JSON.stringify({ decision_note: "Revisión desde EnterpriseCloud" }) }); await load(); } catch (cause) { setError(cause instanceof Error ? cause.message : "No se pudo registrar la decisión."); } };
   return <section className="module-page"><div className="module-heading"><div><button className="back-link" onClick={goBack}><ChevronLeft size={16} /> Panel general</button><p className="eyebrow">GOBIERNO OPERATIVO</p><h1>Control y configuración</h1><p className="subtitle">Aprobaciones, trazabilidad contable y maestros de operación.</p></div></div>
     <div className="customers-toolbar" role="tablist" aria-label="Control operativo"><button className={tab === "approvals" ? "primary-button" : "secondary-button"} onClick={() => setTab("approvals")}><BadgeCheck size={16} /> Aprobaciones</button><button className={tab === "accounting" ? "primary-button" : "secondary-button"} onClick={() => setTab("accounting")}><BookOpenCheck size={16} /> Contabilidad</button><button className={tab === "configuration" ? "primary-button" : "secondary-button"} onClick={() => setTab("configuration")}><Settings2 size={16} /> Configuración</button></div>
