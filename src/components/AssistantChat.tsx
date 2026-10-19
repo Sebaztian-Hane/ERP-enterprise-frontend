@@ -55,7 +55,7 @@ export function AssistantChat({
   onClose: () => void;
   tenantName: string;
 }) {
-  const { session } = useAuth();
+  const { session, tenantId } = useAuth();
   const [messages, setMessages] = useState<Message[]>([
     {
       id: "welcome",
@@ -84,7 +84,7 @@ export function AssistantChat({
 
   const send = async (message: string) => {
     const cleanMessage = message.trim();
-    if (!cleanMessage || isSending || !session) return;
+    if (!cleanMessage || isSending || !session || !tenantId) return;
 
     setDraft("");
     setIsSending(true);
@@ -97,6 +97,7 @@ export function AssistantChat({
       const payload = await apiFetch<ChatResponse>("/rag/chat", {
         method: "POST",
         accessToken: session.access_token,
+        tenantId,
         body: JSON.stringify({
           message: cleanMessage,
           conversation_id: conversationId.current,
