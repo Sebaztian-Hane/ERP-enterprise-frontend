@@ -3383,6 +3383,55 @@ html[data-theme="dark"] .login-card .field input { color: #eef8fb; background: t
 .purchase-document-fields small { color: #6a8591; font-size: 11px; }
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
 
+/* Operational charts use semantic SVG/CSS rather than the former decorative canvas. */
+.revenue-card { position: relative; overflow: hidden; }
+.revenue-report-link { display: inline-flex; align-items: center; gap: 6px; margin: 0 22px 18px; color: #d9f6ff; font-size: 12px; font-weight: 750; text-decoration: none; }
+.revenue-report-link:hover { color: #fff; text-decoration: underline; }
+.report-chart-grid { display: grid; grid-template-columns: minmax(0, 2fr) minmax(260px, 1fr); gap: 16px; margin: 18px 0; }
+.report-chart-card { min-width: 0; padding: 20px; }
+.report-chart-card:first-child { grid-row: span 2; }
+.chart-legend { display: flex; flex-wrap: wrap; gap: 12px; color: #63808e; font-size: 11px; font-weight: 700; }
+.chart-legend span, .donut-legend span { display: inline-flex; align-items: center; gap: 5px; }
+.chart-legend i, .donut-legend i { width: 8px; height: 8px; border-radius: 50%; }
+.chart-legend i.sales, .donut-legend i.sales { background: #198db5; }
+.chart-legend i.purchases { background: #9972d7; }
+.donut-legend i.warning { background: #dc9b2c; }
+.line-chart { display: block; width: 100%; height: 240px; margin-top: 8px; overflow: visible; }
+.chart-gridline { stroke: #dce9ee; stroke-dasharray: 4 5; stroke-width: 1; }
+.chart-line { fill: none; stroke-linecap: round; stroke-linejoin: round; stroke-width: 4; }
+.chart-line.sales { stroke: #198db5; }
+.chart-line.purchases { stroke: #9972d7; }
+.chart-axis { display: flex; justify-content: space-between; color: #8298a2; font-size: 10px; }
+.chart-dates { display: flex; justify-content: space-between; gap: 8px; margin-top: 8px; color: #6f8793; font-size: 10px; }
+.cash-bars { display: grid; gap: 15px; margin-top: 14px; }
+.cash-bars > div { display: grid; grid-template-columns: minmax(80px, 1fr) auto; gap: 5px 10px; align-items: center; }
+.cash-bars small { grid-column: 1 / -1; color: #6c8591; font-size: 11px; }
+.cash-bars strong { color: #284d60; font-size: 13px; }
+.cash-bar-track { display: block; height: 12px; overflow: hidden; background: #edf3f5; border-radius: 10px; }
+.cash-bar-track i { display: block; height: 100%; min-width: 4px; border-radius: inherit; }
+.cash-bar-track .income { background: #24946d; }
+.cash-bar-track .expense { background: #d2942d; }
+.cash-net { margin: 18px 0 0; padding-top: 13px; border-top: 1px solid #e1ebef; color: #64808d; font-size: 12px; }
+.cash-net strong { float: right; }
+.positive { color: #17825d !important; }.negative { color: #bd4e47 !important; }
+.exposure-card { display: grid; align-content: space-between; gap: 18px; }
+.donut-wrap { display: flex; align-items: center; gap: 16px; }
+.donut { position: relative; display: grid; width: 102px; height: 102px; flex: 0 0 auto; place-items: center; border-radius: 50%; }
+.donut::before { content: ""; position: absolute; width: 72px; height: 72px; background: #fff; border-radius: 50%; }
+.donut span { position: relative; z-index: 1; max-width: 65px; color: #25495c; font-size: 12px; font-weight: 800; text-align: center; }
+.donut-legend { display: grid; gap: 9px; color: #63808e; font-size: 11px; }
+.donut-legend strong { margin-left: auto; color: #294e60; }
+
+html[data-theme="dark"] .chart-gridline { stroke: #365969; }
+html[data-theme="dark"] .chart-legend, html[data-theme="dark"] .chart-axis, html[data-theme="dark"] .chart-dates, html[data-theme="dark"] .cash-bars small, html[data-theme="dark"] .cash-net, html[data-theme="dark"] .donut-legend { color: #abc3cc; }
+html[data-theme="dark"] .cash-bars strong, html[data-theme="dark"] .donut span, html[data-theme="dark"] .donut-legend strong { color: #e0edf2; }
+html[data-theme="dark"] .cash-bar-track { background: #294451; }
+html[data-theme="dark"] .cash-net { border-color: #3b5c69; }
+html[data-theme="dark"] .donut::before { background: #17303c; }
+
+@media (max-width: 900px) { .report-chart-grid { grid-template-columns: 1fr; }.report-chart-card:first-child { grid-row: auto; } }
+@media (max-width: 560px) { .report-chart-card { padding: 15px; }.line-chart { height: 190px; }.donut-wrap { align-items: flex-start; }.donut { width: 88px; height: 88px; }.donut::before { width: 62px; height: 62px; } }
+
 html[data-theme="dark"] .assistant-trigger.is-active { color: #a6e7fb; background: #1b4c61; box-shadow: inset 0 0 0 1px #4b8299; }
 html[data-theme="dark"] .assistant-backdrop { background: rgba(1, 11, 17, .42); }
 html[data-theme="dark"] .assistant-drawer { color: #deedf3; background: #152b37; border-color: #3f6678; box-shadow: 0 24px 55px rgba(0, 0, 0, .46); }

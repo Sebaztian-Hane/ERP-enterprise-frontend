@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "../auth/AuthProvider";
 import { apiFetch } from "../lib/api";
+import { CashFlowChart, ExposureChart, SalesTrendChart } from "./OperationalCharts";
 
 type Period = {
   start_date: string;
@@ -32,6 +33,13 @@ type StockAlert = {
   name: string;
   minimum_stock: string;
   current_stock: string;
+};
+type ActivityPoint = {
+  date: string;
+  sales_total: string;
+  purchases_total: string;
+  receipts_total: string;
+  payments_total: string;
 };
 const money = new Intl.NumberFormat("es-PE", {
   style: "currency",
@@ -92,6 +100,7 @@ export function ReportsPage({ goBack }: { goBack: () => void }) {
     [receivables, setReceivables] = useState<Balance[]>([]),
     [payables, setPayables] = useState<Balance[]>([]),
     [lowStock, setLowStock] = useState<StockAlert[]>([]),
+    [activity, setActivity] = useState<ActivityPoint[]>([]),
     [loading, setLoading] = useState(true),
     [error, setError] = useState<string | null>(null);
   const [startDate, setStartDate] = useState(initialStart),
@@ -122,16 +131,18 @@ export function ReportsPage({ goBack }: { goBack: () => void }) {
     setLoading(true);
     setError(null);
     try {
-      const [period, ar, ap, stock] = await Promise.all([
+      const [period, ar, ap, stock, activityPoints] = await Promise.all([
         apiFetch<Summary>("/reports/summary?" + query(), options),
         apiFetch<Balance[]>("/reports/receivables", options),
         apiFetch<Balance[]>("/reports/payables", options),
         apiFetch<StockAlert[]>("/reports/low-stock", options),
+        apiFetch<ActivityPoint[]>(`/reports/activity?start_date=${startDate}&end_date=${endDate}`, options),
       ]);
       setSummary(period);
       setReceivables(ar);
       setPayables(ap);
       setLowStock(stock);
+      setActivity(activityPoints);
     } catch (cause) {
       setError(
         cause instanceof Error
@@ -374,6 +385,11 @@ export function ReportsPage({ goBack }: { goBack: () => void }) {
               value={p.payments_total}
               previous={previous?.payments_total}
             />
+          </section>
+          <section className="report-chart-grid">
+            <SalesTrendChart activity={activity} />
+            <CashFlowChart activity={activity} />
+            <ExposureChart receivableTotal={receivableTotal} payableTotal={payableTotal} />
           </section>
           <section className="finance-grid">
             <BalancePanel
