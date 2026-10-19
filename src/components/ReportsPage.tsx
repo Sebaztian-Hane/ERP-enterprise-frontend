@@ -7,6 +7,8 @@ import {
   LoaderCircle,
   PackageSearch,
   Printer,
+  Sparkles,
+  Lightbulb,
 } from "lucide-react";
 import { useAuth } from "../auth/AuthProvider";
 import { apiFetch } from "../lib/api";
@@ -40,6 +42,17 @@ type ActivityPoint = {
   purchases_total: string;
   receipts_total: string;
   payments_total: string;
+};
+type Insight = {
+  status: "ready" | "waiting" | "unavailable";
+  message?: string;
+  headline?: string;
+  summary?: string;
+  recommendation?: string;
+  severity?: "positive" | "info" | "attention";
+  operation_count?: number;
+  minimum_operations?: number;
+  cached?: boolean;
 };
 const money = new Intl.NumberFormat("es-PE", {
   style: "currency",
@@ -101,6 +114,7 @@ export function ReportsPage({ goBack }: { goBack: () => void }) {
     [payables, setPayables] = useState<Balance[]>([]),
     [lowStock, setLowStock] = useState<StockAlert[]>([]),
     [activity, setActivity] = useState<ActivityPoint[]>([]),
+    [insight, setInsight] = useState<Insight | null>(null),
     [loading, setLoading] = useState(true),
     [error, setError] = useState<string | null>(null);
   const [startDate, setStartDate] = useState(initialStart),
@@ -131,18 +145,20 @@ export function ReportsPage({ goBack }: { goBack: () => void }) {
     setLoading(true);
     setError(null);
     try {
-      const [period, ar, ap, stock, activityPoints] = await Promise.all([
+      const [period, ar, ap, stock, activityPoints, generatedInsight] = await Promise.all([
         apiFetch<Summary>("/reports/summary?" + query(), options),
         apiFetch<Balance[]>("/reports/receivables", options),
         apiFetch<Balance[]>("/reports/payables", options),
         apiFetch<StockAlert[]>("/reports/low-stock", options),
         apiFetch<ActivityPoint[]>(`/reports/activity?start_date=${startDate}&end_date=${endDate}`, options),
+        apiFetch<Insight>(`/reports/insight?start_date=${startDate}&end_date=${endDate}`, options),
       ]);
       setSummary(period);
       setReceivables(ar);
       setPayables(ap);
       setLowStock(stock);
       setActivity(activityPoints);
+      setInsight(generatedInsight);
     } catch (cause) {
       setError(
         cause instanceof Error
@@ -310,6 +326,7 @@ export function ReportsPage({ goBack }: { goBack: () => void }) {
           </button>
         </div>
       </div>
+      <AutomaticInsight insight={insight} />
       <form
         className="panel customers-toolbar no-print"
         onSubmit={applyFilters}
@@ -451,6 +468,13 @@ export function ReportsPage({ goBack }: { goBack: () => void }) {
       )}
     </section>
   );
+}
+
+function AutomaticInsight({ insight }: { insight: Insight | null }) {
+  if (!insight) return null;
+  if (insight.status === "ready") return <section className={`insight-card ${insight.severity ?? "info"}`} aria-label="Análisis automático del negocio"><span className="insight-icon"><Sparkles size={21} /></span><div className="insight-copy"><p>INSIGHT AUTOMÁTICO</p><h2>{insight.headline}</h2><span>{insight.summary}</span></div><div className="insight-recommendation"><Lightbulb size={18} /><div><small>RECOMENDACIÓN</small><strong>{insight.recommendation}</strong></div></div><em>{insight.cached ? "Se conserva hasta que exista actividad suficiente para actualizarlo." : "Análisis actualizado con la actividad confirmada."}</em></section>;
+  if (insight.status === "waiting") return <section className="insight-card waiting" aria-label="Insight pendiente"><span className="insight-icon"><Sparkles size={21} /></span><div className="insight-copy"><p>INSIGHT AUTOMÁTICO</p><h2>Preparando análisis de la operación</h2><span>{insight.message}</span></div><em>{insight.operation_count ?? 0} de {insight.minimum_operations ?? 0} operaciones confirmadas</em></section>;
+  return <section className="insight-card unavailable" aria-label="Insight no disponible"><span className="insight-icon"><Sparkles size={21} /></span><div className="insight-copy"><p>INSIGHT AUTOMÁTICO</p><h2>Análisis temporalmente no disponible</h2><span>{insight.message}</span></div></section>;
 }
 
 function BalancePanel({
