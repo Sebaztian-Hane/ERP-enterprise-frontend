@@ -30,8 +30,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const loadTenants = useCallback(async (accessToken: string) => {
-    setIsLoading(true);
+  const loadTenants = useCallback(async (accessToken: string, blockApplication = false) => {
+    // The full-page loader is exclusively for the first session bootstrap.
+    // Supabase can emit SIGNED_IN/TOKEN_REFRESHED again after a tab regains
+    // focus; using the loader in those events unmounts the active module and
+    // discards unsaved form state.
+    if (blockApplication) setIsLoading(true);
     try {
       setError(null);
       const available = await apiFetch<Tenant[]>("/auth/tenants", { accessToken });
@@ -45,7 +49,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setTenantId(null);
       setError(`Sesión iniciada, pero no se pudieron cargar las empresas: ${message(cause)}`);
     } finally {
-      setIsLoading(false);
+      if (blockApplication) setIsLoading(false);
     }
   }, []);
 
@@ -54,7 +58,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     supabase.auth.getSession().then(({ data: { session: initialSession } }) => {
       if (!active) return;
       setSession(initialSession);
-      if (initialSession) void loadTenants(initialSession.access_token);
+      if (initialSession) void loadTenants(initialSession.access_token, true);
       else setIsLoading(false);
     });
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, nextSession) => {
@@ -63,11 +67,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setTenants([]); setTenantId(null); setError(null); setIsLoading(false);
         return;
       }
-      // Supabase refreshes a token when a tab returns to the foreground.
-      // Refreshing tenant data there set `isLoading` to true and unmounted the
-      // whole application, which made an in-progress form look like a reload.
-      // A token refresh preserves the same identity and active tenant, so it
-      // must only update the session in memory.
+      // This must never trigger the full-page loader. Apart from token refresh,
+      // Supabase may emit SIGNED_IN while restoring a persisted tab session.
+      // Tenant data can refresh in the background without unmounting a form.
       if (event === "SIGNED_IN") void loadTenants(nextSession.access_token);
     });
     return () => { active = false; subscription.unsubscribe(); };
