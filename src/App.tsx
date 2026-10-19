@@ -446,6 +446,9 @@ export default function App() {
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
     localStorage.setItem("enterprisecloud.theme", theme);
+    document
+      .querySelector('meta[name="theme-color"]')
+      ?.setAttribute("content", theme === "dark" ? "#101a22" : "#123047");
   }, [theme]);
   useEffect(() => {
     const syncView = () => {
