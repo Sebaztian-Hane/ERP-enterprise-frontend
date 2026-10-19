@@ -545,6 +545,19 @@ a {
 .profile-form-card .customer-form { max-width: 520px; }
 .profile-success { margin: 0; color: #267253; font-size: 12px; font-weight: 650; }
 .profile-form-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 6px; }
+.password-change-panel {
+  margin-top: 24px;
+  padding: 18px;
+  border: 1px solid #d8e7ed;
+  border-radius: 8px;
+  background: #f8fbfc;
+}
+.password-change-panel h3 { display: flex; align-items: center; gap: 8px; margin: 4px 0; color: #294d60; font-size: 14px; }
+.password-change-panel > div > p:last-child { margin: 0; color: #66808e; font-size: 11px; line-height: 1.45; }
+.password-change-panel .customer-form { padding: 16px 0 0; }
+html[data-theme="dark"] .password-change-panel { background: #142d38; border-color: #3d6272; }
+html[data-theme="dark"] .password-change-panel h3 { color: #e1f0f5; }
+html[data-theme="dark"] .password-change-panel > div > p:last-child { color: #abc5cf; }
 .logout-button { color: #5b6d7b; }
 
 @media (max-width: 760px) {
@@ -922,6 +935,7 @@ html[data-theme="dark"] .module-error { color: #ffc1b7; background: #452d30; }
 }
 .table-wrap {
   overflow-x: auto;
+  overscroll-behavior-inline: contain;
 }
 table {
   width: 100%;
@@ -1587,14 +1601,30 @@ td strong {
     transform: rotate(360deg);
   }
 }
-.customers-table td:first-child {
+.customers-table { table-layout: fixed; }
+.customers-table th:first-child,
+.customers-table td:first-child { width: 43%; white-space: normal; }
+.customers-table th:last-child,
+.customers-table td:last-child { width: 76px; }
+.suppliers-table th:first-child,
+.suppliers-table td:first-child { width: 64%; }
+.suppliers-table th:nth-child(2),
+.suppliers-table td:nth-child(2) { width: 110px; }
+.party-cell {
   display: flex;
   align-items: center;
+  min-width: 0;
   gap: 9px;
-  white-space: normal;
 }
-.customers-table td:first-child small {
+.party-cell-details { min-width: 0; }
+.party-cell-details strong,
+.party-cell-details small {
   display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.party-cell-details small {
   margin-top: 2px;
   color: #80939f;
   font-size: 10px;

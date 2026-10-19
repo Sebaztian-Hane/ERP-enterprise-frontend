@@ -52,6 +52,7 @@ export function AdministrationPage({ goBack }: { goBack: () => void }) {
     [saving, setSaving] = useState<string | null>(null),
     [error, setError] = useState<string | null>(null),
     [email, setEmail] = useState(""),
+    [temporaryPassword, setTemporaryPassword] = useState(""),
     [newRole, setNewRole] = useState("viewer"),
     [auditQuery, setAuditQuery] = useState("");
   const options = {
@@ -113,9 +114,10 @@ export function AdministrationPage({ goBack }: { goBack: () => void }) {
       await apiFetch<Membership>("/tenants/invitations", {
         ...options,
         method: "POST",
-        body: JSON.stringify({ email: email.trim(), role_code: newRole }),
+        body: JSON.stringify({ email: email.trim(), role_code: newRole, temporary_password: temporaryPassword }),
       });
       setEmail("");
+      setTemporaryPassword("");
       setNewRole("viewer");
       await load();
     } catch (cause) {
@@ -264,8 +266,8 @@ export function AdministrationPage({ goBack }: { goBack: () => void }) {
             <UserPlus size={20} className="muted-icon" />
           </div>
           <p>
-            Envía una invitación por correo. Si la persona ya estaba invitada,
-            se reenvía el acceso y se actualiza su rol seleccionado.
+            Crea un acceso con credenciales temporales y las envía al mismo
+            correo indicado. La persona deberá cambiar su contraseña al entrar.
           </p>
           <form className="customer-form" onSubmit={invite}>
             <label>
@@ -291,10 +293,23 @@ export function AdministrationPage({ goBack }: { goBack: () => void }) {
                 ))}
               </select>
             </label>
+            <label>
+              Contraseña temporal
+              <input
+                required
+                type="password"
+                minLength={12}
+                autoComplete="new-password"
+                value={temporaryPassword}
+                onChange={(event) => setTemporaryPassword(event.target.value)}
+                placeholder="Mínimo 12 caracteres"
+              />
+              <small className="field-help">Se enviará únicamente al correo indicado y no se guardará en el ERP.</small>
+            </label>
             <button className="primary-button" disabled={saving === "invite"}>
               {saving === "invite"
                 ? "Enviando…"
-                : "Enviar / reenviar invitación"}
+                : "Crear acceso y enviar credenciales"}
             </button>
           </form>
         </article>
