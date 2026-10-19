@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Bell, CircleAlert, CircleCheck, Info, LoaderCircle, RefreshCw, X } from "lucide-react";
+import { Bell, CheckCheck, CircleAlert, CircleCheck, Info, LoaderCircle, RefreshCw, X } from "lucide-react";
 import { useAuth } from "../auth/AuthProvider";
 import { apiFetch } from "../lib/api";
 
@@ -10,6 +10,7 @@ type SystemNotification = {
   title: string;
   body: string;
   module: string;
+  is_read: boolean;
 };
 
 const destinationByModule: Record<string, string> = {
@@ -57,19 +58,51 @@ export function NotificationsMenu() {
     return <Info size={18} />;
   };
 
+  const unreadCount = notifications.filter((notification) => !notification.is_read).length;
+
+  const openNotification = async (notification: SystemNotification) => {
+    if (!notification.is_read && session && tenantId) {
+      try {
+        await apiFetch<SystemNotification>(`/notifications/${encodeURIComponent(notification.id)}/read`, {
+          method: "POST", accessToken: session.access_token, tenantId,
+        });
+        setNotifications((current) => current.map((item) => item.id === notification.id ? { ...item, is_read: true } : item));
+      } catch (cause) {
+        setError(detail(cause));
+      }
+    }
+    window.location.hash = destinationByModule[notification.module] ?? "#inicio";
+    setIsOpen(false);
+  };
+
+  const markAllAsRead = async () => {
+    if (!session || !tenantId || !unreadCount) return;
+    setIsLoading(true); setError(null);
+    try {
+      const updated = await apiFetch<SystemNotification[]>("/notifications/read-all", {
+        method: "POST", accessToken: session.access_token, tenantId,
+      });
+      setNotifications(updated);
+    } catch (cause) {
+      setError(detail(cause));
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
     <div className="notifications-menu">
       <button
         className="icon-button notification-trigger"
         type="button"
-        aria-label={notifications.length ? `Abrir ${notifications.length} alertas del sistema` : "Abrir notificaciones del sistema"}
+        aria-label={unreadCount ? `Abrir ${unreadCount} notificaciones sin leer` : "Abrir notificaciones del sistema"}
         aria-expanded={isOpen}
         aria-controls="system-notifications"
         title="Notificaciones del sistema"
         onClick={() => setIsOpen((current) => !current)}
       >
         <Bell size={20} />
-        {notifications.length > 0 && <i />}
+        {unreadCount > 0 && <i />}
       </button>
       {isOpen && (
         <section className="notifications-panel" id="system-notifications" aria-label="Notificaciones del sistema">
@@ -79,6 +112,7 @@ export function NotificationsMenu() {
               <h2>Notificaciones</h2>
             </div>
             <div>
+              {unreadCount > 0 && <button className="notifications-read-all" type="button" onClick={() => void markAllAsRead()} disabled={isLoading}><CheckCheck size={15} /> Marcar leídas</button>}
               <button className="notifications-refresh" type="button" onClick={() => void load()} disabled={isLoading} aria-label="Actualizar alertas" title="Actualizar alertas">
                 <RefreshCw size={16} className={isLoading ? "spin" : ""} />
               </button>
@@ -96,10 +130,10 @@ export function NotificationsMenu() {
             ) : notifications.length ? (
               notifications.map((notification) => (
                 <button
-                  className={`notification-row ${notification.severity}`}
+                  className={`notification-row ${notification.severity} ${notification.is_read ? "is-read" : "is-unread"}`}
                   key={notification.id}
                   type="button"
-                  onClick={() => { window.location.hash = destinationByModule[notification.module] ?? "#inicio"; setIsOpen(false); }}
+                  onClick={() => void openNotification(notification)}
                 >
                   <span className="notification-severity">{iconFor(notification.severity)}</span>
                   <span><strong>{notification.title}</strong><small>{notification.body}</small><em>{notification.module}</em></span>

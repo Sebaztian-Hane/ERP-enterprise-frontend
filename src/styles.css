@@ -405,6 +405,21 @@ a {
   font-size: 17px;
 }
 .notifications-header > div:last-child { display: flex; gap: 3px; }
+.notifications-read-all {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-right: 4px;
+  padding: 4px 7px;
+  color: #176e91;
+  background: #edf8fb;
+  border: 1px solid #d1e7f0;
+  border-radius: 6px;
+  font-size: 10px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.notifications-read-all:hover:not(:disabled) { background: #dff2f8; }
 .notifications-refresh,
 .notifications-close {
   display: grid;
@@ -441,6 +456,8 @@ a {
   cursor: pointer;
 }
 .notification-row:hover { background: #f4fafc; }
+.notification-row.is-read { opacity: .64; }
+.notification-row.is-unread { background: #f9fdff; }
 .notification-severity {
   display: grid;
   flex: 0 0 31px;
@@ -571,6 +588,8 @@ html[data-theme="dark"] .global-search-results button,
 html[data-theme="dark"] .icon-button,
 html[data-theme="dark"] .notifications-close,
 html[data-theme="dark"] .notifications-refresh { color: #bcd3df; }
+html[data-theme="dark"] .notifications-read-all { color: #8cddfa; background: #213b49; border-color: #3b6172; }
+html[data-theme="dark"] .notifications-read-all:hover:not(:disabled) { background: #294958; }
 html[data-theme="dark"] .global-search-results button:hover,
 html[data-theme="dark"] .icon-button:hover,
 html[data-theme="dark"] .top-actions .icon-button:hover,
@@ -599,6 +618,7 @@ html[data-theme="dark"] td,
 html[data-theme="dark"] td strong,
 html[data-theme="dark"] .customer-summary strong { color: #e1eef4; }
 html[data-theme="dark"] .notification-row:hover { background: #213743; }
+html[data-theme="dark"] .notification-row.is-unread { background: #1d313c; }
 html[data-theme="dark"] input,
 html[data-theme="dark"] select,
 html[data-theme="dark"] textarea {
