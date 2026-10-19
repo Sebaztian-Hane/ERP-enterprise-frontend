@@ -40,7 +40,13 @@ import { NotificationsMenu } from "./components/NotificationsMenu";
 import { UserAvatar } from "./components/UserAvatar";
 import { useAuth } from "./auth/AuthProvider";
 
-const CHUNK_RELOAD_KEY = "enterprisecloud.chunk-reload";
+const CHUNK_RELOAD_PARAM = "ec-reload";
+
+function refreshApplication() {
+  const url = new URL(window.location.href);
+  url.searchParams.set(CHUNK_RELOAD_PARAM, Date.now().toString());
+  window.location.replace(url.toString());
+}
 
 function lazyWithRetry<T extends ComponentType<any>>(
   factory: () => Promise<{ default: T }>,
@@ -48,12 +54,15 @@ function lazyWithRetry<T extends ComponentType<any>>(
   return lazy(async (): Promise<{ default: T }> => {
     try {
       const module = await factory();
-      sessionStorage.removeItem(CHUNK_RELOAD_KEY);
+      const url = new URL(window.location.href);
+      if (url.searchParams.has(CHUNK_RELOAD_PARAM)) {
+        url.searchParams.delete(CHUNK_RELOAD_PARAM);
+        window.history.replaceState(null, "", `${url.pathname}${url.search}${url.hash}`);
+      }
       return module;
     } catch (error) {
-      if (!sessionStorage.getItem(CHUNK_RELOAD_KEY)) {
-        sessionStorage.setItem(CHUNK_RELOAD_KEY, "1");
-        window.location.reload();
+      if (!new URL(window.location.href).searchParams.has(CHUNK_RELOAD_PARAM)) {
+        refreshApplication();
         return new Promise<{ default: T }>(() => undefined);
       }
       throw error;
@@ -437,7 +446,7 @@ class ModuleErrorBoundary extends Component<
             </a>
             <button
               className="primary-button"
-              onClick={() => window.location.reload()}
+              onClick={refreshApplication}
             >
               Actualizar aplicación
             </button>
