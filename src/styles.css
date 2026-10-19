@@ -3363,6 +3363,23 @@ html[data-theme="dark"] .danger-button { color: #ffb4a7; border-color: #8a5552; 
 html[data-theme="dark"] .purchase-document-fields { background: #142d38; border-color: #3d6272; }
 html[data-theme="dark"] .purchase-document-fields small { color: #abc5cf; }
 
+/* Dialog surfaces must opt into the theme too; they render outside the module cards. */
+html[data-theme="dark"] .customer-modal,
+html[data-theme="dark"] .sale-modal {
+  color: #dcecf2;
+  background: #152833;
+  border: 1px solid #365d6d;
+  box-shadow: 0 22px 58px rgba(0, 0, 0, .52);
+}
+html[data-theme="dark"] .sale-modal .modal-header {
+  background: #152833;
+  border-color: #365d6d;
+}
+html[data-theme="dark"] .sale-modal .modal-header h2 { color: #eff9fc; }
+html[data-theme="dark"] .sale-modal .modal-header .icon-button { color: #b8d3dd; }
+html[data-theme="dark"] .sale-modal .modal-header .icon-button:hover { color: #eff9fc; background: #244552; }
+html[data-theme="dark"] .billing-choice { background: #152833; }
+
 @media (max-width: 760px) {
   .assistant-backdrop { display: block; background: rgba(1, 11, 17, .35); }
   .assistant-drawer { top: 67px; right: 8px; bottom: 8px; width: calc(100vw - 16px); min-height: 0; border-radius: 13px; }
