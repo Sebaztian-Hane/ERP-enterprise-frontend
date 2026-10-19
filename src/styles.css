@@ -2549,7 +2549,7 @@ td strong {
 }
 .master-summary {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 1px;
   background: #edf1f3;
 }
@@ -2952,4 +2952,68 @@ html[data-theme="dark"] .app-module-icon { filter: saturate(1.12) brightness(1.3
   .top-workspace { flex: 1; min-width: 0; }
   .top-workspace select { width: 100%; max-width: none; min-width: 0; }
   .workspace-topbar .breadcrumb { display: none; }
+}
+
+/* Dark-mode consistency layer.  Kept last so module-specific light styles cannot
+   reintroduce low-contrast text or white surfaces. */
+html[data-theme="dark"] .top-workspace {
+  background: #172a35;
+  border-color: #36505f;
+}
+html[data-theme="dark"] .top-workspace select {
+  color: #e6f2f7;
+  background: transparent;
+}
+html[data-theme="dark"] .top-workspace select option { color: #e6f2f7; background: #172a35; }
+
+html[data-theme="dark"] .metric-card p,
+html[data-theme="dark"] .metric-card > p,
+html[data-theme="dark"] .metric-card small { color: #b9ccd5; }
+html[data-theme="dark"] .metric-card > strong,
+html[data-theme="dark"] .metric-card strong { color: #f3f9fc; }
+html[data-theme="dark"] .finance-table td strong { color: #f3f9fc; }
+
+html[data-theme="dark"] .treasury-cards {
+  background: #36505f;
+  border-color: #36505f;
+}
+html[data-theme="dark"] .treasury-cards > div {
+  background: #192a35;
+  border-color: #36505f;
+}
+html[data-theme="dark"] .treasury-cards .treasury-icon {
+  color: #7cdefe;
+  background: #203e4c;
+}
+html[data-theme="dark"] .treasury-cards small,
+html[data-theme="dark"] .treasury-cards span { color: #b7cad4; }
+html[data-theme="dark"] .treasury-cards strong { color: #f3f9fc; }
+
+html[data-theme="dark"] .master-summary {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  background: #36505f;
+}
+html[data-theme="dark"] .master-summary > span { background: #192a35; }
+html[data-theme="dark"] .master-summary small { color: #b7cad4; }
+html[data-theme="dark"] .master-summary strong { color: #f3f9fc; }
+html[data-theme="dark"] .master-summary a {
+  color: #84dcfa;
+  background: #1f3440;
+}
+
+html[data-theme="dark"] .secondary-button {
+  color: #d9e9f0;
+  background: #203540;
+  border-color: #456170;
+}
+html[data-theme="dark"] .secondary-button:hover { background: #294552; }
+html[data-theme="dark"] .module-state,
+html[data-theme="dark"] .line-empty,
+html[data-theme="dark"] .warehouse-empty { color: #b7cad4; }
+html[data-theme="dark"] .notifications-empty strong { color: #9ce0bd; }
+html[data-theme="dark"] .notifications-empty span { color: #b7cad4; }
+
+@media (max-width: 560px) {
+  .master-summary { grid-template-columns: 1fr; }
+  html[data-theme="dark"] .master-summary { grid-template-columns: 1fr; }
 }
