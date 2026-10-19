@@ -54,23 +54,11 @@ function refreshApplication() {
 function lazyWithRetry<T extends ComponentType<any>>(
   factory: () => Promise<{ default: T }>,
 ) {
-  return lazy(async (): Promise<{ default: T }> => {
-    try {
-      const module = await factory();
-      const url = new URL(window.location.href);
-      if (url.searchParams.has(CHUNK_RELOAD_PARAM)) {
-        url.searchParams.delete(CHUNK_RELOAD_PARAM);
-        window.history.replaceState(null, "", `${url.pathname}${url.search}${url.hash}`);
-      }
-      return module;
-    } catch (error) {
-      if (!new URL(window.location.href).searchParams.has(CHUNK_RELOAD_PARAM)) {
-        refreshApplication();
-        return new Promise<{ default: T }>(() => undefined);
-      }
-      throw error;
-    }
-  });
+  // A lazy chunk can temporarily fail while the browser is in the background
+  // or while a deployment is propagating. Reloading here discarded any form
+  // being edited, so failures are deliberately delegated to the error boundary.
+  // The user can then explicitly choose "Actualizar aplicación" if necessary.
+  return lazy(factory);
 }
 
 const DashboardPage = lazyWithRetry(() =>
