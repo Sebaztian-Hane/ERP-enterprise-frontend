@@ -1032,6 +1032,7 @@ export default function App() {
         isOpen={assistantOpen}
         onClose={() => setAssistantOpen(false)}
         tenantName={activeTenant?.name ?? "tu empresa"}
+        roleCode={roleCode}
       />
       {launcherOpen && (
         <ModuleLauncher

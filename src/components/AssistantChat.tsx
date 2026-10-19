@@ -2,13 +2,22 @@ import { type FormEvent, useEffect, useRef, useState } from "react";
 import { Bot, CircleAlert, History, LoaderCircle, MessageSquarePlus, SendHorizontal, Sparkles, Trash2, X } from "lucide-react";
 import { useAuth } from "../auth/AuthProvider";
 import { ApiError, apiFetch } from "../lib/api";
+import { type RoleCode } from "../lib/roleAccess";
 
 type Message = { id: string; role: "assistant" | "user"; content: string };
 type ChatResponse = { answer?: string; output?: string; message?: string };
 type Conversation = { id: string; title: string; preview?: string | null; created_at: string; updated_at: string };
 type ConversationDetail = Conversation & { messages: Message[] };
 
-const suggestions = ["¿Qué puedo hacer en Ventas?", "Explícame el módulo de Inventario", "¿Qué reportes puedo consultar?"];
+const suggestionsByRole: Record<RoleCode, readonly string[]> = {
+  owner: ["Resume las ventas recientes", "Explícame el inventario", "¿Qué reportes puedo consultar?"],
+  admin: ["Resume las ventas recientes", "Explícame el inventario", "¿Qué reportes puedo consultar?"],
+  sales: ["¿Qué puedo hacer en Ventas?", "¿Qué productos y precios están disponibles?", "Explícame cómo emitir un comprobante"],
+  purchases: ["¿Qué puedo hacer en Compras?", "Muéstrame los proveedores disponibles", "Explícame una orden de compra"],
+  inventory: ["Explícame el módulo de Inventario", "¿Cómo consulto el stock de un producto?", "¿Cómo funciona una transferencia entre almacenes?"],
+  finance: ["Resume las cuentas por cobrar", "¿Qué reportes puedo consultar?", "Explícame la conciliación bancaria"],
+  viewer: ["¿Qué puedo consultar en el ERP?", "Resume las ventas recientes", "¿Qué reportes puedo consultar?"],
+};
 
 function responseText(payload: ChatResponse) {
   const response = payload.answer?.trim() || payload.output?.trim() || payload.message?.trim();
@@ -32,7 +41,7 @@ function displayDate(value: string) {
   return new Intl.DateTimeFormat("es-PE", { day: "numeric", month: "short" }).format(new Date(value));
 }
 
-export function AssistantChat({ isOpen, onClose, tenantName }: { isOpen: boolean; onClose: () => void; tenantName: string }) {
+export function AssistantChat({ isOpen, onClose, tenantName, roleCode }: { isOpen: boolean; onClose: () => void; tenantName: string; roleCode: RoleCode | null }) {
   const { session, tenantId } = useAuth();
   const [messages, setMessages] = useState<Message[]>(() => [welcomeMessage(tenantName)]);
   const [conversations, setConversations] = useState<Conversation[]>([]);
@@ -164,13 +173,13 @@ export function AssistantChat({ isOpen, onClose, tenantName }: { isOpen: boolean
           </div>)}
         </div> : <div className="assistant-history-empty"><History size={26} /><strong>Aún no tienes chats guardados</strong><p>Inicia uno nuevo y podrás retomarlo desde aquí.</p></div>}
       </section> : <>
-        <div className="assistant-scope"><Sparkles size={15} /> Consultas operativas y ayuda sobre los módulos del ERP.</div>
+        <div className="assistant-scope"><Sparkles size={15} /> Consultas operativas según los módulos autorizados para tu rol.</div>
         {historyError && <div className="assistant-inline-error"><CircleAlert size={15} /> {historyError}</div>}
         <div className="assistant-messages" aria-live="polite" aria-relevant="additions">
           {messages.map((message) => <div className={`assistant-message ${message.role}`} key={message.id}>{message.role === "assistant" && <Bot size={16} aria-hidden="true" />}<p>{message.content}</p></div>)}
           {isSending && <div className="assistant-message assistant is-thinking"><LoaderCircle size={17} className="spin" /><p>Analizando tu consulta…</p></div>}
         </div>
-        {messages.length === 1 && !isSending && <div className="assistant-suggestions" aria-label="Consultas sugeridas">{suggestions.map((suggestion) => <button key={suggestion} type="button" onClick={() => void send(suggestion)}>{suggestion}</button>)}</div>}
+        {messages.length === 1 && !isSending && roleCode && <div className="assistant-suggestions" aria-label="Consultas sugeridas">{suggestionsByRole[roleCode].map((suggestion) => <button key={suggestion} type="button" onClick={() => void send(suggestion)}>{suggestion}</button>)}</div>}
         <form className="assistant-composer" onSubmit={submit}><label className="sr-only" htmlFor="assistant-message">Escribe tu consulta</label><input ref={inputRef} id="assistant-message" value={draft} onChange={(event) => setDraft(event.target.value)} placeholder="Escribe una consulta…" maxLength={2000} disabled={isSending} /><button type="submit" disabled={!draft.trim() || isSending} aria-label="Enviar consulta" title="Enviar consulta">{isSending ? <LoaderCircle size={18} className="spin" /> : <SendHorizontal size={18} />}</button></form>
         <p className="assistant-footnote"><CircleAlert size={13} /> No reemplaza las validaciones contables ni ejecuta cambios.</p>
       </>}
