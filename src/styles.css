@@ -1770,20 +1770,24 @@ td strong {
   background: #f0eafd;
 }
 .products-table td:first-child {
-  display: flex;
-  align-items: center;
-  gap: 9px;
   white-space: normal;
+  min-width: 220px;
+  vertical-align: middle;
 }
 .product-icon {
   width: 27px;
   height: 27px;
-  display: grid;
+  display: inline-grid;
+  margin-right: 9px;
+  vertical-align: middle;
   place-items: center;
   color: #9a6a1e;
   background: #fff1d9;
   border-radius: 6px;
 }
+.products-table th:last-child,
+.products-table td:last-child { width: 96px; padding-right: 14px; padding-left: 10px; }
+.products-table .row-actions { justify-content: flex-end; }
 .customer-form select {
   width: 100%;
   height: 38px;

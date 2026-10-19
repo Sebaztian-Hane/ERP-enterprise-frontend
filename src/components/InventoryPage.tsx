@@ -506,8 +506,8 @@ export function InventoryPage({ goBack }: { goBack: () => void }) {
                       <input
                         required
                         type="number"
-                        step="0.001"
-                        min={mode === "transfer" ? "0.001" : undefined}
+                        step="1"
+                        min={mode === "transfer" ? "1" : undefined}
                         value={quantity}
                         onChange={(e) => setQuantity(e.target.value)}
                       />

@@ -31,6 +31,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [error, setError] = useState<string | null>(null);
 
   const loadTenants = useCallback(async (accessToken: string) => {
+    setIsLoading(true);
     try {
       setError(null);
       const available = await apiFetch<Tenant[]>("/auth/tenants", { accessToken });
@@ -43,6 +44,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setTenants([]);
       setTenantId(null);
       setError(`Sesión iniciada, pero no se pudieron cargar las empresas: ${message(cause)}`);
+    } finally {
+      setIsLoading(false);
     }
   }, []);
 
@@ -52,13 +55,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (!active) return;
       setSession(initialSession);
       if (initialSession) void loadTenants(initialSession.access_token);
-      setIsLoading(false);
+      else setIsLoading(false);
     });
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, nextSession) => {
       setSession(nextSession);
       if (nextSession) void loadTenants(nextSession.access_token);
       else { setTenants([]); setTenantId(null); setError(null); }
-      setIsLoading(false);
+      if (!nextSession) setIsLoading(false);
     });
     return () => { active = false; subscription.unsubscribe(); };
   }, [loadTenants]);
