@@ -39,7 +39,10 @@ function responseText(payload: ChatResponse) {
 }
 
 function serviceMessage(cause: unknown) {
-  if (cause instanceof ApiError && cause.status === 503) {
+  if (
+    cause instanceof ApiError &&
+    (cause.status === 422 || cause.status === 503 || (cause.status ?? 0) >= 500)
+  ) {
     return "El asistente está temporalmente en mantenimiento. Inténtalo más tarde.";
   }
   if (cause instanceof Error) return cause.message;
