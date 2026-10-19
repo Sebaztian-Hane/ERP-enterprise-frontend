@@ -15,6 +15,7 @@ import { useAuth } from "../auth/AuthProvider";
 import { ApiError, apiFetch } from "../lib/api";
 
 type Customer = { id: string; code: string; name: string };
+type CustomerLookup = { existing_customer_id: string | null; tax_id: string; name: string; address: string; document_type: "DNI" | "RUC" };
 type Product = { id: string; sku: string; name: string; sale_price: string };
 type Warehouse = { id: string; code: string; name: string; is_active: boolean };
 type Sale = {
@@ -54,6 +55,13 @@ export function SalesPage({ goBack }: { goBack: () => void }) {
   const [isOpen, setIsOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [customerId, setCustomerId] = useState("");
+  const [customerMode, setCustomerMode] = useState<"existing" | "lookup">("existing");
+  const [customerTaxId, setCustomerTaxId] = useState("");
+  const [customerName, setCustomerName] = useState("");
+  const [customerEmail, setCustomerEmail] = useState("");
+  const [customerPhone, setCustomerPhone] = useState("");
+  const [customerLookupBusy, setCustomerLookupBusy] = useState(false);
+  const [customerLookupHint, setCustomerLookupHint] = useState<string | null>(null);
   const [warehouseId, setWarehouseId] = useState("");
   const [number, setNumber] = useState("");
   const [note, setNote] = useState("");
@@ -102,6 +110,8 @@ export function SalesPage({ goBack }: { goBack: () => void }) {
   const openNew = () => {
     setError(null);
     setCustomerId(customers[0]?.id ?? "");
+    setCustomerMode(customers.length ? "existing" : "lookup");
+    setCustomerTaxId(""); setCustomerName(""); setCustomerEmail(""); setCustomerPhone(""); setCustomerLookupHint(null);
     setWarehouseId(warehouses[0]?.id ?? "");
     setNumber(
       `V-${new Date().toISOString().slice(0, 10).replaceAll("-", "")}-${String(sales.length + 1).padStart(3, "0")}`,
@@ -130,8 +140,8 @@ export function SalesPage({ goBack }: { goBack: () => void }) {
     );
   const save = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!customerId || !warehouseId || lines.length === 0) {
-      setError("Selecciona un cliente, un almacén y al menos un producto.");
+    if ((!customerId && customerMode === "existing") || (!customerTaxId || !customerName) && customerMode === "lookup" || !warehouseId || lines.length === 0) {
+      setError("Completa el cliente, almacén y al menos un producto.");
       return;
     }
     setSaving(true);
@@ -142,7 +152,7 @@ export function SalesPage({ goBack }: { goBack: () => void }) {
         method: "POST",
         body: JSON.stringify({
           number,
-          customer_id: customerId,
+          ...(customerMode === "existing" ? { customer_id: customerId } : { customer: { tax_id: customerTaxId, name: customerName, email: customerEmail || null, phone: customerPhone || null } }),
           warehouse_id: warehouseId,
           lines,
           note: note || null,
@@ -159,6 +169,18 @@ export function SalesPage({ goBack }: { goBack: () => void }) {
     } finally {
       setSaving(false);
     }
+  };
+  const lookupCustomer = async () => {
+    const taxId = customerTaxId.trim();
+    if (![8, 11].includes(taxId.length) || !/^\d+$/.test(taxId)) { setCustomerLookupHint("Ingresa un DNI de 8 dígitos o RUC de 11 dígitos."); return; }
+    setCustomerLookupBusy(true); setCustomerLookupHint(null); setError(null);
+    try {
+      const result = await apiFetch<CustomerLookup>(`/sales/customer-lookup/${taxId}`, options);
+      setCustomerName(result.name);
+      if (result.existing_customer_id) { setCustomerId(result.existing_customer_id); setCustomerMode("existing"); setCustomerLookupHint("Cliente existente encontrado: se reutilizará en esta venta."); }
+      else setCustomerLookupHint(`${result.document_type} consultado. Verifica los datos antes de registrar la venta.`);
+    } catch (cause) { setCustomerLookupHint(cause instanceof Error ? cause.message : "No se pudo consultar el documento."); }
+    finally { setCustomerLookupBusy(false); }
   };
   const nameFor = (id: string) =>
     customers.find((customer) => customer.id === id)?.name ?? "Cliente";
@@ -370,21 +392,10 @@ export function SalesPage({ goBack }: { goBack: () => void }) {
                   </select>
                 </label>
               </div>
-              <label>
-                Cliente
-                <select
-                  required
-                  value={customerId}
-                  onChange={(event) => setCustomerId(event.target.value)}
-                >
-                  <option value="">Selecciona un cliente</option>
-                  {customers.map((customer) => (
-                    <option key={customer.id} value={customer.id}>
-                      {customer.name} · {customer.code}
-                    </option>
-                  ))}
-                </select>
-              </label>
+              <section className="sale-customer-card">
+                <div className="sale-customer-heading"><div><span>Cliente</span><small>Usa un cliente registrado o consulta DNI/RUC.</small></div><div className="segmented-control"><button type="button" className={customerMode === "existing" ? "is-active" : ""} onClick={() => setCustomerMode("existing")}>Existente</button><button type="button" className={customerMode === "lookup" ? "is-active" : ""} onClick={() => setCustomerMode("lookup")}>Nuevo DNI/RUC</button></div></div>
+                {customerMode === "existing" ? <label>Cliente registrado<select required value={customerId} onChange={(event) => setCustomerId(event.target.value)}><option value="">Selecciona un cliente</option>{customers.map((customer) => <option key={customer.id} value={customer.id}>{customer.name} · {customer.code}</option>)}</select></label> : <div className="customer-lookup-fields"><label>Documento DNI o RUC<input inputMode="numeric" maxLength={11} value={customerTaxId} onChange={(event) => setCustomerTaxId(event.target.value.replace(/\D/g, ""))} placeholder="Ingresa DNI o RUC" /></label><button type="button" className="secondary-button" onClick={() => void lookupCustomer()} disabled={customerLookupBusy}>{customerLookupBusy ? "Consultando…" : "Consultar"}</button><label className="wide">Nombre o razón social<input required value={customerName} onChange={(event) => setCustomerName(event.target.value)} placeholder="Se completa al consultar" /></label><label>Correo (opcional)<input type="email" value={customerEmail} onChange={(event) => setCustomerEmail(event.target.value)} /></label><label>Teléfono (opcional)<input value={customerPhone} onChange={(event) => setCustomerPhone(event.target.value)} /></label>{customerLookupHint && <p className="customer-lookup-hint">{customerLookupHint}</p>}</div>}
+              </section>
               <div className="sale-lines-header">
                 <span>Productos</span>
                 <button

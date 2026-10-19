@@ -1844,6 +1844,16 @@ td strong {
   gap: 15px;
   padding: 21px 23px 23px;
 }
+.sale-customer-card { display: grid; gap: 13px; padding: 15px; background: #f4f9fb; border: 1px solid #d8e7ed; border-radius: 9px; }
+.sale-customer-heading { display: flex; justify-content: space-between; gap: 12px; align-items: center; }
+.sale-customer-heading span { display: block; color: #274b5b; font-size: 13px; font-weight: 800; }
+.sale-customer-heading small { color: #6b8490; font-size: 11px; }
+.segmented-control { display: inline-flex; padding: 3px; background: #e4f0f4; border-radius: 7px; }
+.segmented-control button { padding: 6px 8px; color: #55727e; background: transparent; border: 0; border-radius: 5px; font: inherit; font-size: 11px; font-weight: 750; cursor: pointer; }
+.segmented-control button.is-active { color: #155f7e; background: #fff; box-shadow: 0 1px 3px rgba(23, 70, 90, .14); }
+.customer-lookup-fields { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 11px; align-items: end; }
+.customer-lookup-fields .wide, .customer-lookup-hint { grid-column: 1 / -1; }
+.customer-lookup-hint { margin: 0; padding: 9px 10px; color: #28617a; background: #e6f4f8; border-radius: 6px; font-size: 11px; }
 .sale-form label {
   display: grid;
   gap: 6px;
@@ -3379,6 +3389,13 @@ html[data-theme="dark"] .sale-modal .modal-header h2 { color: #eff9fc; }
 html[data-theme="dark"] .sale-modal .modal-header .icon-button { color: #b8d3dd; }
 html[data-theme="dark"] .sale-modal .modal-header .icon-button:hover { color: #eff9fc; background: #244552; }
 html[data-theme="dark"] .billing-choice { background: #152833; }
+html[data-theme="dark"] .sale-customer-card { background: #102933; border-color: #385f70; }
+html[data-theme="dark"] .sale-customer-heading span { color: #e1f0f5; }
+html[data-theme="dark"] .sale-customer-heading small { color: #a8c2cc; }
+html[data-theme="dark"] .segmented-control { background: #0d2028; }
+html[data-theme="dark"] .segmented-control button { color: #aac3cd; }
+html[data-theme="dark"] .segmented-control button.is-active { color: #c7f0fc; background: #245268; box-shadow: none; }
+html[data-theme="dark"] .customer-lookup-hint { color: #bce9f7; background: #173f4e; }
 
 @media (max-width: 760px) {
   .assistant-backdrop { display: block; background: rgba(1, 11, 17, .35); }
