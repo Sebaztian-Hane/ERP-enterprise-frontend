@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "../auth/AuthProvider";
 import { apiFetch } from "../lib/api";
+import { DataMigrationPanel } from "./DataMigrationPanel";
 
 type Warehouse = {
   id: string;
@@ -288,6 +289,7 @@ export function InventoryPage({ goBack }: { goBack: () => void }) {
           </div>
         </article>
       </section>
+      <DataMigrationPanel module="inventory" onImported={load} />
       <article className="panel customers-panel">
         <div className="panel-header">
           <div>

@@ -3511,6 +3511,36 @@ html[data-theme="dark"] .segmented-control button { color: #aac3cd; }
 html[data-theme="dark"] .segmented-control button.is-active { color: #c7f0fc; background: #245268; box-shadow: none; }
 html[data-theme="dark"] .customer-lookup-hint { color: #bce9f7; background: #173f4e; }
 
+/* Controlled spreadsheet migration. Kept self-contained so it renders correctly inside every module card. */
+.data-migration { margin: 0 0 18px; }
+.migration-panel { margin-top: 12px; padding: 20px; }
+.migration-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+.migration-header > svg { flex: 0 0 auto; color: #2580a5; }
+.migration-header h2 { margin: 5px 0 7px; font-size: 18px; }
+.migration-header p:not(.card-label), .migration-help { color: #62808e; font-size: 13px; line-height: 1.5; }
+.migration-actions { display: flex; flex-wrap: wrap; align-items: stretch; gap: 10px; margin: 18px 0 10px; }
+.file-picker { display: flex; min-width: min(100%, 280px); flex: 1 1 280px; align-items: center; gap: 9px; overflow: hidden; border: 1px dashed #8eb5c5; border-radius: 7px; padding: 0 12px; color: #356477; background: #f8fbfc; font-size: 13px; cursor: pointer; }
+.file-picker span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.file-picker input { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+.migration-preview { display: grid; gap: 11px; margin-top: 14px; border: 1px solid #b8d4c7; border-radius: 8px; padding: 14px; background: #f4fbf7; }
+.migration-preview.invalid { border-color: #e4b8ae; background: #fff6f4; }
+.migration-preview > div { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
+.migration-preview strong { display: inline-flex; align-items: center; gap: 7px; color: #246247; font-size: 13px; }
+.migration-preview.invalid strong { color: #a54037; }
+.migration-preview span { color: #53747f; font-size: 12px; }
+.migration-preview ul { display: grid; gap: 4px; margin: 0; padding-left: 20px; color: #9c443d; font-size: 12px; }
+.migration-preview .primary-button { justify-self: start; }
+html[data-theme="dark"] .migration-panel { background: #17303c; border-color: #3c6575; }
+html[data-theme="dark"] .migration-header > svg { color: #76d4ef; }
+html[data-theme="dark"] .migration-header h2 { color: #e4f1f5; }
+html[data-theme="dark"] .migration-header p:not(.card-label), html[data-theme="dark"] .migration-help { color: #abc4ce; }
+html[data-theme="dark"] .file-picker { border-color: #4c7889; color: #c0d9e1; background: #102630; }
+html[data-theme="dark"] .migration-preview { border-color: #497564; background: #17392f; }
+html[data-theme="dark"] .migration-preview.invalid { border-color: #805859; background: #432d30; }
+html[data-theme="dark"] .migration-preview strong { color: #a8edca; }
+html[data-theme="dark"] .migration-preview.invalid strong, html[data-theme="dark"] .migration-preview ul { color: #ffc3b9; }
+html[data-theme="dark"] .migration-preview span { color: #b7ccd4; }
+
 @media (max-width: 760px) {
   .assistant-backdrop { display: block; background: rgba(1, 11, 17, .35); }
   .assistant-drawer { top: 67px; right: 8px; bottom: 8px; width: calc(100vw - 16px); min-height: 0; border-radius: 13px; }

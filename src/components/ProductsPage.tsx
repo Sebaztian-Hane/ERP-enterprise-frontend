@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "../auth/AuthProvider";
 import { apiFetch } from "../lib/api";
+import { DataMigrationPanel } from "./DataMigrationPanel";
 
 type Category = { id: string; name: string; description: string | null };
 type Product = {
@@ -257,6 +258,7 @@ export function ProductsPage({ goBack }: { goBack: () => void }) {
           </div>
         </article>
       </section>
+      <DataMigrationPanel module="products" onImported={load} />
       <article className="panel customers-panel">
         <div className="customers-toolbar">
           <label className="search customer-search">

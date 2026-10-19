@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "../auth/AuthProvider";
 import { ApiError, apiFetch } from "../lib/api";
+import { DataMigrationPanel } from "./DataMigrationPanel";
 
 type Customer = { id: string; code: string; name: string };
 type CustomerLookup = { existing_customer_id: string | null; tax_id: string; name: string; address: string; document_type: "DNI" | "RUC" };
@@ -277,6 +278,7 @@ export function SalesPage({ goBack }: { goBack: () => void }) {
           </div>
         </article>
       </section>
+      <DataMigrationPanel module="sales" onImported={load} />
       <article className="panel customers-panel">
         <div className="panel-header">
           <div>
