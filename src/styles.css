@@ -3408,7 +3408,7 @@ html[data-theme="dark"] .login-card .field input { color: #eef8fb; background: t
 .cash-bars small { grid-column: 1 / -1; color: #6c8591; font-size: 11px; }
 .cash-bars strong { color: #284d60; font-size: 13px; }
 .cash-bar-track { display: block; height: 12px; overflow: hidden; background: #edf3f5; border-radius: 10px; }
-.cash-bar-track i { display: block; height: 100%; min-width: 4px; border-radius: inherit; }
+.cash-bar-track i { display: block; height: 100%; border-radius: inherit; }
 .cash-bar-track .income { background: #24946d; }
 .cash-bar-track .expense { background: #d2942d; }
 .cash-net { margin: 18px 0 0; padding-top: 13px; border-top: 1px solid #e1ebef; color: #64808d; font-size: 12px; }
@@ -3428,6 +3428,7 @@ html[data-theme="dark"] .cash-bars strong, html[data-theme="dark"] .donut span, 
 html[data-theme="dark"] .cash-bar-track { background: #294451; }
 html[data-theme="dark"] .cash-net { border-color: #3b5c69; }
 html[data-theme="dark"] .donut::before { background: #17303c; }
+html[data-theme="dark"] .donut.is-empty { background: #334f5c !important; }
 
 @media (max-width: 900px) { .report-chart-grid { grid-template-columns: 1fr; }.report-chart-card:first-child { grid-row: auto; } }
 @media (max-width: 560px) { .report-chart-card { padding: 15px; }.line-chart { height: 190px; }.donut-wrap { align-items: flex-start; }.donut { width: 88px; height: 88px; }.donut::before { width: 62px; height: 62px; } }
