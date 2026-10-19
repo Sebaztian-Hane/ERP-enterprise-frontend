@@ -35,7 +35,6 @@ const modulesByRole: Record<RoleCode, readonly string[]> = {
     "#inventario",
     "#kardex",
     "#productos",
-    "#finanzas",
     "#documentos",
     "#reportes",
   ],

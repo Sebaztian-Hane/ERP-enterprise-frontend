@@ -243,6 +243,7 @@ function Sidebar({
   tenants,
   userName,
   view,
+  roleCode,
   onLauncher,
   onTenantChange,
   onLogout,
@@ -254,6 +255,7 @@ function Sidebar({
   tenants: { id: string; name: string }[];
   userName: string;
   view: string;
+  roleCode: string | null;
   onLauncher: () => void;
   onTenantChange: (id: string) => void;
   onLogout: () => void;
@@ -303,7 +305,7 @@ function Sidebar({
         </label>
         <nav aria-label="Navegación principal">
           <p className="nav-caption">ESPACIO DE TRABAJO</p>
-          {navigation.map(({ label, icon: Icon, href, badge }) => (
+          {navigation.filter((item) => canAccessModule(roleCode, item.href)).map(({ label, icon: Icon, href, badge }) => (
             <a
               className={`nav-item ${view === href ? "active" : ""}`}
               key={label}
@@ -314,18 +316,13 @@ function Sidebar({
               {badge && <b>{badge}</b>}
             </a>
           ))}
-          <p className="nav-caption lower">CONFIGURACIÓN</p>
-          <a className="nav-item" href="#administracion">
-            <BriefcaseBusiness size={18} />
-            <span>Administración</span>
-          </a>
-          <a
-            className={`nav-item ${view === "#administracion" ? "active" : ""}`}
-            href="#administracion"
-          >
-            <Settings size={18} />
-            <span>Configuración</span>
-          </a>
+          {canAccessModule(roleCode, "#administracion") && <>
+            <p className="nav-caption lower">CONFIGURACIÓN</p>
+            <a className={`nav-item ${view === "#administracion" ? "active" : ""}`} href="#administracion">
+              <Settings size={18} />
+              <span>Administración</span>
+            </a>
+          </>}
         </nav>
         <div className="sidebar-footer">
           <a
