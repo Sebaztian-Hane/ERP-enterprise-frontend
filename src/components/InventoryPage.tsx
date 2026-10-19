@@ -29,6 +29,14 @@ type Stock = {
   warehouse_id: string;
   quantity: string;
 };
+type Availability = {
+  product_id: string;
+  warehouse_id: string;
+  on_hand: string;
+  reserved_quantity: string;
+  available_quantity: string;
+};
+type Valuation = { product_id: string; quantity: string; inventory_value: string };
 type Mode = "warehouse" | "warehouse-edit" | "adjustment" | "transfer" | null;
 
 export function InventoryPage({ goBack }: { goBack: () => void }) {
@@ -36,6 +44,8 @@ export function InventoryPage({ goBack }: { goBack: () => void }) {
   const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [stock, setStock] = useState<Stock[]>([]);
+  const [availability, setAvailability] = useState<Availability[]>([]);
+  const [valuation, setValuation] = useState<Valuation[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [mode, setMode] = useState<Mode>(null);
@@ -63,14 +73,18 @@ export function InventoryPage({ goBack }: { goBack: () => void }) {
     setLoading(true);
     setError(null);
     try {
-      const [stores, catalog, quantities] = await Promise.all([
+      const [stores, catalog, quantities, available, valued] = await Promise.all([
         apiFetch<Warehouse[]>("/inventory/warehouses", options),
         apiFetch<Product[]>("/products", options),
         apiFetch<Stock[]>("/inventory/stock", options),
+        apiFetch<Availability[]>("/operations/inventory/availability", options),
+        apiFetch<Valuation[]>("/operations/inventory/valuation", options),
       ]);
       setWarehouses(stores);
       setProducts(catalog);
       setStock(quantities);
+      setAvailability(available);
+      setValuation(valued);
     } catch (cause) {
       setError(
         cause instanceof Error
@@ -94,6 +108,18 @@ export function InventoryPage({ goBack }: { goBack: () => void }) {
     () => stock.reduce((sum, item) => sum + Number(item.quantity), 0),
     [stock],
   );
+  const totalReserved = useMemo(
+    () => availability.reduce((sum, item) => sum + Number(item.reserved_quantity), 0),
+    [availability],
+  );
+  const totalValue = useMemo(
+    () => valuation.reduce((sum, item) => sum + Number(item.inventory_value), 0),
+    [valuation],
+  );
+  const availabilityFor = (item: Stock) =>
+    availability.find(
+      (value) => value.product_id === item.product_id && value.warehouse_id === item.warehouse_id,
+    );
   const open = (next: Mode) => {
     setError(null);
     setEditingWarehouseId(null);
@@ -239,6 +265,24 @@ export function InventoryPage({ goBack }: { goBack: () => void }) {
             <PackageSearch size={19} />
           </span>
           <div>
+            <small>UNIDADES RESERVADAS</small>
+            <strong>{totalReserved.toLocaleString("es-MX")}</strong>
+          </div>
+        </article>
+        <article>
+          <span className="summary-icon">
+            <SlidersHorizontal size={19} />
+          </span>
+          <div>
+            <small>VALOR DEL INVENTARIO</small>
+            <strong>S/ {totalValue.toLocaleString("es-PE", { minimumFractionDigits: 2 })}</strong>
+          </div>
+        </article>
+        <article>
+          <span className="summary-icon green">
+            <PackageSearch size={19} />
+          </span>
+          <div>
             <small>UNIDADES EN EXISTENCIA</small>
             <strong>{totalUnits.toLocaleString("es-MX")}</strong>
           </div>
@@ -284,6 +328,8 @@ export function InventoryPage({ goBack }: { goBack: () => void }) {
                   <th>SKU</th>
                   <th>ALMACÉN</th>
                   <th>EXISTENCIA</th>
+                  <th>RESERVADO</th>
+                  <th>DISPONIBLE</th>
                   <th>UNIDAD</th>
                 </tr>
               </thead>
@@ -303,6 +349,10 @@ export function InventoryPage({ goBack }: { goBack: () => void }) {
                       >
                         {Number(item.quantity).toLocaleString("es-MX")}
                       </strong>
+                    </td>
+                    <td>{Number(availabilityFor(item)?.reserved_quantity ?? 0).toLocaleString("es-MX")}</td>
+                    <td>
+                      <strong>{Number(availabilityFor(item)?.available_quantity ?? item.quantity).toLocaleString("es-MX")}</strong>
                     </td>
                     <td>
                       {products.find(
