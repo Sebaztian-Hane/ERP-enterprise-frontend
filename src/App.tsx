@@ -115,6 +115,11 @@ const InventoryPage = lazyWithRetry(() =>
     default: module.InventoryPage,
   })),
 );
+const WarehousesPage = lazyWithRetry(() =>
+  import("./components/WarehousesPage").then((module) => ({
+    default: module.WarehousesPage,
+  })),
+);
 const InventoryHistoryPage = lazyWithRetry(() =>
   import("./components/InventoryHistoryPage").then((module) => ({
     default: module.InventoryHistoryPage,
@@ -213,6 +218,7 @@ const navigation: NavItem[] = [
   { label: "Proveedores", icon: Factory, href: "#proveedores", category: "abastecimiento" },
   { label: "Órdenes de compra", icon: FileText, href: "#ordenes-de-compra", category: "abastecimiento" },
   { label: "Inventario", icon: Box, href: "#inventario", category: "abastecimiento" },
+  { label: "Almacenes", icon: Factory, href: "#almacenes", category: "abastecimiento" },
   { label: "Kardex", icon: ClipboardList, href: "#kardex", category: "abastecimiento" },
   { label: "Productos", icon: PackageSearch, href: "#productos", category: "abastecimiento" },
   { label: "Finanzas", icon: WalletCards, href: "#finanzas", category: "finanzas" },
@@ -229,7 +235,8 @@ const appModules: AppModule[] = [
   { label: "Compras", icon: ClipboardList, href: "#compras", category: "abastecimiento", description: "Registro de adquisiciones", tone: "orange" },
   { label: "Proveedores", icon: Factory, href: "#proveedores", category: "abastecimiento", description: "RUC, contactos y abastecimiento", tone: "teal" },
   { label: "Órdenes de compra", icon: FileText, href: "#ordenes-de-compra", category: "abastecimiento", description: "Solicitudes y aprobaciones", tone: "amber" },
-  { label: "Inventario", icon: Box, href: "#inventario", category: "abastecimiento", description: "Existencias y almacenes", tone: "teal" },
+  { label: "Inventario", icon: Box, href: "#inventario", category: "abastecimiento", description: "Existencias, trazabilidad y transferencias", tone: "teal" },
+  { label: "Almacenes", icon: Factory, href: "#almacenes", category: "abastecimiento", description: "Ubicaciones y capacidad logística", tone: "cyan" },
   { label: "Kardex", icon: ArrowLeftRight, href: "#kardex", category: "abastecimiento", description: "Trazabilidad de movimientos", tone: "cyan" },
   { label: "Productos", icon: PackageSearch, href: "#productos", category: "abastecimiento", description: "Catálogo y precios", tone: "lime" },
   { label: "Finanzas", icon: WalletCards, href: "#finanzas", category: "finanzas", description: "Cobros, pagos y caja", tone: "emerald" },
@@ -838,6 +845,12 @@ export default function App() {
                     <InventoryPage
                       goBack={() => {
                         window.location.hash = "dashboard";
+                      }}
+                    />
+                  ) : view === "#almacenes" ? (
+                    <WarehousesPage
+                      goBack={() => {
+                        window.location.hash = "inventario";
                       }}
                     />
                   ) : view === "#kardex" ? (

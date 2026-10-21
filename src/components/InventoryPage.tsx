@@ -375,9 +375,7 @@ export function InventoryPage({ goBack }: { goBack: () => void }) {
             <p className="card-label">EXISTENCIAS</p>
             <h2>Stock por almacén</h2>
           </div>
-          <button className="text-button" onClick={() => open("warehouse")}>
-            + Agregar almacén
-          </button>
+          <a className="text-button" href="#almacenes">Gestionar almacenes</a>
         </div>
         {error && !mode && (
           <div className="module-error">
@@ -396,9 +394,7 @@ export function InventoryPage({ goBack }: { goBack: () => void }) {
             <span>
               Crea un almacén y registra un ajuste positivo para iniciar.
             </span>
-            <button className="text-button" onClick={() => open("warehouse")}>
-              Crear almacén
-            </button>
+            <a className="text-button" href="#almacenes">Crear almacén</a>
           </div>
         ) : (
           <div className="table-wrap">
@@ -497,59 +493,6 @@ export function InventoryPage({ goBack }: { goBack: () => void }) {
                 <td>{transfer.status === "draft" ? <button className="text-button" disabled={saving} onClick={() => void progressTransfer(transfer, "dispatch")}>Despachar</button> : transfer.status === "in_transit" ? <button className="text-button" disabled={saving} onClick={() => void progressTransfer(transfer, "receive")}>Confirmar recepción</button> : "—"}</td>
               </tr>)}</tbody>
             </table>
-          </div>
-        )}
-      </article>
-      <article className="panel warehouse-list">
-        <div className="panel-header">
-          <div>
-            <p className="card-label">UBICACIONES</p>
-            <h2>Almacenes</h2>
-          </div>
-          <button className="icon-button muted" aria-label="Almacenes">
-            <MapPin size={19} />
-          </button>
-        </div>
-        {warehouses.length === 0 ? (
-          <p className="warehouse-empty">No hay almacenes registrados.</p>
-        ) : (
-          <div className="warehouse-cards">
-            {warehouses.map((item) => (
-              <div key={item.id}>
-                <span className="warehouse-symbol">
-                  <WarehouseIcon size={17} />
-                </span>
-                <span>
-                  <strong>{item.name}</strong>
-                  <small>
-                    {item.code}
-                    {item.address ? ` · ${item.address}` : ""}
-                  </small>
-                </span>
-                <span
-                  className={`status-pill ${item.is_active ? "active" : "inactive"}`}
-                >
-                  {item.is_active ? "Activo" : "Inactivo"}
-                </span>
-                <span className="row-actions">
-                  <button
-                    className="icon-button muted"
-                    onClick={() => editWarehouse(item)}
-                    aria-label="Editar almacén"
-                  >
-                    <Pencil size={15} />
-                  </button>
-                  <button
-                    className="icon-button muted"
-                    onClick={() => void toggleWarehouse(item)}
-                    disabled={saving}
-                    aria-label="Cambiar estado del almacén"
-                  >
-                    <Power size={15} />
-                  </button>
-                </span>
-              </div>
-            ))}
           </div>
         )}
       </article>
