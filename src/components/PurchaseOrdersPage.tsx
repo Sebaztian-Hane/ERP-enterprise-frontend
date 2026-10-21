@@ -140,19 +140,19 @@ export function PurchaseOrdersPage({ goBack }: { goBack: () => void }) {
       setSaving(null);
     }
   };
-  const approve = async (order: Order) => {
+  const submitForApproval = async (order: Order) => {
     setSaving(order.id);
     setError(null);
     try {
       await apiFetch(`/purchase-orders/${order.id}/status`, {
         ...options,
         method: "POST",
-        body: JSON.stringify({ status: "approved" }),
+        body: JSON.stringify({ status: "submitted" }),
       });
       await load();
     } catch (cause) {
       setError(
-        cause instanceof Error ? cause.message : "No se pudo aprobar la orden.",
+        cause instanceof Error ? cause.message : "No se pudo enviar la orden a aprobación.",
       );
     } finally {
       setSaving(null);
@@ -217,6 +217,15 @@ export function PurchaseOrdersPage({ goBack }: { goBack: () => void }) {
             </strong>
           </div>
         </article>
+        <article>
+          <span className="summary-icon">
+            <Send size={19} />
+          </span>
+          <div>
+            <small>EN APROBACIÓN</small>
+            <strong>{orders.filter((order) => order.status === "submitted").length}</strong>
+          </div>
+        </article>
       </section>
       {error && !open && (
         <div className="module-error">
@@ -265,12 +274,14 @@ export function PurchaseOrdersPage({ goBack }: { goBack: () => void }) {
                     <td>{supplierName(order.supplier_id)}</td>
                     <td>
                       <span
-                        className={`status-pill ${order.status === "approved" ? "active" : "inactive"}`}
+                        className={`status-pill ${order.status === "approved" ? "active" : order.status === "submitted" ? "pending" : "inactive"}`}
                       >
                         {order.status === "draft"
                           ? "Borrador"
                           : order.status === "approved"
                             ? "Aprobada"
+                            : order.status === "submitted"
+                              ? "En aprobación"
                             : "Cancelada"}
                       </span>
                     </td>
@@ -282,10 +293,12 @@ export function PurchaseOrdersPage({ goBack }: { goBack: () => void }) {
                         <button
                           className="text-button"
                           disabled={saving === order.id}
-                          onClick={() => void approve(order)}
+                          onClick={() => void submitForApproval(order)}
                         >
-                          <Send size={14} /> Aprobar
+                          <Send size={14} /> Enviar a aprobación
                         </button>
+                      ) : order.status === "submitted" ? (
+                        <span className="status-pill pending">En aprobación</span>
                       ) : order.status === "approved" ? (
                         <button
                           className="text-button workflow-action"
