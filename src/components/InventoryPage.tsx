@@ -9,6 +9,7 @@ import {
   Plus,
   Power,
   SlidersHorizontal,
+  Tag,
   Warehouse as WarehouseIcon,
   X,
 } from "lucide-react";
@@ -23,7 +24,7 @@ type Warehouse = {
   address: string | null;
   is_active: boolean;
 };
-type Product = { id: string; sku: string; name: string; unit: string };
+type Product = { id: string; sku: string; name: string; unit: string; tracking_mode: "none" | "lot" | "serial" };
 type Stock = {
   id: string;
   product_id: string;
@@ -48,7 +49,9 @@ type Transfer = {
   status: "draft" | "in_transit" | "completed" | "cancelled";
   note: string | null;
 };
-type Mode = "warehouse" | "warehouse-edit" | "adjustment" | "transfer" | null;
+type InventoryLot = { id: string; product_id: string; warehouse_id: string; lot_number: string; available_quantity: string; original_quantity: string; unit_cost: string; expiration_date: string | null; status: string };
+type InventorySerial = { id: string; product_id: string; warehouse_id: string; serial_number: string; unit_cost: string; status: string };
+type Mode = "warehouse" | "warehouse-edit" | "adjustment" | "transfer" | "lot" | "serial" | null;
 
 export function InventoryPage({ goBack }: { goBack: () => void }) {
   const { session, tenantId } = useAuth();
@@ -58,6 +61,8 @@ export function InventoryPage({ goBack }: { goBack: () => void }) {
   const [availability, setAvailability] = useState<Availability[]>([]);
   const [valuation, setValuation] = useState<Valuation[]>([]);
   const [transfers, setTransfers] = useState<Transfer[]>([]);
+  const [lots, setLots] = useState<InventoryLot[]>([]);
+  const [serials, setSerials] = useState<InventorySerial[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [mode, setMode] = useState<Mode>(null);
@@ -71,6 +76,10 @@ export function InventoryPage({ goBack }: { goBack: () => void }) {
   const [quantity, setQuantity] = useState("0");
   const [reference, setReference] = useState("");
   const [note, setNote] = useState("");
+  const [unitCost, setUnitCost] = useState("0");
+  const [lotNumber, setLotNumber] = useState("");
+  const [expirationDate, setExpirationDate] = useState("");
+  const [serialText, setSerialText] = useState("");
   const [warehouseForm, setWarehouseForm] = useState({
     code: "",
     name: "",
@@ -85,13 +94,15 @@ export function InventoryPage({ goBack }: { goBack: () => void }) {
     setLoading(true);
     setError(null);
     try {
-      const [stores, catalog, quantities, available, valued, transferRows] = await Promise.all([
+      const [stores, catalog, quantities, available, valued, transferRows, lotRows, serialRows] = await Promise.all([
         apiFetch<Warehouse[]>("/inventory/warehouses", options),
         apiFetch<Product[]>("/products", options),
         apiFetch<Stock[]>("/inventory/stock", options),
         apiFetch<Availability[]>("/operations/inventory/availability", options),
         apiFetch<Valuation[]>("/operations/inventory/valuation", options),
         apiFetch<Transfer[]>("/inventory/transfers", options),
+        apiFetch<InventoryLot[]>("/inventory/lots", options),
+        apiFetch<InventorySerial[]>("/inventory/serials", options),
       ]);
       setWarehouses(stores);
       setProducts(catalog);
@@ -99,6 +110,8 @@ export function InventoryPage({ goBack }: { goBack: () => void }) {
       setAvailability(available);
       setValuation(valued);
       setTransfers(transferRows);
+      setLots(lotRows);
+      setSerials(serialRows);
     } catch (cause) {
       setError(
         cause instanceof Error
@@ -143,6 +156,10 @@ export function InventoryPage({ goBack }: { goBack: () => void }) {
     setQuantity(next === "adjustment" ? "0" : "1");
     setReference("");
     setNote("");
+    setUnitCost("0");
+    setLotNumber("");
+    setExpirationDate("");
+    setSerialText("");
     if (next === "warehouse")
       setWarehouseForm({ code: "", name: "", address: "" });
     setMode(next);
@@ -228,6 +245,34 @@ export function InventoryPage({ goBack }: { goBack: () => void }) {
             note: note || null,
           }),
         });
+      if (mode === "lot")
+        await apiFetch("/inventory/lots/receive", {
+          ...options,
+          method: "POST",
+          body: JSON.stringify({
+            product_id: productId,
+            warehouse_id: warehouseId,
+            lot_number: lotNumber,
+            quantity: Number(quantity),
+            unit_cost: Number(unitCost),
+            expiration_date: expirationDate || null,
+            note: note || null,
+          }),
+        });
+      if (mode === "serial") {
+        const serialNumbers = serialText.split(/[\n,]+/).map((item) => item.trim()).filter(Boolean);
+        await apiFetch("/inventory/serials/receive", {
+          ...options,
+          method: "POST",
+          body: JSON.stringify({
+            product_id: productId,
+            warehouse_id: warehouseId,
+            serial_numbers: serialNumbers,
+            unit_cost: Number(unitCost),
+            note: note || null,
+          }),
+        });
+      }
       setMode(null);
       await load();
     } catch (cause) {
@@ -269,6 +314,12 @@ export function InventoryPage({ goBack }: { goBack: () => void }) {
           </p>
         </div>
         <div className="heading-actions">
+          <button className="secondary-button" onClick={() => open("lot")}>
+            <Tag size={16} /> Recepcionar lote
+          </button>
+          <button className="secondary-button" onClick={() => open("serial")}>
+            <Tag size={16} /> Registrar series
+          </button>
           <button className="secondary-button" onClick={() => open("transfer")}>
             <ArrowLeftRight size={16} /> Transferir
           </button>
@@ -399,6 +450,28 @@ export function InventoryPage({ goBack }: { goBack: () => void }) {
       <article className="panel customers-panel">
         <div className="panel-header">
           <div>
+            <p className="card-label">TRAZABILIDAD</p>
+            <h2>Lotes y series controlados</h2>
+          </div>
+          <span className="table-count">{lots.filter((item) => item.status === "available").length} lotes · {serials.filter((item) => item.status === "available").length} series disponibles</span>
+        </div>
+        {lots.length === 0 && serials.length === 0 ? (
+          <div className="module-state compact"><Tag size={26} /><strong>No hay trazabilidad registrada</strong><span>Configura un producto por lote o serie y registra su recepción para mantener su historial.</span></div>
+        ) : (
+          <div className="table-wrap">
+            <table className="inventory-table">
+              <thead><tr><th>TIPO</th><th>IDENTIFICADOR</th><th>PRODUCTO</th><th>ALMACÉN</th><th>DISPONIBLE</th><th>COSTO</th><th>ESTADO</th></tr></thead>
+              <tbody>
+                {lots.map((item) => <tr key={`lot-${item.id}`}><td>Lote</td><td><strong>{item.lot_number}</strong>{item.expiration_date && <small>Vence {item.expiration_date}</small>}</td><td>{productName(item.product_id)}</td><td>{warehouseName(item.warehouse_id)}</td><td>{Number(item.available_quantity).toLocaleString("es-MX")}</td><td>S/ {Number(item.unit_cost).toLocaleString("es-PE", { minimumFractionDigits: 2 })}</td><td><span className={`status-pill ${item.status === "available" ? "active" : "inactive"}`}>{item.status === "available" ? "Disponible" : item.status}</span></td></tr>)}
+                {serials.map((item) => <tr key={`serial-${item.id}`}><td>Serie</td><td><strong>{item.serial_number}</strong></td><td>{productName(item.product_id)}</td><td>{warehouseName(item.warehouse_id)}</td><td>1</td><td>S/ {Number(item.unit_cost).toLocaleString("es-PE", { minimumFractionDigits: 2 })}</td><td><span className={`status-pill ${item.status === "available" ? "active" : "inactive"}`}>{item.status === "available" ? "Disponible" : item.status}</span></td></tr>)}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </article>
+      <article className="panel customers-panel">
+        <div className="panel-header">
+          <div>
             <p className="card-label">LOGÍSTICA INTERNA</p>
             <h2>Transferencias entre almacenes</h2>
           </div>
@@ -497,7 +570,11 @@ export function InventoryPage({ goBack }: { goBack: () => void }) {
                       ? "Editar almacén"
                       : mode === "adjustment"
                         ? "Ajustar existencia"
-                        : "Transferir inventario"}
+                        : mode === "transfer"
+                          ? "Transferir inventario"
+                          : mode === "lot"
+                            ? "Recepcionar lote"
+                            : "Registrar series"}
                 </h2>
               </div>
               <button
@@ -552,6 +629,29 @@ export function InventoryPage({ goBack }: { goBack: () => void }) {
                       placeholder="Opcional"
                     />
                   </label>
+                </>
+              ) : mode === "lot" || mode === "serial" ? (
+                <>
+                  <label>
+                    Producto configurado para {mode === "lot" ? "lotes" : "series"}
+                    <select required value={productId} onChange={(e) => setProductId(e.target.value)}>
+                      <option value="">Selecciona un producto</option>
+                      {products.filter((item) => item.tracking_mode === mode).map((item) => <option value={item.id} key={item.id}>{item.name} · {item.sku}</option>)}
+                    </select>
+                  </label>
+                  <label>
+                    Almacén
+                    <select required value={warehouseId} onChange={(e) => setWarehouseId(e.target.value)}>
+                      <option value="">Selecciona un almacén</option>
+                      {warehouses.filter((item) => item.is_active).map((item) => <option value={item.id} key={item.id}>{item.name}</option>)}
+                    </select>
+                  </label>
+                  {mode === "lot" ? <>
+                    <div className="form-grid"><label>Número de lote<input required value={lotNumber} onChange={(e) => setLotNumber(e.target.value)} placeholder="LOT-2026-001" /></label><label>Vencimiento<input type="date" value={expirationDate} onChange={(e) => setExpirationDate(e.target.value)} /></label></div>
+                    <label>Cantidad<input required type="number" min="1" step="1" value={quantity} onChange={(e) => setQuantity(e.target.value)} /></label>
+                  </> : <label>Series (una por línea o separadas por coma)<textarea required value={serialText} onChange={(e) => setSerialText(e.target.value)} placeholder={"SER-001\\nSER-002"} rows={5} /></label>}
+                  <label>Costo unitario<input required type="number" min="0" step="0.01" value={unitCost} onChange={(e) => setUnitCost(e.target.value)} /></label>
+                  <label>Nota<input value={note} onChange={(e) => setNote(e.target.value)} placeholder="Opcional" /></label>
                 </>
               ) : (
                 <>
@@ -655,7 +755,7 @@ export function InventoryPage({ goBack }: { goBack: () => void }) {
                   Cancelar
                 </button>
                 <button className="primary-button" disabled={saving}>
-                  {saving ? "Guardando…" : mode === "transfer" ? "Crear transferencia" : "Confirmar"}
+                  {saving ? "Guardando…" : mode === "transfer" ? "Crear transferencia" : mode === "lot" ? "Registrar lote" : mode === "serial" ? "Registrar series" : "Confirmar"}
                 </button>
               </div>
             </form>

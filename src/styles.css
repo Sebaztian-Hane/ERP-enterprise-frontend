@@ -1735,6 +1735,24 @@ td strong {
   border-color: #2d83a8;
   box-shadow: 0 0 0 3px rgba(55, 147, 185, 0.12);
 }
+.customer-form textarea {
+  width: 100%;
+  min-height: 92px;
+  padding: 10px;
+  resize: vertical;
+  color: #263f4f;
+  background: #fff;
+  border: 1px solid #dce5eb;
+  border-radius: 5px;
+  outline: none;
+  font: inherit;
+  font-size: 12px;
+  line-height: 1.45;
+}
+.customer-form textarea:focus {
+  border-color: #2d83a8;
+  box-shadow: 0 0 0 3px rgba(55, 147, 185, 0.12);
+}
 .ruc-input-group {
   display: flex;
   gap: 8px;
