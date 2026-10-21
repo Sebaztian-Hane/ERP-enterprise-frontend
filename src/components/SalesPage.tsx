@@ -19,7 +19,7 @@ import { DataMigrationPanel } from "./DataMigrationPanel";
 
 type Customer = { id: string; code: string; name: string };
 type CustomerLookup = { existing_customer_id: string | null; tax_id: string; name: string; address: string; document_type: "DNI" | "RUC" };
-type Product = { id: string; sku: string; name: string; sale_price: string };
+type Product = { id: string; sku: string; name: string; sale_price: string; tracking_mode: "none" | "lot" | "serial" };
 type Warehouse = { id: string; code: string; name: string; is_active: boolean };
 type Sale = {
   id: string;
@@ -30,7 +30,7 @@ type Sale = {
   total: string;
   note: string | null;
 };
-type Line = { product_id: string; quantity: number; unit_price: number };
+type Line = { product_id: string; quantity: number; unit_price: number; serial_text?: string };
 type ElectronicDocument = {
   id: string;
   document_type: "01" | "03";
@@ -176,7 +176,7 @@ export function SalesPage({ goBack }: { goBack: () => void }) {
           number,
           ...(customerMode === "existing" ? { customer_id: customerId } : { customer: { tax_id: customerTaxId, name: customerName, email: customerEmail || null, phone: customerPhone || null } }),
           warehouse_id: warehouseId,
-          lines,
+          lines: lines.map(({ serial_text, ...line }) => ({ ...line, serial_numbers: serial_text ? serial_text.split(/[\n,]+/).map((item) => item.trim()).filter(Boolean) : null })),
           note: note || null,
         }),
       });
@@ -443,8 +443,8 @@ export function SalesPage({ goBack }: { goBack: () => void }) {
                   </p>
                 ) : (
                   lines.map((line, index) => (
-                    <div className="sale-line" key={line.product_id}>
-                      <EntityPicker label="Producto" placeholder="Busca por nombre o SKU" value={line.product_id} onChange={(productId) => { const item = products.find((product) => product.id === productId); updateLine(index, { product_id: productId, unit_price: Number(item?.sale_price ?? 0) }); }} options={products.filter((product) => product.id === line.product_id || !lines.some((other) => other.product_id === product.id)).map((product) => ({ id: product.id, primary: product.name, secondary: product.sku }))} />
+                    <div className="sale-line-wrap" key={line.product_id}><div className="sale-line">
+                      <EntityPicker label="Producto" placeholder="Busca por nombre o SKU" value={line.product_id} onChange={(productId) => { const item = products.find((product) => product.id === productId); updateLine(index, { product_id: productId, unit_price: Number(item?.sale_price ?? 0), serial_text: "" }); }} options={products.filter((product) => product.id === line.product_id || !lines.some((other) => other.product_id === product.id)).map((product) => ({ id: product.id, primary: product.name, secondary: product.sku }))} />
                       <label>
                         Cant.
                         <input
@@ -488,7 +488,7 @@ export function SalesPage({ goBack }: { goBack: () => void }) {
                       >
                         <Trash2 size={17} />
                       </button>
-                    </div>
+                    </div>{products.find((item) => item.id === line.product_id)?.tracking_mode === "serial" && <div className="tracking-line-fields"><input required placeholder="Series vendidas, una por línea o coma" value={line.serial_text ?? ""} onChange={(event) => updateLine(index, { serial_text: event.target.value })} /></div>}{products.find((item) => item.id === line.product_id)?.tracking_mode === "lot" && <small className="tracking-line-help">Los lotes se asignarán automáticamente por vencimiento próximo (FEFO).</small>}</div>
                   ))
                 )}
               </div>

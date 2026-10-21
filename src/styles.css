@@ -1753,6 +1753,11 @@ td strong {
   border-color: #2d83a8;
   box-shadow: 0 0 0 3px rgba(55, 147, 185, 0.12);
 }
+.sale-line-wrap { display: grid; gap: 8px; }
+.tracking-line-fields { display: flex; gap: 8px; padding: 0 42px 0 0; }
+.tracking-line-fields input { min-width: 0; flex: 1; }
+.tracking-line-help { display: block; margin-top: -2px; color: #668092; font-size: 11px; }
+html[data-theme="dark"] .tracking-line-help { color: #9db4c0; }
 .ruc-input-group {
   display: flex;
   gap: 8px;

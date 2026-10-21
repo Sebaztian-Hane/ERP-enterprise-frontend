@@ -13,7 +13,7 @@ import { fetchPage, PageMeta, TablePagination } from "../lib/pagination";
 import { DataMigrationPanel } from "./DataMigrationPanel";
 
 type Supplier = { id: string; name: string; is_active: boolean };
-type Product = { id: string; name: string; sale_price: string };
+type Product = { id: string; name: string; sale_price: string; tracking_mode: "none" | "lot" | "serial" };
 type Warehouse = { id: string; name: string };
 type Purchase = {
   id: string;
@@ -26,7 +26,7 @@ type Purchase = {
   supplier_document_series: string | null;
   supplier_document_number: string | null;
 };
-type Line = { product_id: string; quantity: number; unit_cost: number };
+type Line = { product_id: string; quantity: number; unit_cost: number; lot_number?: string; expiration_date?: string; serial_text?: string };
 const money = new Intl.NumberFormat("es-PE", {
   style: "currency",
   currency: "PEN",
@@ -147,7 +147,7 @@ export function PurchasesPage({ goBack }: { goBack: () => void }) {
           number,
           supplier_id: supplierId,
           warehouse_id: warehouseId,
-          lines,
+          lines: lines.map(({ serial_text, ...line }) => ({ ...line, lot_number: line.lot_number || null, expiration_date: line.expiration_date || null, serial_numbers: serial_text ? serial_text.split(/[\n,]+/).map((item) => item.trim()).filter(Boolean) : null })),
           note: note || null,
           supplier_document_type: document.number ? document.type : null,
           supplier_document_series: document.series || null,
@@ -376,7 +376,7 @@ export function PurchasesPage({ goBack }: { goBack: () => void }) {
               <div className="sale-lines">
                 {lines.length ? (
                   lines.map((line, index) => (
-                    <div className="sale-line" key={line.product_id}>
+                    <div className="sale-line-wrap" key={line.product_id}><div className="sale-line">
                       <select
                         value={line.product_id}
                         onChange={(event) => {
@@ -386,6 +386,7 @@ export function PurchasesPage({ goBack }: { goBack: () => void }) {
                           updateLine(index, {
                             product_id: event.target.value,
                             unit_cost: Number(product?.sale_price ?? 0),
+                            lot_number: "", expiration_date: "", serial_text: "",
                           });
                         }}
                       >
@@ -447,7 +448,7 @@ export function PurchasesPage({ goBack }: { goBack: () => void }) {
                       >
                         <X size={17} />
                       </button>
-                    </div>
+                    </div>{(() => { const tracking = products.find((item) => item.id === line.product_id)?.tracking_mode ?? "none"; return tracking === "lot" ? <div className="tracking-line-fields"><input required placeholder="Número de lote" value={line.lot_number ?? ""} onChange={(event) => updateLine(index, { lot_number: event.target.value })} /><input type="date" value={line.expiration_date ?? ""} onChange={(event) => updateLine(index, { expiration_date: event.target.value })} /></div> : tracking === "serial" ? <div className="tracking-line-fields"><input required placeholder="Series, una por línea o coma" value={line.serial_text ?? ""} onChange={(event) => updateLine(index, { serial_text: event.target.value })} /></div> : null; })()}</div>
                   ))
                 ) : (
                   <p className="line-empty">Agrega un producto a la compra.</p>

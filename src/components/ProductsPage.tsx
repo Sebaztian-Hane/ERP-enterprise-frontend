@@ -24,6 +24,9 @@ type Product = {
   category_id: string | null;
   unit: string;
   sale_price: string;
+  tracking_mode: "none" | "lot" | "serial";
+  cost_method: "weighted_average" | "fifo";
+  average_cost: string;
   is_active: boolean;
 };
 type ProductForm = {
@@ -32,6 +35,9 @@ type ProductForm = {
   category_id: string;
   unit: string;
   sale_price: string;
+  tracking_mode: "none" | "lot" | "serial";
+  cost_method: "weighted_average" | "fifo";
+  average_cost: string;
 };
 const blankProduct: ProductForm = {
   sku: "",
@@ -39,6 +45,9 @@ const blankProduct: ProductForm = {
   category_id: "",
   unit: "unit",
   sale_price: "0",
+  tracking_mode: "none",
+  cost_method: "weighted_average",
+  average_cost: "0",
 };
 const money = new Intl.NumberFormat("es-PE", {
   style: "currency",
@@ -112,6 +121,9 @@ export function ProductsPage({ goBack }: { goBack: () => void }) {
       category_id: item.category_id ?? "",
       unit: item.unit,
       sale_price: item.sale_price,
+      tracking_mode: item.tracking_mode,
+      cost_method: item.cost_method,
+      average_cost: item.average_cost,
     });
     setEditingId(item.id);
     setProductOpen(true);
@@ -125,6 +137,7 @@ export function ProductsPage({ goBack }: { goBack: () => void }) {
         ...product,
         category_id: product.category_id || null,
         sale_price: Number(product.sale_price || 0),
+        average_cost: Number(product.average_cost || 0),
       };
       const saved = await apiFetch<Product>(
         editingId ? "/products/" + editingId : "/products",
@@ -320,6 +333,7 @@ export function ProductsPage({ goBack }: { goBack: () => void }) {
                   <th>CATEGORÍA</th>
                   <th>UNIDAD</th>
                   <th>PRECIO DE VENTA</th>
+                  <th>CONTROL</th>
                   <th>ESTADO</th>
                   <th aria-label="Acciones" />
                 </tr>
@@ -339,6 +353,7 @@ export function ProductsPage({ goBack }: { goBack: () => void }) {
                     <td>
                       <strong>{money.format(Number(item.sale_price))}</strong>
                     </td>
+                    <td>{item.tracking_mode === "none" ? "Sin control" : item.tracking_mode === "lot" ? "Por lote" : "Por serie"}</td>
                     <td>
                       <span
                         className={`status-pill ${item.is_active ? "active" : "inactive"}`}
@@ -458,6 +473,27 @@ export function ProductsPage({ goBack }: { goBack: () => void }) {
                   }))
                 }
               />
+            </label>
+            <div className="form-grid">
+              <label>
+                Control de inventario
+                <select value={product.tracking_mode} onChange={(event) => setProduct((current) => ({ ...current, tracking_mode: event.target.value as ProductForm["tracking_mode"] }))}>
+                  <option value="none">Sin lote ni serie</option>
+                  <option value="lot">Por lote</option>
+                  <option value="serial">Por serie</option>
+                </select>
+              </label>
+              <label>
+                Método de costo
+                <select value={product.cost_method} onChange={(event) => setProduct((current) => ({ ...current, cost_method: event.target.value as ProductForm["cost_method"] }))}>
+                  <option value="weighted_average">Promedio ponderado</option>
+                  <option value="fifo">FIFO</option>
+                </select>
+              </label>
+            </div>
+            <label>
+              Costo inicial / promedio
+              <input type="number" min="0" step="0.01" value={product.average_cost} onChange={(event) => setProduct((current) => ({ ...current, average_cost: event.target.value }))} />
             </label>
             {error && <p className="login-error">{error}</p>}
             <ModalActions
