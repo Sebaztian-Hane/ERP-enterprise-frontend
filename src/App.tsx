@@ -160,6 +160,11 @@ const OperationsPage = lazyWithRetry(() =>
     default: module.OperationsPage,
   })),
 );
+const ConfigurationPage = lazyWithRetry(() =>
+  import("./components/ConfigurationPage").then((module) => ({
+    default: module.ConfigurationPage,
+  })),
+);
 
 type NavItem = {
   label: string;
@@ -224,6 +229,7 @@ const navigation: NavItem[] = [
   { label: "Finanzas", icon: WalletCards, href: "#finanzas", category: "finanzas" },
   { label: "Conciliación", icon: ArrowLeftRight, href: "#conciliacion", category: "finanzas" },
   { label: "Reportes", icon: BarChart3, href: "#reportes", category: "finanzas" },
+  { label: "Configuración", icon: Settings, href: "#configuracion", category: "administracion" },
   { label: "Control operativo", icon: BadgeCheck, href: "#control-operativo", category: "finanzas" },
 ];
 const appModules: AppModule[] = [
@@ -242,6 +248,7 @@ const appModules: AppModule[] = [
   { label: "Finanzas", icon: WalletCards, href: "#finanzas", category: "finanzas", description: "Cobros, pagos y caja", tone: "emerald" },
   { label: "Conciliación", icon: ArrowLeftRight, href: "#conciliacion", category: "finanzas", description: "Movimientos bancarios", tone: "rose" },
   { label: "Reportes", icon: BarChart3, href: "#reportes", category: "finanzas", description: "Análisis y exportación", tone: "pink" },
+  { label: "Configuración", icon: Settings, href: "#configuracion", category: "administracion", description: "Impuestos, monedas y maestros", tone: "slate" },
   { label: "Administración", icon: BriefcaseBusiness, href: "#administracion", category: "administracion", description: "Usuarios y permisos", tone: "navy" },
   { label: "Documentos", icon: FileText, href: "#documentos", category: "administracion", description: "Archivo empresarial", tone: "slate" },
   { label: "Control operativo", icon: BadgeCheck, href: "#control-operativo", category: "finanzas", description: "Aprobaciones y contabilidad", tone: "indigo" },
@@ -885,6 +892,12 @@ export default function App() {
                     />
                   ) : view === "#reportes" ? (
                     <ReportsPage
+                      goBack={() => {
+                        window.location.hash = "dashboard";
+                      }}
+                    />
+                  ) : view === "#configuracion" ? (
+                    <ConfigurationPage
                       goBack={() => {
                         window.location.hash = "dashboard";
                       }}
