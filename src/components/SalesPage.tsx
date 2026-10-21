@@ -7,6 +7,7 @@ import {
   Plus,
   ReceiptText,
   RefreshCw,
+  Search,
   ShoppingCart,
   Trash2,
   X,
@@ -45,6 +46,17 @@ const currency = new Intl.NumberFormat("es-PE", {
   style: "currency",
   currency: "PEN",
 });
+
+type PickerOption = { id: string; primary: string; secondary?: string };
+
+function EntityPicker({ label, placeholder, value, options, onChange, required = false }: { label: string; placeholder: string; value: string; options: PickerOption[]; onChange: (id: string) => void; required?: boolean }) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const selected = options.find((option) => option.id === value);
+  const matches = options.filter((option) => `${option.primary} ${option.secondary ?? ""}`.toLocaleLowerCase().includes(query.toLocaleLowerCase())).slice(0, 8);
+  const choose = (id: string) => { onChange(id); setQuery(""); setOpen(false); };
+  return <label className="entity-picker"><span>{label}</span><div className="entity-picker-control"><Search size={16} /><input required={required} value={open ? query : (selected?.primary ?? "")} onFocus={() => setOpen(true)} onChange={(event) => { setQuery(event.target.value); setOpen(true); }} placeholder={placeholder} aria-autocomplete="list" aria-expanded={open} role="combobox" /><button type="button" className="entity-picker-clear" onClick={() => { onChange(""); setQuery(""); setOpen(true); }} aria-label={`Limpiar ${label}`}>×</button></div>{open && <div className="entity-picker-menu" role="listbox">{matches.length ? matches.map((option) => <button type="button" role="option" aria-selected={value === option.id} key={option.id} onMouseDown={(event) => event.preventDefault()} onClick={() => choose(option.id)}><strong>{option.primary}</strong>{option.secondary && <small>{option.secondary}</small>}</button>) : <p>Sin coincidencias. Ajusta la búsqueda.</p>}</div>}</label>;
+}
 
 export function SalesPage({ goBack }: { goBack: () => void }) {
   const { session, tenantId } = useAuth();
@@ -382,25 +394,11 @@ export function SalesPage({ goBack }: { goBack: () => void }) {
                     onChange={(event) => setNumber(event.target.value)}
                   />
                 </label>
-                <label>
-                  Almacén
-                  <select
-                    required
-                    value={warehouseId}
-                    onChange={(event) => setWarehouseId(event.target.value)}
-                  >
-                    <option value="">Selecciona un almacén</option>
-                    {warehouses.map((store) => (
-                      <option key={store.id} value={store.id}>
-                        {store.name} · {store.code}
-                      </option>
-                    ))}
-                  </select>
-                </label>
+                <EntityPicker label="Almacén" placeholder="Busca un almacén" required value={warehouseId} onChange={setWarehouseId} options={warehouses.map((store) => ({ id: store.id, primary: store.name, secondary: store.code }))} />
               </div>
               <section className="sale-customer-card">
                 <div className="sale-customer-heading"><div><span>Cliente</span><small>Usa un cliente registrado o consulta DNI/RUC.</small></div><div className="segmented-control"><button type="button" className={customerMode === "existing" ? "is-active" : ""} onClick={() => setCustomerMode("existing")}>Existente</button><button type="button" className={customerMode === "lookup" ? "is-active" : ""} onClick={() => setCustomerMode("lookup")}>Nuevo DNI/RUC</button></div></div>
-                {customerMode === "existing" ? <label>Cliente registrado<select required value={customerId} onChange={(event) => setCustomerId(event.target.value)}><option value="">Selecciona un cliente</option>{customers.map((customer) => <option key={customer.id} value={customer.id}>{customer.name} · {customer.code}</option>)}</select></label> : <div className="customer-lookup-fields"><label>Documento DNI o RUC<input inputMode="numeric" maxLength={11} value={customerTaxId} onChange={(event) => setCustomerTaxId(event.target.value.replace(/\D/g, ""))} placeholder="Ingresa DNI o RUC" /></label><button type="button" className="secondary-button" onClick={() => void lookupCustomer()} disabled={customerLookupBusy}>{customerLookupBusy ? "Consultando…" : "Consultar"}</button><label className="wide">Nombre o razón social<input required value={customerName} onChange={(event) => setCustomerName(event.target.value)} placeholder="Se completa al consultar" /></label><label>Correo (opcional)<input type="email" value={customerEmail} onChange={(event) => setCustomerEmail(event.target.value)} /></label><label>Teléfono (opcional)<input value={customerPhone} onChange={(event) => setCustomerPhone(event.target.value)} /></label>{customerLookupHint && <p className="customer-lookup-hint">{customerLookupHint}</p>}</div>}
+                {customerMode === "existing" ? <EntityPicker label="Cliente registrado" placeholder="Busca por nombre, código o documento" required value={customerId} onChange={setCustomerId} options={customers.map((customer) => ({ id: customer.id, primary: customer.name, secondary: customer.code }))} /> : <div className="customer-lookup-fields"><label>Documento DNI o RUC<input inputMode="numeric" maxLength={11} value={customerTaxId} onChange={(event) => setCustomerTaxId(event.target.value.replace(/\D/g, ""))} placeholder="Ingresa DNI o RUC" /></label><button type="button" className="secondary-button" onClick={() => void lookupCustomer()} disabled={customerLookupBusy}>{customerLookupBusy ? "Consultando…" : "Consultar"}</button><label className="wide">Nombre o razón social<input required value={customerName} onChange={(event) => setCustomerName(event.target.value)} placeholder="Se completa al consultar" /></label><label>Correo (opcional)<input type="email" value={customerEmail} onChange={(event) => setCustomerEmail(event.target.value)} /></label><label>Teléfono (opcional)<input value={customerPhone} onChange={(event) => setCustomerPhone(event.target.value)} /></label>{customerLookupHint && <p className="customer-lookup-hint">{customerLookupHint}</p>}</div>}
               </section>
               <div className="sale-lines-header">
                 <span>Productos</span>
@@ -423,33 +421,7 @@ export function SalesPage({ goBack }: { goBack: () => void }) {
                 ) : (
                   lines.map((line, index) => (
                     <div className="sale-line" key={line.product_id}>
-                      <select
-                        value={line.product_id}
-                        onChange={(event) => {
-                          const item = products.find(
-                            (product) => product.id === event.target.value,
-                          );
-                          updateLine(index, {
-                            product_id: event.target.value,
-                            unit_price: Number(item?.sale_price ?? 0),
-                          });
-                        }}
-                      >
-                        <option value="">Producto</option>
-                        {products
-                          .filter(
-                            (product) =>
-                              product.id === line.product_id ||
-                              !lines.some(
-                                (other) => other.product_id === product.id,
-                              ),
-                          )
-                          .map((product) => (
-                            <option key={product.id} value={product.id}>
-                              {product.name}
-                            </option>
-                          ))}
-                      </select>
+                      <EntityPicker label="Producto" placeholder="Busca por nombre o SKU" value={line.product_id} onChange={(productId) => { const item = products.find((product) => product.id === productId); updateLine(index, { product_id: productId, unit_price: Number(item?.sale_price ?? 0) }); }} options={products.filter((product) => product.id === line.product_id || !lines.some((other) => other.product_id === product.id)).map((product) => ({ id: product.id, primary: product.name, secondary: product.sku }))} />
                       <label>
                         Cant.
                         <input
