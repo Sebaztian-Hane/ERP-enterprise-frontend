@@ -43,6 +43,7 @@ import { AssistantChat } from "./components/AssistantChat";
 import { LoginPage } from "./components/LoginPage";
 import { NotificationsMenu } from "./components/NotificationsMenu";
 import { UserAvatar } from "./components/UserAvatar";
+import { ProviderPortal } from "./components/ProviderPortal";
 import { useAuth } from "./auth/AuthProvider";
 import { canAccessModule, defaultModuleFor } from "./lib/roleAccess";
 
@@ -239,9 +240,10 @@ const appModules: AppModule[] = [
   { label: "Control operativo", icon: BadgeCheck, href: "#control-operativo", category: "finanzas", description: "Aprobaciones y contabilidad", tone: "indigo" },
 ];
 const supportedViews = new Set([
-  ...navigation.map((item) => item.href),
-  "#administracion",
-  "#control-operativo",
+  // The launcher is the source of truth. Keeping the recognized hashes in
+  // sync with its modules prevents an app from silently falling back to the
+  // dashboard when a new card is added (as happened with Documents).
+  ...appModules.map((item) => item.href),
   "#perfil",
 ]);
 const readView = () => {
@@ -571,6 +573,7 @@ class ModuleErrorBoundary extends Component<
 }
 
 export default function App() {
+  const isProviderPortal = window.location.pathname.replace(/\/+$/, "") === "/oreo";
   const {
     session,
     tenants,
@@ -598,6 +601,7 @@ export default function App() {
       ?.setAttribute("content", theme === "dark" ? "#101a22" : "#123047");
   }, [theme]);
   useEffect(() => {
+    if (isProviderPortal) return;
     const syncView = () => {
       const nextView = readView();
       if (nextView !== window.location.hash) {
@@ -608,14 +612,16 @@ export default function App() {
     syncView();
     window.addEventListener("hashchange", syncView);
     return () => window.removeEventListener("hashchange", syncView);
-  }, []);
+  }, [isProviderPortal]);
   useEffect(() => {
+    if (isProviderPortal) return;
     if (isRoleLoading || !roleCode) return;
     const allowed = view === "#perfil" || canAccessModule(roleCode, view);
     if (allowed) return;
     const fallback = defaultModuleFor(roleCode);
     if (fallback) window.location.hash = fallback;
-  }, [isRoleLoading, roleCode, view]);
+  }, [isProviderPortal, isRoleLoading, roleCode, view]);
+  if (isProviderPortal) return <ProviderPortal />;
   if (isLoading)
     return (
       <main className="session-loading">

@@ -28,6 +28,10 @@ function message(error: unknown) {
 }
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
+  // The provider console is intentionally outside the tenant workspace. A
+  // supplier account may not be a member of any customer tenant, so it must
+  // not be redirected or blocked by the tenant bootstrap below.
+  const isProviderPortal = window.location.pathname.replace(/\/+$/, "") === "/oreo";
   const [session, setSession] = useState<Session | null>(null);
   const [tenants, setTenants] = useState<Tenant[]>([]);
   const [tenantId, setTenantId] = useState<string | null>(null);
@@ -91,7 +95,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     supabase.auth.getSession().then(({ data: { session: initialSession } }) => {
       if (!active) return;
       setSession(initialSession);
-      if (initialSession) void loadTenants(initialSession.access_token, true);
+      if (initialSession && !isProviderPortal) void loadTenants(initialSession.access_token, true);
       else setIsLoading(false);
     });
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, nextSession) => {
@@ -103,10 +107,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // This must never trigger the full-page loader. Apart from token refresh,
       // Supabase may emit SIGNED_IN while restoring a persisted tab session.
       // Tenant data can refresh in the background without unmounting a form.
-      if (event === "SIGNED_IN") void loadTenants(nextSession.access_token);
+      if (event === "SIGNED_IN" && !isProviderPortal) void loadTenants(nextSession.access_token);
     });
     return () => { active = false; subscription.unsubscribe(); };
-  }, [loadTenants]);
+  }, [isProviderPortal, loadTenants]);
 
   const signIn = async (email: string, password: string) => {
     const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });

@@ -2,7 +2,7 @@ import { FormEvent, useState } from "react";
 import { ArrowRight, LockKeyhole, Mail } from "lucide-react";
 import { useAuth } from "../auth/AuthProvider";
 
-export function LoginPage() {
+export function LoginPage({ providerAccess = false }: { providerAccess?: boolean }) {
   const { signIn } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -26,9 +26,9 @@ export function LoginPage() {
           enterprise<span>cloud</span>
         </div>
         <header className="login-heading">
-          <p className="eyebrow">ERP ENTERPRISECLOUD</p>
-          <h1 id="login-title">Inicia sesión</h1>
-          <p>Ingresa con las credenciales asignadas a tu organización.</p>
+          <p className="eyebrow">{providerAccess ? "ACCESO RESTRINGIDO" : "ERP ENTERPRISECLOUD"}</p>
+          <h1 id="login-title">{providerAccess ? "Consola de proveedor" : "Inicia sesión"}</h1>
+          <p>{providerAccess ? "Ingresa con tu cuenta autorizada de EnterpriseCloud." : "Ingresa con las credenciales asignadas a tu organización."}</p>
         </header>
         <form className="login-form" onSubmit={submit}>
           <label>
@@ -50,7 +50,7 @@ export function LoginPage() {
             {sending ? "Validando acceso…" : <>Ingresar <ArrowRight size={18} /></>}
           </button>
         </form>
-        <p className="login-note">¿No tienes acceso? Solicita una invitación al administrador de tu organización.</p>
+        <p className="login-note">{providerAccess ? "El acceso se valida de forma segura en el servidor." : "¿No tienes acceso? Solicita una invitación al administrador de tu organización."}</p>
       </section>
     </main>
   );

@@ -1,0 +1,6 @@
+{
+  "rewrites": [
+    { "source": "/oreo", "destination": "/" },
+    { "source": "/oreo/", "destination": "/" }
+  ]
+}
