@@ -25,7 +25,7 @@ const modulesByRole: Record<RoleCode, readonly string[]> = {
     "#proveedores",
     "#ordenes-de-compra",
   ],
-  inventory: ["#inventario", "#almacenes", "#kardex", "#productos"],
+  inventory: ["#inventario", "#almacenes", "#kardex", "#inventario-fisico", "#productos"],
   finance: ["#dashboard", "#finanzas", "#cuentas", "#conciliacion", "#documentos", "#reportes"],
   viewer: [
     "#dashboard",
@@ -35,6 +35,7 @@ const modulesByRole: Record<RoleCode, readonly string[]> = {
     "#inventario",
     "#almacenes",
     "#kardex",
+    "#inventario-fisico",
     "#productos",
     "#documentos",
     "#cuentas",

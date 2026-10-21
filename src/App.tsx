@@ -125,6 +125,7 @@ const InventoryHistoryPage = lazyWithRetry(() =>
     default: module.InventoryHistoryPage,
   })),
 );
+const InventoryCountsPage = lazyWithRetry(() => import("./components/InventoryCountsPage").then((module) => ({ default: module.InventoryCountsPage })));
 const FinancePage = lazyWithRetry(() =>
   import("./components/FinancePage").then((module) => ({
     default: module.FinancePage,
@@ -228,6 +229,7 @@ const navigation: NavItem[] = [
   { label: "Inventario", icon: Box, href: "#inventario", category: "abastecimiento" },
   { label: "Almacenes", icon: Factory, href: "#almacenes", category: "abastecimiento" },
   { label: "Kardex", icon: ClipboardList, href: "#kardex", category: "abastecimiento" },
+  { label: "Inventario físico", icon: ClipboardList, href: "#inventario-fisico", category: "abastecimiento" },
   { label: "Productos", icon: PackageSearch, href: "#productos", category: "abastecimiento" },
   { label: "Finanzas", icon: WalletCards, href: "#finanzas", category: "finanzas" },
   { label: "Cuentas por cobrar y pagar", icon: BriefcaseBusiness, href: "#cuentas", category: "finanzas" },
@@ -248,6 +250,7 @@ const appModules: AppModule[] = [
   { label: "Inventario", icon: Box, href: "#inventario", category: "abastecimiento", description: "Existencias, trazabilidad y transferencias", tone: "teal" },
   { label: "Almacenes", icon: Factory, href: "#almacenes", category: "abastecimiento", description: "Ubicaciones y capacidad logística", tone: "cyan" },
   { label: "Kardex", icon: ArrowLeftRight, href: "#kardex", category: "abastecimiento", description: "Trazabilidad de movimientos", tone: "cyan" },
+  { label: "Inventario físico", icon: ClipboardList, href: "#inventario-fisico", category: "abastecimiento", description: "Conteos y conciliación de stock", tone: "amber" },
   { label: "Productos", icon: PackageSearch, href: "#productos", category: "abastecimiento", description: "Catálogo y precios", tone: "lime" },
   { label: "Finanzas", icon: WalletCards, href: "#finanzas", category: "finanzas", description: "Cobros, pagos y caja", tone: "emerald" },
   { label: "Cuentas por cobrar y pagar", icon: BriefcaseBusiness, href: "#cuentas", category: "finanzas", description: "Cartera, vencimientos y mora", tone: "amber" },
@@ -871,6 +874,8 @@ export default function App() {
                         window.location.hash = "inventario";
                       }}
                     />
+                  ) : view === "#inventario-fisico" ? (
+                    <InventoryCountsPage goBack={() => { window.location.hash = "inventario"; }} />
                   ) : view === "#compras" ? (
                     <PurchasesPage
                       goBack={() => {
