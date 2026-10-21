@@ -12,6 +12,7 @@ type PlatformTenant = {
   created_at: string;
   active_members: number;
 };
+type Access = { modules: Array<{ code: string; label: string; is_enabled: boolean }>; members: Array<{ id: string; user_id: string; role_code: string; is_active: boolean; overrides: Record<string, boolean> }> };
 
 const dateFormat = new Intl.DateTimeFormat("es-MX", { dateStyle: "medium" });
 
@@ -21,6 +22,10 @@ export function ProviderPortal() {
   const [loading, setLoading] = useState(Boolean(session));
   const [error, setError] = useState<string | null>(null);
   const [updating, setUpdating] = useState<string | null>(null);
+  const [selectedTenant, setSelectedTenant] = useState<string>("");
+  const [access, setAccess] = useState<Access | null>(null);
+  const [newTenantOpen, setNewTenantOpen] = useState(false);
+  const [newTenant, setNewTenant] = useState({ name: "", timezone: "America/Mexico_City", owner_email: "", temporary_password: "" });
 
   const load = async () => {
     if (!session) return;
@@ -37,6 +42,8 @@ export function ProviderPortal() {
   };
 
   useEffect(() => { void load(); }, [session?.access_token]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (!selectedTenant && tenants[0]) setSelectedTenant(tenants[0].id); }, [tenants, selectedTenant]);
+  useEffect(() => { if (!session || !selectedTenant) return; void apiFetch<Access>(`/platform/tenants/${selectedTenant}/module-access`, { accessToken: session.access_token }).then(setAccess).catch((cause) => setError(cause instanceof Error ? cause.message : "No se pudo cargar los módulos.")); }, [session?.access_token, selectedTenant]);
 
   const activeCount = useMemo(() => tenants.filter((tenant) => tenant.is_active).length, [tenants]);
   const memberCount = useMemo(() => tenants.reduce((sum, tenant) => sum + tenant.active_members, 0), [tenants]);
@@ -57,6 +64,8 @@ export function ProviderPortal() {
       setUpdating(null);
     }
   };
+  const toggle = async (path: string, module_code: string, is_enabled: boolean) => { if (!session) return; setUpdating(`${path}:${module_code}`); try { await apiFetch(path, { accessToken: session.access_token, method: "PATCH", body: JSON.stringify({ module_code, is_enabled }) }); if (selectedTenant) setAccess(await apiFetch<Access>(`/platform/tenants/${selectedTenant}/module-access`, { accessToken: session.access_token })); } catch (cause) { setError(cause instanceof Error ? cause.message : "No se pudo actualizar el acceso."); } finally { setUpdating(null); } };
+  const createTenant = async (event: React.FormEvent) => { event.preventDefault(); if (!session) return; setUpdating("create"); try { const created = await apiFetch<PlatformTenant>("/platform/tenants", { accessToken: session.access_token, method: "POST", body: JSON.stringify(newTenant) }); setTenants((current) => [created, ...current]); setSelectedTenant(created.id); setNewTenantOpen(false); setNewTenant({ name: "", timezone: "America/Mexico_City", owner_email: "", temporary_password: "" }); } catch (cause) { setError(cause instanceof Error ? cause.message : "No se pudo crear la empresa."); } finally { setUpdating(null); } };
 
   if (!session) return <LoginPage providerAccess />;
   const isUnauthorized = Boolean(error) && tenants.length === 0;
@@ -70,7 +79,7 @@ export function ProviderPortal() {
       <section className="provider-content">
         <header className="provider-heading">
           <div><p className="eyebrow">GESTIÓN GLOBAL</p><h1>Clientes EnterpriseCloud</h1><p>Supervisa las empresas registradas y controla su disponibilidad operativa.</p></div>
-          <button className="secondary-button" type="button" disabled={loading} onClick={() => void load()}><RefreshCw className={loading ? "spin" : ""} size={16} /> Actualizar</button>
+          <span className="provider-heading-actions"><button className="secondary-button" type="button" onClick={() => setNewTenantOpen(true)}>Nueva empresa</button><button className="secondary-button" type="button" disabled={loading} onClick={() => void load()}><RefreshCw className={loading ? "spin" : ""} size={16} /> Actualizar</button></span>
         </header>
         {isUnauthorized ? <section className="provider-access-denied"><CircleAlert size={30} /><h2>Acceso no autorizado</h2><p>{error}</p><small>La cuenta debe estar incluida en la configuración privada del proveedor antes de poder ver empresas.</small></section> : <>
           <section className="provider-metrics">
@@ -83,6 +92,8 @@ export function ProviderPortal() {
             <div className="panel-header"><div><p className="card-label">CARTERA DE CLIENTES</p><h2>Empresas registradas</h2></div><span>{tenants.length} cliente{tenants.length === 1 ? "" : "s"}</span></div>
             {loading ? <div className="module-state">Cargando empresas…</div> : tenants.length === 0 ? <div className="module-state"><Building2 size={27} /><strong>No hay empresas registradas</strong><span>Las nuevas organizaciones aparecerán aquí.</span></div> : <div className="table-wrap"><table className="provider-table"><thead><tr><th>EMPRESA</th><th>ZONA HORARIA</th><th>USUARIOS</th><th>ALTA</th><th>ESTADO</th><th aria-label="Acción" /></tr></thead><tbody>{tenants.map((tenant) => <tr key={tenant.id}><td><strong>{tenant.name}</strong><small>{tenant.id}</small></td><td>{tenant.timezone}</td><td>{tenant.active_members}</td><td>{dateFormat.format(new Date(tenant.created_at))}</td><td><span className={`status-pill ${tenant.is_active ? "active" : "inactive"}`}>{tenant.is_active ? "Activa" : "Suspendida"}</span></td><td><button className="table-action-button" type="button" disabled={updating !== null} onClick={() => void updateStatus(tenant)}>{updating === tenant.id ? <RefreshCw className="spin" size={15} /> : <Power size={15} />}{tenant.is_active ? "Suspender" : "Activar"}</button></td></tr>)}</tbody></table></div>}
           </section>
+          <section className="panel provider-access-panel"><div className="panel-header"><div><p className="card-label">ADMINISTRACIÓN DE MÓDULOS</p><h2>Acceso por empresa y usuario</h2></div><select value={selectedTenant} onChange={(event) => setSelectedTenant(event.target.value)}>{tenants.map((tenant) => <option value={tenant.id} key={tenant.id}>{tenant.name}</option>)}</select></div>{access && <><div className="module-switches">{access.modules.map((module) => <label key={module.code}><span><strong>{module.label}</strong><small>{module.code}</small></span><input type="checkbox" checked={module.is_enabled} disabled={updating !== null} onChange={(event) => void toggle(`/platform/tenants/${selectedTenant}/modules`, module.code, event.target.checked)} /></label>)}</div><div className="member-module-list">{access.members.map((member) => <article key={member.id}><header><strong>{member.role_code}</strong><small>{member.user_id}</small></header><div>{access.modules.map((module) => <label key={module.code}><input type="checkbox" disabled={!module.is_enabled || updating !== null} checked={member.overrides[module.code] ?? module.is_enabled} onChange={(event) => void toggle(`/platform/tenants/${selectedTenant}/members/${member.id}/modules`, module.code, event.target.checked)} /> {module.label}</label>)}</div></article>)}</div></>}</section>
+          {newTenantOpen && <div className="modal-layer"><section className="customer-modal" role="dialog" aria-modal="true"><div className="modal-header"><div><p className="eyebrow">PROVEEDOR</p><h2>Nueva empresa</h2></div><button className="icon-button" type="button" onClick={() => setNewTenantOpen(false)}>×</button></div><form className="customer-form" onSubmit={createTenant}><label>Razón social<input required value={newTenant.name} onChange={(e) => setNewTenant({ ...newTenant, name: e.target.value })} /></label><label>Zona horaria<input required value={newTenant.timezone} onChange={(e) => setNewTenant({ ...newTenant, timezone: e.target.value })} /></label><label>Correo del propietario<input required type="email" value={newTenant.owner_email} onChange={(e) => setNewTenant({ ...newTenant, owner_email: e.target.value })} /></label><label>Contraseña temporal<input required minLength={12} type="password" value={newTenant.temporary_password} onChange={(e) => setNewTenant({ ...newTenant, temporary_password: e.target.value })} /></label><div className="modal-actions"><button type="button" className="secondary-button" onClick={() => setNewTenantOpen(false)}>Cancelar</button><button className="primary-button" disabled={updating === "create"}>{updating === "create" ? "Creando…" : "Crear empresa"}</button></div></form></section></div>}
         </>}
       </section>
     </main>
