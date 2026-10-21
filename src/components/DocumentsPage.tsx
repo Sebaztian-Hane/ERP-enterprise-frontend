@@ -6,7 +6,7 @@ import { fetchPage, PageMeta, TablePagination } from "../lib/pagination";
 
 type Document = { id: string; original_filename: string; content_type: string; size_bytes: number; entity_type: string | null; entity_id: string | null };
 type SignedUrl = { url: string; expires_in: number };
-type ApprovalSignature = { id: string; type: "internal_approval" | "qualified_digital"; decision: "approved" | "rejected"; signed_hash: string; signed_at: string; certificate_subject?: string | null };
+type ApprovalSignature = { id: string; type: "internal_approval" | "qualified_digital"; decision: "approved" | "rejected"; signed_hash: string; signed_at: string; signature_algorithm?: string | null; certificate_subject?: string | null };
 type ApprovalRecord = { id: string; document_number: string; module: string; entity_type: string; status: "submitted" | "approved" | "rejected" | "cancelled"; content_hash: string; created_at: string; signatures: ApprovalSignature[] };
 const types = ["Venta", "Compra", "Pago", "Cliente", "Proveedor", "General"];
 const size = (bytes: number) => bytes < 1024 * 1024 ? `${Math.max(1, Math.round(bytes / 1024))} KB` : `${(bytes / (1024 * 1024)).toFixed(1)} MB`;

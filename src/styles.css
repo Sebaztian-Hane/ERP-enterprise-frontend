@@ -3666,6 +3666,23 @@ html[data-theme="dark"] .sale-modal {
   border: 1px solid #365d6d;
   box-shadow: 0 22px 58px rgba(0, 0, 0, .52);
 }
+
+.signature-confirmation {
+  display: grid;
+  gap: 10px;
+  margin: 20px 0;
+  padding: 16px;
+  color: #315767;
+  background: #eef8fb;
+  border: 1px solid #b9dce8;
+  border-radius: 10px;
+}
+.signature-confirmation svg { color: #157c9f; }
+.signature-confirmation p { margin: 0; line-height: 1.5; }
+.signature-confirmation small { color: #607c89; line-height: 1.45; }
+html[data-theme="dark"] .signature-confirmation { color: #d3e8ef; background: #102d39; border-color: #27647a; }
+html[data-theme="dark"] .signature-confirmation svg { color: #59c9ef; }
+html[data-theme="dark"] .signature-confirmation small { color: #abc4ce; }
 html[data-theme="dark"] .sale-modal .modal-header {
   background: #152833;
   border-color: #365d6d;
