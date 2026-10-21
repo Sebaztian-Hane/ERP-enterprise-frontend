@@ -3652,6 +3652,9 @@ html[data-theme="dark"] .customer-lookup-hint { color: #bce9f7; background: #173
 
 /* Controlled spreadsheet migration. Kept self-contained so it renders correctly inside every module card. */
 .data-migration { margin: 0 0 18px; }
+.table-pagination { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:14px 18px; color:#63808e; border-top:1px solid #d7e6eb; font-size:12px; }
+.table-pagination > div { display:inline-flex; align-items:center; gap:9px; }.table-pagination strong { color:#315564; font-size:12px; }.table-pagination .icon-button { width:32px; height:32px; }.table-pagination .icon-button:disabled { opacity:.42; cursor:not-allowed; }
+html[data-theme="dark"] .table-pagination { color:#acc6cf; border-color:#355b6a; }.table-pagination strong { color:#315564; }html[data-theme="dark"] .table-pagination strong { color:#dcecf2; }
 .migration-panel { margin-top: 12px; padding: 20px; }
 .migration-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
 .migration-header > svg { flex: 0 0 auto; color: #2580a5; }
@@ -3681,6 +3684,7 @@ html[data-theme="dark"] .migration-preview.invalid strong, html[data-theme="dark
 html[data-theme="dark"] .migration-preview span { color: #b7ccd4; }
 
 @media (max-width: 760px) {
+  .table-pagination { align-items:flex-start; flex-direction:column; padding:13px; }.table-pagination > div { width:100%; justify-content:space-between; }
   .assistant-backdrop { display: block; background: rgba(1, 11, 17, .35); }
   .assistant-drawer { top: 67px; right: 8px; bottom: 8px; width: calc(100vw - 16px); min-height: 0; border-radius: 13px; }
   .assistant-header { padding: 14px; }

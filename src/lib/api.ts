@@ -5,7 +5,7 @@ const baseUrl = (
   "https://erp-enterprisecloud-api.onrender.com/api/v1"
 ).replace(/\/$/, "");
 
-type ApiOptions = RequestInit & { accessToken?: string; tenantId?: string };
+export type ApiOptions = RequestInit & { accessToken?: string; tenantId?: string };
 
 export class ApiError extends Error {
   constructor(

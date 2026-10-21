@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "../auth/AuthProvider";
 import { apiFetch } from "../lib/api";
+import { fetchPage, PageMeta, TablePagination } from "../lib/pagination";
 import { DataMigrationPanel } from "./DataMigrationPanel";
 
 type Supplier = { id: string; name: string; is_active: boolean };
@@ -41,6 +42,8 @@ export function PurchasesPage({ goBack }: { goBack: () => void }) {
   const [products, setProducts] = useState<Product[]>([]);
   const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
   const [purchases, setPurchases] = useState<Purchase[]>([]);
+  const [page, setPage] = useState(1);
+  const [meta, setMeta] = useState<PageMeta>({ page: 1, page_size: 25, total: 0, total_pages: 0, has_previous: false, has_next: false });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isOpen, setIsOpen] = useState(false);
@@ -57,18 +60,18 @@ export function PurchasesPage({ goBack }: { goBack: () => void }) {
     date: "",
     tax: "",
   });
-  const load = async () => {
+  const load = async (targetPage = page) => {
     if (!session || !tenantId) return;
     setLoading(true);
     setError(null);
     try {
       const [p, s, items, stores] = await Promise.all([
-        apiFetch<Purchase[]>("/purchases", options),
+        fetchPage<Purchase, "purchases">("/purchases", "purchases", targetPage, options),
         apiFetch<Supplier[]>("/suppliers", options),
         apiFetch<Product[]>("/products", options),
         apiFetch<Warehouse[]>("/purchases/warehouses", options),
       ]);
-      setPurchases(p);
+      setPurchases(p.purchases); setMeta(p.meta);
       setSuppliers(s);
       setProducts(items);
       setWarehouses(stores);
@@ -84,7 +87,7 @@ export function PurchasesPage({ goBack }: { goBack: () => void }) {
   };
   useEffect(() => {
     void load();
-  }, [session?.access_token, tenantId]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [session?.access_token, tenantId, page]); // eslint-disable-line react-hooks/exhaustive-deps
   const total = useMemo(
     () => lines.reduce((sum, line) => sum + line.quantity * line.unit_cost, 0),
     [lines],
@@ -102,7 +105,7 @@ export function PurchasesPage({ goBack }: { goBack: () => void }) {
     setSupplierId(suppliers.find((item) => item.is_active)?.id ?? "");
     setWarehouseId(warehouses[0]?.id ?? "");
     setNumber(
-      `C-${new Date().toISOString().slice(0, 10).replaceAll("-", "")}-${String(purchases.length + 1).padStart(3, "0")}`,
+      `C-${new Date().toISOString().slice(0, 10).replaceAll("-", "")}-${String(meta.total + 1).padStart(3, "0")}`,
     );
     setNote("");
     setLines([]);
@@ -137,7 +140,7 @@ export function PurchasesPage({ goBack }: { goBack: () => void }) {
     }
     setSaving(true);
     try {
-      const created = await apiFetch<Purchase>("/purchases", {
+      await apiFetch<Purchase>("/purchases", {
         ...options,
         method: "POST",
         body: JSON.stringify({
@@ -153,7 +156,8 @@ export function PurchasesPage({ goBack }: { goBack: () => void }) {
           supplier_tax_amount: document.tax || null,
         }),
       });
-      setPurchases((current) => [created, ...current]);
+      setPage(1);
+      await load(1);
       setIsOpen(false);
     } catch (cause) {
       setError(
@@ -200,7 +204,7 @@ export function PurchasesPage({ goBack }: { goBack: () => void }) {
           </span>
           <div>
             <small>COMPRAS REGISTRADAS</small>
-            <strong>{purchases.length}</strong>
+            <strong>{meta.total}</strong>
           </div>
         </article>
         <article>
@@ -217,14 +221,14 @@ export function PurchasesPage({ goBack }: { goBack: () => void }) {
           </div>
         </article>
       </section>
-      <DataMigrationPanel module="purchases" onImported={load} />
+      <DataMigrationPanel module="purchases" onImported={() => { setPage(1); return load(1); }} />
       <article className="panel customers-panel">
         <div className="panel-header">
           <div>
             <p className="card-label">RECEPCIONES</p>
             <h2>Compras registradas</h2>
           </div>
-          <span className="table-count">{purchases.length} registros</span>
+          <span className="table-count">{meta.total} registros</span>
         </div>
         {error && !isOpen && (
           <div className="module-error">
@@ -248,7 +252,7 @@ export function PurchasesPage({ goBack }: { goBack: () => void }) {
             </button>
           </div>
         ) : (
-          <div className="table-wrap">
+          <><div className="table-wrap">
             <table className="sales-table">
               <thead>
                 <tr>
@@ -297,7 +301,7 @@ export function PurchasesPage({ goBack }: { goBack: () => void }) {
                 ))}
               </tbody>
             </table>
-          </div>
+          </div><TablePagination meta={meta} label="compras" onPageChange={setPage} /></>
         )}
       </article>
       {isOpen && (

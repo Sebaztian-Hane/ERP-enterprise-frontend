@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "../auth/AuthProvider";
 import { ApiError, apiFetch } from "../lib/api";
+import { fetchPage, PageMeta, TablePagination } from "../lib/pagination";
 import { DataMigrationPanel } from "./DataMigrationPanel";
 
 type Customer = { id: string; code: string; name: string };
@@ -48,6 +49,8 @@ const currency = new Intl.NumberFormat("es-PE", {
 export function SalesPage({ goBack }: { goBack: () => void }) {
   const { session, tenantId } = useAuth();
   const [sales, setSales] = useState<Sale[]>([]);
+  const [page, setPage] = useState(1);
+  const [meta, setMeta] = useState<PageMeta>({ page: 1, page_size: 25, total: 0, total_pages: 0, has_previous: false, has_next: false });
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
@@ -76,18 +79,18 @@ export function SalesPage({ goBack }: { goBack: () => void }) {
     accessToken: session?.access_token,
     tenantId: tenantId ?? undefined,
   };
-  const load = async () => {
+  const load = async (targetPage = page) => {
     if (!session || !tenantId) return;
     setLoading(true);
     setError(null);
     try {
       const [history, people, items, stores] = await Promise.all([
-        apiFetch<Sale[]>("/sales", options),
+        fetchPage<Sale, "sales">("/sales", "sales", targetPage, options),
         apiFetch<Customer[]>("/customers", options),
         apiFetch<Product[]>("/products", options),
         apiFetch<Warehouse[]>("/sales/warehouses", options),
       ]);
-      setSales(history);
+      setSales(history.sales); setMeta(history.meta);
       setCustomers(people);
       setProducts(items);
       setWarehouses(stores.filter((store) => store.is_active));
@@ -103,7 +106,7 @@ export function SalesPage({ goBack }: { goBack: () => void }) {
   };
   useEffect(() => {
     void load();
-  }, [session?.access_token, tenantId]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [session?.access_token, tenantId, page]); // eslint-disable-line react-hooks/exhaustive-deps
   const total = useMemo(
     () => lines.reduce((sum, line) => sum + line.quantity * line.unit_price, 0),
     [lines],
@@ -115,7 +118,7 @@ export function SalesPage({ goBack }: { goBack: () => void }) {
     setCustomerTaxId(""); setCustomerName(""); setCustomerEmail(""); setCustomerPhone(""); setCustomerLookupHint(null);
     setWarehouseId(warehouses[0]?.id ?? "");
     setNumber(
-      `V-${new Date().toISOString().slice(0, 10).replaceAll("-", "")}-${String(sales.length + 1).padStart(3, "0")}`,
+      `V-${new Date().toISOString().slice(0, 10).replaceAll("-", "")}-${String(meta.total + 1).padStart(3, "0")}`,
     );
     setNote("");
     setLines([]);
@@ -148,7 +151,7 @@ export function SalesPage({ goBack }: { goBack: () => void }) {
     setSaving(true);
     setError(null);
     try {
-      const created = await apiFetch<Sale>("/sales", {
+      await apiFetch<Sale>("/sales", {
         ...options,
         method: "POST",
         body: JSON.stringify({
@@ -159,7 +162,8 @@ export function SalesPage({ goBack }: { goBack: () => void }) {
           note: note || null,
         }),
       });
-      setSales((current) => [created, ...current]);
+      setPage(1);
+      await load(1);
       setIsOpen(false);
     } catch (cause) {
       setError(
@@ -261,7 +265,7 @@ export function SalesPage({ goBack }: { goBack: () => void }) {
           </span>
           <div>
             <small>VENTAS REGISTRADAS</small>
-            <strong>{sales.length}</strong>
+            <strong>{meta.total}</strong>
           </div>
         </article>
         <article>
@@ -278,14 +282,14 @@ export function SalesPage({ goBack }: { goBack: () => void }) {
           </div>
         </article>
       </section>
-      <DataMigrationPanel module="sales" onImported={load} />
+      <DataMigrationPanel module="sales" onImported={() => { setPage(1); return load(1); }} />
       <article className="panel customers-panel">
         <div className="panel-header">
           <div>
             <p className="card-label">HISTORIAL</p>
             <h2>Ventas recientes</h2>
           </div>
-          <span className="table-count">{sales.length} registros</span>
+          <span className="table-count">{meta.total} registros</span>
         </div>
         {error && !isOpen && (
           <div className="module-error">
@@ -310,7 +314,7 @@ export function SalesPage({ goBack }: { goBack: () => void }) {
             </button>
           </div>
         ) : (
-          <div className="table-wrap">
+          <><div className="table-wrap">
             <table className="sales-table">
               <thead>
                 <tr>
@@ -343,7 +347,7 @@ export function SalesPage({ goBack }: { goBack: () => void }) {
                 ))}
               </tbody>
             </table>
-          </div>
+          </div><TablePagination meta={meta} label="ventas" onPageChange={setPage} /></>
         )}
       </article>
       {isOpen && (
