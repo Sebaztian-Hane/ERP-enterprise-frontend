@@ -13,7 +13,7 @@ type PolicyKind = "physical_count" | "purchase_order";
 const money = new Intl.NumberFormat("es-PE", { style: "currency", currency: "PEN" });
 const policyLabels: Record<PolicyKind, { title: string; detail: string }> = {
   physical_count: { title: "Autorización para inventario físico", detail: "La regla se evalúa al enviar un conteo físico; no depende de un importe." },
-  purchase_order: { title: "Autorización para órdenes de compra", detail: "Las órdenes cuyo total alcance el umbral se enviarán al aprobador antes de poder recibirse." },
+  purchase_order: { title: "Autorización para órdenes de compra", detail: "Las órdenes que alcancen el umbral se asignarán al rol indicado; las demás las revisa el propietario o administrador." },
 };
 
 export function OperationsPage({ goBack }: { goBack: () => void }) {
