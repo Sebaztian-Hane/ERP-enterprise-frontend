@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "../auth/AuthProvider";
 import { apiFetch } from "../lib/api";
+import { fetchPage, PageMeta, TablePagination } from "../lib/pagination";
 import { DataMigrationPanel } from "./DataMigrationPanel";
 
 type Category = { id: string; name: string; description: string | null };
@@ -47,6 +48,8 @@ const money = new Intl.NumberFormat("es-PE", {
 export function ProductsPage({ goBack }: { goBack: () => void }) {
   const { session, tenantId } = useAuth();
   const [products, setProducts] = useState<Product[]>([]);
+  const [page, setPage] = useState(1);
+  const [meta, setMeta] = useState<PageMeta>({ page: 1, page_size: 25, total: 0, total_pages: 0, has_previous: false, has_next: false });
   const [categories, setCategories] = useState<Category[]>([]);
   const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(true);
@@ -62,16 +65,16 @@ export function ProductsPage({ goBack }: { goBack: () => void }) {
     accessToken: session?.access_token,
     tenantId: tenantId ?? undefined,
   };
-  const load = async () => {
+  const load = async (targetPage = page) => {
     if (!session || !tenantId) return;
     setLoading(true);
     setError(null);
     try {
       const [catalog, groups] = await Promise.all([
-        apiFetch<Product[]>("/products", options),
+        fetchPage<Product, "products">("/products", "products", targetPage, options),
         apiFetch<Category[]>("/products/categories", options),
       ]);
-      setProducts(catalog);
+      setProducts(catalog.products); setMeta(catalog.meta);
       setCategories(groups);
     } catch (cause) {
       setError(
@@ -85,7 +88,7 @@ export function ProductsPage({ goBack }: { goBack: () => void }) {
   };
   useEffect(() => {
     void load();
-  }, [session?.access_token, tenantId]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [session?.access_token, tenantId, page]); // eslint-disable-line react-hooks/exhaustive-deps
   const shown = useMemo(() => {
     const term = query.trim().toLowerCase();
     return term
@@ -134,10 +137,11 @@ export function ProductsPage({ goBack }: { goBack: () => void }) {
       setProducts((current) =>
         (editingId
           ? current.map((item) => (item.id === saved.id ? saved : item))
-          : [...current, saved]
+          : current
         ).sort((a, b) => a.name.localeCompare(b.name)),
       );
       closeProduct();
+      if (!editingId) { setPage(1); await load(1); }
     } catch (cause) {
       setError(
         cause instanceof Error
@@ -245,7 +249,7 @@ export function ProductsPage({ goBack }: { goBack: () => void }) {
           </span>
           <div>
             <small>PRODUCTOS ACTIVOS</small>
-            <strong>{products.filter((item) => item.is_active).length}</strong>
+          <strong>{meta.total}</strong>
           </div>
         </article>
         <article>
@@ -258,7 +262,7 @@ export function ProductsPage({ goBack }: { goBack: () => void }) {
           </div>
         </article>
       </section>
-      <DataMigrationPanel module="products" onImported={load} />
+      <DataMigrationPanel module="products" onImported={() => { setPage(1); return load(1); }} />
       <article className="panel customers-panel">
         <div className="customers-toolbar">
           <label className="search customer-search">
@@ -270,7 +274,7 @@ export function ProductsPage({ goBack }: { goBack: () => void }) {
               placeholder="Buscar por nombre o SKU"
             />
           </label>
-          <span>{shown.length} resultados</span>
+          <span>{query ? `${shown.length} en esta página` : `${meta.total} resultados`}</span>
         </div>
         {error && !productOpen && !categoryOpen && (
           <div className="module-error">
@@ -307,7 +311,7 @@ export function ProductsPage({ goBack }: { goBack: () => void }) {
             </button>
           </div>
         ) : (
-          <div className="table-wrap">
+          <><div className="table-wrap">
             <table className="products-table">
               <thead>
                 <tr>
@@ -365,7 +369,7 @@ export function ProductsPage({ goBack }: { goBack: () => void }) {
                 ))}
               </tbody>
             </table>
-          </div>
+          </div><TablePagination meta={meta} label="productos" onPageChange={setPage} /></>
         )}
       </article>
       {productOpen && (
