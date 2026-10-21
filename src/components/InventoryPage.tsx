@@ -38,6 +38,16 @@ type Availability = {
   available_quantity: string;
 };
 type Valuation = { product_id: string; quantity: string; inventory_value: string };
+type Transfer = {
+  id: string;
+  number: string;
+  product_id: string;
+  source_warehouse_id: string;
+  destination_warehouse_id: string;
+  quantity: string;
+  status: "draft" | "in_transit" | "completed" | "cancelled";
+  note: string | null;
+};
 type Mode = "warehouse" | "warehouse-edit" | "adjustment" | "transfer" | null;
 
 export function InventoryPage({ goBack }: { goBack: () => void }) {
@@ -47,6 +57,7 @@ export function InventoryPage({ goBack }: { goBack: () => void }) {
   const [stock, setStock] = useState<Stock[]>([]);
   const [availability, setAvailability] = useState<Availability[]>([]);
   const [valuation, setValuation] = useState<Valuation[]>([]);
+  const [transfers, setTransfers] = useState<Transfer[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [mode, setMode] = useState<Mode>(null);
@@ -74,18 +85,20 @@ export function InventoryPage({ goBack }: { goBack: () => void }) {
     setLoading(true);
     setError(null);
     try {
-      const [stores, catalog, quantities, available, valued] = await Promise.all([
+      const [stores, catalog, quantities, available, valued, transferRows] = await Promise.all([
         apiFetch<Warehouse[]>("/inventory/warehouses", options),
         apiFetch<Product[]>("/products", options),
         apiFetch<Stock[]>("/inventory/stock", options),
         apiFetch<Availability[]>("/operations/inventory/availability", options),
         apiFetch<Valuation[]>("/operations/inventory/valuation", options),
+        apiFetch<Transfer[]>("/inventory/transfers", options),
       ]);
       setWarehouses(stores);
       setProducts(catalog);
       setStock(quantities);
       setAvailability(available);
       setValuation(valued);
+      setTransfers(transferRows);
     } catch (cause) {
       setError(
         cause instanceof Error
@@ -227,6 +240,21 @@ export function InventoryPage({ goBack }: { goBack: () => void }) {
       setSaving(false);
     }
   };
+  const progressTransfer = async (transfer: Transfer, action: "dispatch" | "receive") => {
+    setSaving(true);
+    setError(null);
+    try {
+      await apiFetch(`/inventory/transfers/${transfer.id}/${action}`, {
+        ...options,
+        method: "POST",
+      });
+      await load();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "No fue posible actualizar la transferencia.");
+    } finally {
+      setSaving(false);
+    }
+  };
   return (
     <section className="module-page">
       <div className="module-heading">
@@ -364,6 +392,37 @@ export function InventoryPage({ goBack }: { goBack: () => void }) {
                   </tr>
                 ))}
               </tbody>
+            </table>
+          </div>
+        )}
+      </article>
+      <article className="panel customers-panel">
+        <div className="panel-header">
+          <div>
+            <p className="card-label">LOGÍSTICA INTERNA</p>
+            <h2>Transferencias entre almacenes</h2>
+          </div>
+          <span className="table-count">{transfers.filter((transfer) => transfer.status !== "completed" && transfer.status !== "cancelled").length} pendientes</span>
+        </div>
+        {transfers.length === 0 ? (
+          <div className="module-state compact">
+            <ArrowLeftRight size={26} />
+            <strong>No hay transferencias registradas</strong>
+            <span>Las transferencias permanecen en tránsito hasta que el almacén destino confirme la recepción.</span>
+          </div>
+        ) : (
+          <div className="table-wrap">
+            <table className="inventory-table">
+              <thead><tr><th>FOLIO</th><th>PRODUCTO</th><th>ORIGEN</th><th>DESTINO</th><th>CANTIDAD</th><th>ESTADO</th><th>ACCIÓN</th></tr></thead>
+              <tbody>{transfers.map((transfer) => <tr key={transfer.id}>
+                <td><strong>{transfer.number}</strong></td>
+                <td>{productName(transfer.product_id)}</td>
+                <td>{warehouseName(transfer.source_warehouse_id)}</td>
+                <td>{warehouseName(transfer.destination_warehouse_id)}</td>
+                <td>{Number(transfer.quantity).toLocaleString("es-MX")}</td>
+                <td><span className={`status-pill ${transfer.status === "completed" ? "active" : transfer.status === "cancelled" ? "inactive" : "pending"}`}>{transfer.status === "draft" ? "Borrador" : transfer.status === "in_transit" ? "En tránsito" : transfer.status === "completed" ? "Recibida" : "Cancelada"}</span></td>
+                <td>{transfer.status === "draft" ? <button className="text-button" disabled={saving} onClick={() => void progressTransfer(transfer, "dispatch")}>Despachar</button> : transfer.status === "in_transit" ? <button className="text-button" disabled={saving} onClick={() => void progressTransfer(transfer, "receive")}>Confirmar recepción</button> : "—"}</td>
+              </tr>)}</tbody>
             </table>
           </div>
         )}
@@ -596,7 +655,7 @@ export function InventoryPage({ goBack }: { goBack: () => void }) {
                   Cancelar
                 </button>
                 <button className="primary-button" disabled={saving}>
-                  {saving ? "Guardando…" : "Confirmar"}
+                  {saving ? "Guardando…" : mode === "transfer" ? "Crear transferencia" : "Confirmar"}
                 </button>
               </div>
             </form>
