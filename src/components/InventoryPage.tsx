@@ -3,11 +3,8 @@ import {
   ArrowLeftRight,
   ChevronLeft,
   LoaderCircle,
-  MapPin,
   PackageSearch,
-  Pencil,
   Plus,
-  Power,
   SlidersHorizontal,
   Tag,
   Warehouse as WarehouseIcon,
@@ -51,7 +48,7 @@ type Transfer = {
 };
 type InventoryLot = { id: string; product_id: string; warehouse_id: string; lot_number: string; available_quantity: string; original_quantity: string; unit_cost: string; expiration_date: string | null; status: string };
 type InventorySerial = { id: string; product_id: string; warehouse_id: string; serial_number: string; unit_cost: string; status: string };
-type Mode = "warehouse" | "warehouse-edit" | "adjustment" | "transfer" | "lot" | "serial" | null;
+type Mode = "adjustment" | "transfer" | "lot" | "serial" | null;
 
 export function InventoryPage({ goBack }: { goBack: () => void }) {
   const { session, tenantId } = useAuth();
@@ -69,9 +66,6 @@ export function InventoryPage({ goBack }: { goBack: () => void }) {
   const [saving, setSaving] = useState(false);
   const [productId, setProductId] = useState("");
   const [warehouseId, setWarehouseId] = useState("");
-  const [editingWarehouseId, setEditingWarehouseId] = useState<string | null>(
-    null,
-  );
   const [destinationId, setDestinationId] = useState("");
   const [quantity, setQuantity] = useState("0");
   const [reference, setReference] = useState("");
@@ -80,11 +74,6 @@ export function InventoryPage({ goBack }: { goBack: () => void }) {
   const [lotNumber, setLotNumber] = useState("");
   const [expirationDate, setExpirationDate] = useState("");
   const [serialText, setSerialText] = useState("");
-  const [warehouseForm, setWarehouseForm] = useState({
-    code: "",
-    name: "",
-    address: "",
-  });
   const options = {
     accessToken: session?.access_token,
     tenantId: tenantId ?? undefined,
@@ -149,7 +138,6 @@ export function InventoryPage({ goBack }: { goBack: () => void }) {
     );
   const open = (next: Mode) => {
     setError(null);
-    setEditingWarehouseId(null);
     setProductId(products[0]?.id ?? "");
     setWarehouseId(warehouses[0]?.id ?? "");
     setDestinationId(warehouses[1]?.id ?? "");
@@ -160,66 +148,13 @@ export function InventoryPage({ goBack }: { goBack: () => void }) {
     setLotNumber("");
     setExpirationDate("");
     setSerialText("");
-    if (next === "warehouse")
-      setWarehouseForm({ code: "", name: "", address: "" });
     setMode(next);
-  };
-  const editWarehouse = (item: Warehouse) => {
-    setError(null);
-    setEditingWarehouseId(item.id);
-    setWarehouseForm({
-      code: item.code,
-      name: item.name,
-      address: item.address ?? "",
-    });
-    setMode("warehouse-edit");
-  };
-  const toggleWarehouse = async (item: Warehouse) => {
-    setSaving(true);
-    setError(null);
-    try {
-      const saved = await apiFetch<Warehouse>(
-        "/inventory/warehouses/" + item.id,
-        {
-          ...options,
-          method: "PATCH",
-          body: JSON.stringify({ is_active: !item.is_active }),
-        },
-      );
-      setWarehouses((current) =>
-        current.map((currentItem) =>
-          currentItem.id === saved.id ? saved : currentItem,
-        ),
-      );
-    } catch (cause) {
-      setError(
-        cause instanceof Error
-          ? cause.message
-          : "No fue posible actualizar el almacén.",
-      );
-    } finally {
-      setSaving(false);
-    }
   };
   const save = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setSaving(true);
     setError(null);
     try {
-      if (mode === "warehouse" || mode === "warehouse-edit")
-        await apiFetch<Warehouse>(
-          mode === "warehouse-edit" && editingWarehouseId
-            ? "/inventory/warehouses/" + editingWarehouseId
-            : "/inventory/warehouses",
-          {
-            ...options,
-            method: mode === "warehouse-edit" ? "PATCH" : "POST",
-            body: JSON.stringify({
-              ...warehouseForm,
-              address: warehouseForm.address || null,
-            }),
-          },
-        );
       if (mode === "adjustment")
         await apiFetch("/inventory/adjustments", {
           ...options,
@@ -507,11 +442,7 @@ export function InventoryPage({ goBack }: { goBack: () => void }) {
               <div>
                 <p className="eyebrow">INVENTARIO</p>
                 <h2>
-                  {mode === "warehouse"
-                    ? "Nuevo almacén"
-                    : mode === "warehouse-edit"
-                      ? "Editar almacén"
-                      : mode === "adjustment"
+                  {mode === "adjustment"
                         ? "Ajustar existencia"
                         : mode === "transfer"
                           ? "Transferir inventario"
@@ -529,51 +460,7 @@ export function InventoryPage({ goBack }: { goBack: () => void }) {
               </button>
             </div>
             <form className="customer-form" onSubmit={save}>
-              {mode === "warehouse" || mode === "warehouse-edit" ? (
-                <>
-                  <label>
-                    Código
-                    <input
-                      required
-                      value={warehouseForm.code}
-                      onChange={(e) =>
-                        setWarehouseForm((f) => ({
-                          ...f,
-                          code: e.target.value,
-                        }))
-                      }
-                      placeholder="ALM-001"
-                    />
-                  </label>
-                  <label>
-                    Nombre
-                    <input
-                      required
-                      value={warehouseForm.name}
-                      onChange={(e) =>
-                        setWarehouseForm((f) => ({
-                          ...f,
-                          name: e.target.value,
-                        }))
-                      }
-                      placeholder="Almacén principal"
-                    />
-                  </label>
-                  <label>
-                    Dirección
-                    <input
-                      value={warehouseForm.address}
-                      onChange={(e) =>
-                        setWarehouseForm((f) => ({
-                          ...f,
-                          address: e.target.value,
-                        }))
-                      }
-                      placeholder="Opcional"
-                    />
-                  </label>
-                </>
-              ) : mode === "lot" || mode === "serial" ? (
+              {mode === "lot" || mode === "serial" ? (
                 <>
                   <label>
                     Producto configurado para {mode === "lot" ? "lotes" : "series"}
