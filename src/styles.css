@@ -2146,6 +2146,15 @@ html[data-theme="dark"] .supplier-lookup-notice { color: #b8e9f8; background: #1
 .finance-metrics {
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
+.module-inline-note {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 14px 18px 18px;
+  color: #607d8c;
+  font-size: 12px;
+}
+html[data-theme="dark"] .module-inline-note { color: #a9bfca; }
 .finance-grid {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);

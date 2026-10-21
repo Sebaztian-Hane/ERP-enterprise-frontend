@@ -130,6 +130,9 @@ const FinancePage = lazyWithRetry(() =>
     default: module.FinancePage,
   })),
 );
+const AccountsPage = lazyWithRetry(() =>
+  import("./components/AccountsPage").then((module) => ({ default: module.AccountsPage })),
+);
 const ReconciliationPage = lazyWithRetry(() =>
   import("./components/ReconciliationPage").then((module) => ({
     default: module.ReconciliationPage,
@@ -227,6 +230,7 @@ const navigation: NavItem[] = [
   { label: "Kardex", icon: ClipboardList, href: "#kardex", category: "abastecimiento" },
   { label: "Productos", icon: PackageSearch, href: "#productos", category: "abastecimiento" },
   { label: "Finanzas", icon: WalletCards, href: "#finanzas", category: "finanzas" },
+  { label: "Cuentas por cobrar y pagar", icon: BriefcaseBusiness, href: "#cuentas", category: "finanzas" },
   { label: "Conciliación", icon: ArrowLeftRight, href: "#conciliacion", category: "finanzas" },
   { label: "Reportes", icon: BarChart3, href: "#reportes", category: "finanzas" },
   { label: "Configuración", icon: Settings, href: "#configuracion", category: "administracion" },
@@ -246,6 +250,7 @@ const appModules: AppModule[] = [
   { label: "Kardex", icon: ArrowLeftRight, href: "#kardex", category: "abastecimiento", description: "Trazabilidad de movimientos", tone: "cyan" },
   { label: "Productos", icon: PackageSearch, href: "#productos", category: "abastecimiento", description: "Catálogo y precios", tone: "lime" },
   { label: "Finanzas", icon: WalletCards, href: "#finanzas", category: "finanzas", description: "Cobros, pagos y caja", tone: "emerald" },
+  { label: "Cuentas por cobrar y pagar", icon: BriefcaseBusiness, href: "#cuentas", category: "finanzas", description: "Cartera, vencimientos y mora", tone: "amber" },
   { label: "Conciliación", icon: ArrowLeftRight, href: "#conciliacion", category: "finanzas", description: "Movimientos bancarios", tone: "rose" },
   { label: "Reportes", icon: BarChart3, href: "#reportes", category: "finanzas", description: "Análisis y exportación", tone: "pink" },
   { label: "Configuración", icon: Settings, href: "#configuracion", category: "administracion", description: "Impuestos, monedas y maestros", tone: "slate" },
@@ -877,6 +882,10 @@ export default function App() {
                       goBack={() => {
                         window.location.hash = "dashboard";
                       }}
+                    />
+                  ) : view === "#cuentas" ? (
+                    <AccountsPage
+                      goBack={() => { window.location.hash = "finanzas"; }}
                     />
                   ) : view === "#conciliacion" ? (
                     <ReconciliationPage
