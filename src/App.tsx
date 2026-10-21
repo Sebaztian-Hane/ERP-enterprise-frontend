@@ -31,6 +31,7 @@ import {
   Search,
   Settings,
   ShoppingCart,
+  SlidersHorizontal,
   Sun,
   Moon,
   UsersRound,
@@ -158,46 +159,84 @@ type NavItem = {
   label: string;
   icon: typeof Gauge;
   href: string;
+  category: ModuleCategory;
   badge?: string;
 };
 type AppModule = NavItem & { description: string; tone: string };
 
+type ModuleCategory =
+  | "comercial"
+  | "abastecimiento"
+  | "finanzas"
+  | "administracion";
+
+const moduleCategories: Array<{
+  id: ModuleCategory;
+  label: string;
+  description: string;
+  icon: typeof Gauge;
+}> = [
+  {
+    id: "comercial",
+    label: "Comercial",
+    description: "Clientes, cotizaciones y ventas",
+    icon: ShoppingCart,
+  },
+  {
+    id: "abastecimiento",
+    label: "Abastecimiento e inventario",
+    description: "Compras, proveedores, stock y productos",
+    icon: Box,
+  },
+  {
+    id: "finanzas",
+    label: "Finanzas y control",
+    description: "Caja, conciliación, análisis y seguimiento",
+    icon: WalletCards,
+  },
+  {
+    id: "administracion",
+    label: "Administración",
+    description: "Documentos, permisos y configuración",
+    icon: SlidersHorizontal,
+  },
+];
+
 const navigation: NavItem[] = [
-  { label: "Inicio", icon: Gauge, href: "#dashboard" },
-  { label: "Ventas", icon: ShoppingCart, href: "#ventas" },
-  { label: "Cotizaciones", icon: FileText, href: "#cotizaciones" },
-  { label: "Pedidos de venta", icon: ClipboardList, href: "#pedidos-de-venta" },
-  { label: "Compras", icon: ClipboardList, href: "#compras" },
-  { label: "Proveedores", icon: Factory, href: "#proveedores" },
-  { label: "Órdenes de compra", icon: FileText, href: "#ordenes-de-compra" },
-  { label: "Inventario", icon: Box, href: "#inventario" },
-  { label: "Kardex", icon: ClipboardList, href: "#kardex" },
-  { label: "Productos", icon: PackageSearch, href: "#productos" },
-  { label: "Finanzas", icon: WalletCards, href: "#finanzas" },
-  { label: "Conciliación", icon: ArrowLeftRight, href: "#conciliacion" },
-  { label: "Clientes", icon: UsersRound, href: "#clientes" },
-  { label: "Documentos", icon: FileText, href: "#documentos" },
-  { label: "Reportes", icon: BarChart3, href: "#reportes" },
-  { label: "Control operativo", icon: BadgeCheck, href: "#control-operativo" },
+  { label: "Inicio", icon: Gauge, href: "#dashboard", category: "administracion" },
+  { label: "Ventas", icon: ShoppingCart, href: "#ventas", category: "comercial" },
+  { label: "Cotizaciones", icon: FileText, href: "#cotizaciones", category: "comercial" },
+  { label: "Pedidos de venta", icon: ClipboardList, href: "#pedidos-de-venta", category: "comercial" },
+  { label: "Clientes", icon: UsersRound, href: "#clientes", category: "comercial" },
+  { label: "Compras", icon: ClipboardList, href: "#compras", category: "abastecimiento" },
+  { label: "Proveedores", icon: Factory, href: "#proveedores", category: "abastecimiento" },
+  { label: "Órdenes de compra", icon: FileText, href: "#ordenes-de-compra", category: "abastecimiento" },
+  { label: "Inventario", icon: Box, href: "#inventario", category: "abastecimiento" },
+  { label: "Kardex", icon: ClipboardList, href: "#kardex", category: "abastecimiento" },
+  { label: "Productos", icon: PackageSearch, href: "#productos", category: "abastecimiento" },
+  { label: "Finanzas", icon: WalletCards, href: "#finanzas", category: "finanzas" },
+  { label: "Conciliación", icon: ArrowLeftRight, href: "#conciliacion", category: "finanzas" },
+  { label: "Reportes", icon: BarChart3, href: "#reportes", category: "finanzas" },
+  { label: "Control operativo", icon: BadgeCheck, href: "#control-operativo", category: "finanzas" },
 ];
 const appModules: AppModule[] = [
-  { label: "Panel ejecutivo", icon: Gauge, href: "#dashboard", description: "Indicadores de tu operación", tone: "sky" },
-  { label: "Ventas", icon: ShoppingCart, href: "#ventas", description: "Facturación y registro comercial", tone: "blue" },
-  { label: "Cotizaciones", icon: FileText, href: "#cotizaciones", description: "Propuestas para tus clientes", tone: "violet" },
-  { label: "Pedidos de venta", icon: ClipboardList, href: "#pedidos-de-venta", description: "Seguimiento de pedidos", tone: "indigo" },
-  { label: "Compras", icon: ClipboardList, href: "#compras", description: "Registro de adquisiciones", tone: "orange" },
-  { label: "Proveedores", icon: Factory, href: "#proveedores", description: "RUC, contactos y abastecimiento", tone: "teal" },
-  { label: "Órdenes de compra", icon: FileText, href: "#ordenes-de-compra", description: "Solicitudes y aprobaciones", tone: "amber" },
-  { label: "Inventario", icon: Box, href: "#inventario", description: "Existencias y almacenes", tone: "teal" },
-  { label: "Kardex", icon: ArrowLeftRight, href: "#kardex", description: "Trazabilidad de movimientos", tone: "cyan" },
-  { label: "Productos", icon: PackageSearch, href: "#productos", description: "Catálogo y precios", tone: "lime" },
-  { label: "Finanzas", icon: WalletCards, href: "#finanzas", description: "Cobros, pagos y caja", tone: "emerald" },
-  { label: "Conciliación", icon: ArrowLeftRight, href: "#conciliacion", description: "Movimientos bancarios", tone: "rose" },
-  { label: "Clientes", icon: UsersRound, href: "#clientes", description: "Relaciones comerciales", tone: "purple" },
-  { label: "Documentos", icon: FileText, href: "#documentos", description: "Archivo empresarial", tone: "slate" },
-  { label: "Reportes", icon: BarChart3, href: "#reportes", description: "Análisis y exportación", tone: "pink" },
-  { label: "Administración", icon: BriefcaseBusiness, href: "#administracion", description: "Usuarios y permisos", tone: "navy" },
-  { label: "Control operativo", icon: BadgeCheck, href: "#control-operativo", description: "Aprobaciones y contabilidad", tone: "indigo" },
+  { label: "Panel ejecutivo", icon: Gauge, href: "#dashboard", category: "administracion", description: "Indicadores de tu operación", tone: "sky" },
+  { label: "Ventas", icon: ShoppingCart, href: "#ventas", category: "comercial", description: "Facturación y registro comercial", tone: "blue" },
+  { label: "Cotizaciones", icon: FileText, href: "#cotizaciones", category: "comercial", description: "Propuestas para tus clientes", tone: "violet" },
+  { label: "Pedidos de venta", icon: ClipboardList, href: "#pedidos-de-venta", category: "comercial", description: "Seguimiento de pedidos", tone: "indigo" },
+  { label: "Clientes", icon: UsersRound, href: "#clientes", category: "comercial", description: "Relaciones comerciales", tone: "purple" },
+  { label: "Compras", icon: ClipboardList, href: "#compras", category: "abastecimiento", description: "Registro de adquisiciones", tone: "orange" },
+  { label: "Proveedores", icon: Factory, href: "#proveedores", category: "abastecimiento", description: "RUC, contactos y abastecimiento", tone: "teal" },
+  { label: "Órdenes de compra", icon: FileText, href: "#ordenes-de-compra", category: "abastecimiento", description: "Solicitudes y aprobaciones", tone: "amber" },
+  { label: "Inventario", icon: Box, href: "#inventario", category: "abastecimiento", description: "Existencias y almacenes", tone: "teal" },
+  { label: "Kardex", icon: ArrowLeftRight, href: "#kardex", category: "abastecimiento", description: "Trazabilidad de movimientos", tone: "cyan" },
+  { label: "Productos", icon: PackageSearch, href: "#productos", category: "abastecimiento", description: "Catálogo y precios", tone: "lime" },
+  { label: "Finanzas", icon: WalletCards, href: "#finanzas", category: "finanzas", description: "Cobros, pagos y caja", tone: "emerald" },
+  { label: "Conciliación", icon: ArrowLeftRight, href: "#conciliacion", category: "finanzas", description: "Movimientos bancarios", tone: "rose" },
+  { label: "Reportes", icon: BarChart3, href: "#reportes", category: "finanzas", description: "Análisis y exportación", tone: "pink" },
+  { label: "Administración", icon: BriefcaseBusiness, href: "#administracion", category: "administracion", description: "Usuarios y permisos", tone: "navy" },
+  { label: "Documentos", icon: FileText, href: "#documentos", category: "administracion", description: "Archivo empresarial", tone: "slate" },
+  { label: "Control operativo", icon: BadgeCheck, href: "#control-operativo", category: "finanzas", description: "Aprobaciones y contabilidad", tone: "indigo" },
 ];
 const supportedViews = new Set([
   ...navigation.map((item) => item.href),
@@ -305,17 +344,30 @@ function Sidebar({
         </label>
         <nav aria-label="Navegación principal">
           <p className="nav-caption">ESPACIO DE TRABAJO</p>
-          {navigation.filter((item) => canAccessModule(roleCode, item.href)).map(({ label, icon: Icon, href, badge }) => (
-            <a
-              className={`nav-item ${view === href ? "active" : ""}`}
-              key={label}
-              href={href}
-            >
-              <Icon size={18} strokeWidth={view === href ? 2.2 : 1.8} />
-              <span>{label}</span>
-              {badge && <b>{badge}</b>}
-            </a>
-          ))}
+          <a className={`nav-item ${view === "#dashboard" ? "active" : ""}`} href="#dashboard">
+            <Gauge size={18} strokeWidth={view === "#dashboard" ? 2.2 : 1.8} />
+            <span>Panel ejecutivo</span>
+          </a>
+          {moduleCategories
+            .filter((category) => navigation.some((item) => item.category === category.id && item.href !== "#dashboard" && canAccessModule(roleCode, item.href)))
+            .map((category) => (
+              <div className="nav-category" key={category.id}>
+                <p className="nav-caption nav-category-title">{category.label}</p>
+                {navigation
+                  .filter((item) => item.category === category.id && item.href !== "#dashboard" && canAccessModule(roleCode, item.href))
+                  .map(({ label, icon: Icon, href, badge }) => (
+                    <a
+                      className={`nav-item ${view === href ? "active" : ""}`}
+                      key={label}
+                      href={href}
+                    >
+                      <Icon size={18} strokeWidth={view === href ? 2.2 : 1.8} />
+                      <span>{label}</span>
+                      {badge && <b>{badge}</b>}
+                    </a>
+                  ))}
+              </div>
+            ))}
           {canAccessModule(roleCode, "#administracion") && <>
             <p className="nav-caption lower">CONFIGURACIÓN</p>
             <a className={`nav-item ${view === "#administracion" ? "active" : ""}`} href="#administracion">
@@ -357,6 +409,7 @@ function ModuleLauncher({
   tenantName: string;
   roleCode: string | null;
 }) {
+  const [moduleSearch, setModuleSearch] = useState("");
   useEffect(() => {
     const closeOnEscape = (event: KeyboardEvent) => {
       if (event.key === "Escape") onClose();
@@ -369,6 +422,15 @@ function ModuleLauncher({
     window.location.hash = href;
     onClose();
   };
+  const normalizedSearch = moduleSearch.trim().toLocaleLowerCase("es-MX");
+  const visibleModules = appModules.filter(
+    (module) =>
+      canAccessModule(roleCode, module.href) &&
+      (!normalizedSearch ||
+        `${module.label} ${module.description}`
+          .toLocaleLowerCase("es-MX")
+          .includes(normalizedSearch)),
+  );
 
   return (
     <div className="app-launcher-layer" role="presentation">
@@ -379,20 +441,63 @@ function ModuleLauncher({
           <div>
             <p className="eyebrow">APLICACIONES</p>
             <h1>Tu espacio de trabajo</h1>
-            <p>Selecciona un módulo para operar {tenantName}.</p>
+            <p>Aplicaciones ordenadas por área para operar {tenantName}.</p>
           </div>
           <button className="icon-button launcher-close" onClick={onClose} aria-label="Cerrar aplicaciones">
             <X size={20} />
           </button>
         </header>
-        <div className="app-module-grid">
-          {appModules.filter((module) => canAccessModule(roleCode, module.href)).map(({ label, icon: Icon, href, description, tone }) => (
-            <button className="app-module-card" key={href} onClick={() => openModule(href)}>
-              <span className={`app-module-icon ${tone}`}><Icon size={25} /></span>
-              <span><strong>{label}</strong><small>{description}</small></span>
-              <ChevronRight size={17} />
-            </button>
-          ))}
+        <div className="app-launcher-toolbar">
+          <label className="app-launcher-search">
+            <Search size={17} />
+            <input
+              autoFocus
+              value={moduleSearch}
+              onChange={(event) => setModuleSearch(event.target.value)}
+              placeholder="Buscar aplicaciones y procesos"
+              aria-label="Buscar aplicaciones"
+            />
+            {moduleSearch && (
+              <button type="button" onClick={() => setModuleSearch("")} aria-label="Limpiar búsqueda">
+                <X size={15} />
+              </button>
+            )}
+          </label>
+          <span>{visibleModules.length} aplicaciones disponibles</span>
+        </div>
+        <div className="app-module-sections">
+          {moduleCategories.map(({ id, label, description, icon: CategoryIcon }) => {
+            const modules = visibleModules.filter((module) => module.category === id);
+            if (!modules.length) return null;
+            return (
+              <section className="app-module-section" key={id} aria-labelledby={`module-category-${id}`}>
+                <header>
+                  <span className="app-category-icon"><CategoryIcon size={18} /></span>
+                  <div>
+                    <h2 id={`module-category-${id}`}>{label}</h2>
+                    <p>{description}</p>
+                  </div>
+                  <small>{modules.length}</small>
+                </header>
+                <div className="app-module-grid">
+                  {modules.map(({ label: moduleLabel, icon: Icon, href, description: moduleDescription, tone }) => (
+                    <button className="app-module-card" key={href} onClick={() => openModule(href)}>
+                      <span className={`app-module-icon ${tone}`}><Icon size={25} /></span>
+                      <span><strong>{moduleLabel}</strong><small>{moduleDescription}</small></span>
+                      <ChevronRight size={17} />
+                    </button>
+                  ))}
+                </div>
+              </section>
+            );
+          })}
+          {!visibleModules.length && (
+            <div className="app-module-empty">
+              <Search size={20} />
+              <strong>No encontramos una aplicación con ese nombre.</strong>
+              <button type="button" onClick={() => setModuleSearch("")}>Restablecer búsqueda</button>
+            </div>
+          )}
         </div>
       </section>
     </div>
