@@ -78,6 +78,12 @@ export function SalesPage({ goBack }: { goBack: () => void }) {
   const [customerPhone, setCustomerPhone] = useState("");
   const [customerLookupBusy, setCustomerLookupBusy] = useState(false);
   const [customerLookupHint, setCustomerLookupHint] = useState<string | null>(null);
+  const [customerPickerOpen, setCustomerPickerOpen] = useState(false);
+  const [customerPickerQuery, setCustomerPickerQuery] = useState("");
+  const [customerPickerPage, setCustomerPickerPage] = useState(1);
+  const [customerPickerItems, setCustomerPickerItems] = useState<Customer[]>([]);
+  const [customerPickerMeta, setCustomerPickerMeta] = useState<PageMeta>({ page: 1, page_size: 25, total: 0, total_pages: 0, has_previous: false, has_next: false });
+  const [customerPickerLoading, setCustomerPickerLoading] = useState(false);
   const [warehouseId, setWarehouseId] = useState("");
   const [number, setNumber] = useState("");
   const [note, setNote] = useState("");
@@ -198,6 +204,23 @@ export function SalesPage({ goBack }: { goBack: () => void }) {
       else setCustomerLookupHint(`${result.document_type} consultado. Verifica los datos antes de registrar la venta.`);
     } catch (cause) { setCustomerLookupHint(cause instanceof Error ? cause.message : "No se pudo consultar el documento."); }
     finally { setCustomerLookupBusy(false); }
+  };
+  const loadCustomerPicker = async (targetPage = customerPickerPage, query = customerPickerQuery) => {
+    if (!session || !tenantId) return;
+    setCustomerPickerLoading(true);
+    try {
+      const normalizedQuery = query.trim();
+      const path = normalizedQuery ? `/customers?q=${encodeURIComponent(normalizedQuery)}` : "/customers";
+      const result = await fetchPage<Customer, "customers">(path, "customers", targetPage, options);
+      setCustomerPickerItems(result.customers); setCustomerPickerMeta(result.meta);
+    } catch (cause) { setError(cause instanceof Error ? cause.message : "No se pudieron buscar los clientes."); }
+    finally { setCustomerPickerLoading(false); }
+  };
+  const openCustomerPicker = () => { setCustomerPickerPage(1); setCustomerPickerOpen(true); void loadCustomerPicker(1); };
+  const selectCustomer = (customer: Customer) => {
+    setCustomerId(customer.id);
+    setCustomers((current) => current.some((item) => item.id === customer.id) ? current : [...current, customer]);
+    setCustomerPickerOpen(false);
   };
   const nameFor = (id: string) =>
     customers.find((customer) => customer.id === id)?.name ?? "Cliente";
@@ -398,7 +421,7 @@ export function SalesPage({ goBack }: { goBack: () => void }) {
               </div>
               <section className="sale-customer-card">
                 <div className="sale-customer-heading"><div><span>Cliente</span><small>Usa un cliente registrado o consulta DNI/RUC.</small></div><div className="segmented-control"><button type="button" className={customerMode === "existing" ? "is-active" : ""} onClick={() => setCustomerMode("existing")}>Existente</button><button type="button" className={customerMode === "lookup" ? "is-active" : ""} onClick={() => setCustomerMode("lookup")}>Nuevo DNI/RUC</button></div></div>
-                {customerMode === "existing" ? <EntityPicker label="Cliente registrado" placeholder="Busca por nombre, código o documento" required value={customerId} onChange={setCustomerId} options={customers.map((customer) => ({ id: customer.id, primary: customer.name, secondary: customer.code }))} /> : <div className="customer-lookup-fields"><label>Documento DNI o RUC<input inputMode="numeric" maxLength={11} value={customerTaxId} onChange={(event) => setCustomerTaxId(event.target.value.replace(/\D/g, ""))} placeholder="Ingresa DNI o RUC" /></label><button type="button" className="secondary-button" onClick={() => void lookupCustomer()} disabled={customerLookupBusy}>{customerLookupBusy ? "Consultando…" : "Consultar"}</button><label className="wide">Nombre o razón social<input required value={customerName} onChange={(event) => setCustomerName(event.target.value)} placeholder="Se completa al consultar" /></label><label>Correo (opcional)<input type="email" value={customerEmail} onChange={(event) => setCustomerEmail(event.target.value)} /></label><label>Teléfono (opcional)<input value={customerPhone} onChange={(event) => setCustomerPhone(event.target.value)} /></label>{customerLookupHint && <p className="customer-lookup-hint">{customerLookupHint}</p>}</div>}
+                {customerMode === "existing" ? <label className="customer-picker-field">Cliente registrado<button type="button" className="customer-picker-trigger" onClick={openCustomerPicker}><Search size={17} /><span>{customers.find((customer) => customer.id === customerId)?.name ?? "Buscar y seleccionar cliente"}</span><small>{customers.find((customer) => customer.id === customerId)?.code ?? "Nombre, código o documento"}</small></button></label> : <div className="customer-lookup-fields"><label>Documento DNI o RUC<input inputMode="numeric" maxLength={11} value={customerTaxId} onChange={(event) => setCustomerTaxId(event.target.value.replace(/\D/g, ""))} placeholder="Ingresa DNI o RUC" /></label><button type="button" className="secondary-button" onClick={() => void lookupCustomer()} disabled={customerLookupBusy}>{customerLookupBusy ? "Consultando…" : "Consultar"}</button><label className="wide">Nombre o razón social<input required value={customerName} onChange={(event) => setCustomerName(event.target.value)} placeholder="Se completa al consultar" /></label><label>Correo (opcional)<input type="email" value={customerEmail} onChange={(event) => setCustomerEmail(event.target.value)} /></label><label>Teléfono (opcional)<input value={customerPhone} onChange={(event) => setCustomerPhone(event.target.value)} /></label>{customerLookupHint && <p className="customer-lookup-hint">{customerLookupHint}</p>}</div>}
               </section>
               <div className="sale-lines-header">
                 <span>Productos</span>
@@ -498,6 +521,7 @@ export function SalesPage({ goBack }: { goBack: () => void }) {
           </section>
         </div>
       )}
+      {customerPickerOpen && <div className="modal-layer customer-picker-layer" role="presentation"><section className="customer-modal customer-picker-modal" role="dialog" aria-modal="true" aria-labelledby="customer-picker-title"><div className="modal-header"><div><p className="eyebrow">CARTERA COMERCIAL</p><h2 id="customer-picker-title">Seleccionar cliente</h2></div><button type="button" className="icon-button" onClick={() => setCustomerPickerOpen(false)} aria-label="Cerrar"><X size={20} /></button></div><div className="customer-picker-toolbar"><label className="search customer-search"><Search size={18} /><input autoFocus value={customerPickerQuery} onChange={(event) => setCustomerPickerQuery(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); setCustomerPickerPage(1); void loadCustomerPicker(1); } }} placeholder="Buscar por razón social, código o DNI/RUC" /></label><button type="button" className="secondary-button" onClick={() => { setCustomerPickerPage(1); void loadCustomerPicker(1); }} disabled={customerPickerLoading}>{customerPickerLoading ? "Buscando…" : "Buscar"}</button></div><p className="customer-picker-help">Selecciona un cliente para asociarlo a la venta. La búsqueda se realiza en toda la cartera de la empresa activa.</p>{customerPickerLoading ? <div className="module-state"><LoaderCircle className="spin" size={22} /> Buscando clientes…</div> : customerPickerItems.length === 0 ? <div className="module-state"><Search size={24} /><strong>No se encontraron clientes</strong><span>Prueba con otro nombre, código o documento.</span></div> : <><div className="table-wrap customer-picker-table"><table className="customers-table"><thead><tr><th>CLIENTE</th><th>CÓDIGO</th><th>ACCIÓN</th></tr></thead><tbody>{customerPickerItems.map((customer) => <tr key={customer.id}><td><strong>{customer.name}</strong></td><td>{customer.code}</td><td><button type="button" className="table-action-button" onClick={() => selectCustomer(customer)}>Seleccionar</button></td></tr>)}</tbody></table></div><TablePagination meta={customerPickerMeta} label="clientes" onPageChange={(nextPage) => { setCustomerPickerPage(nextPage); void loadCustomerPicker(nextPage); }} /></>}</section></div>}
       {billingSale && (
         <div className="modal-layer">
           <section className="sale-modal billing-modal" role="dialog" aria-modal="true" aria-label="Facturación electrónica">
