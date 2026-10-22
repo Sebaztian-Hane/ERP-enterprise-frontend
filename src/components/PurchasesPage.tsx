@@ -11,10 +11,12 @@ import { useAuth } from "../auth/AuthProvider";
 import { apiFetch, postIdempotent } from "../lib/api";
 import { fetchPage, PageMeta, TablePagination } from "../lib/pagination";
 import { DataMigrationPanel } from "./DataMigrationPanel";
+import { EntityPicker } from "./EntityPicker";
 
 type Supplier = { id: string; name: string; is_active: boolean };
 type Product = { id: string; name: string; sale_price: string; tracking_mode: "none" | "lot" | "serial" };
 type Warehouse = { id: string; name: string };
+type PaymentTerm = { id: string; code: string; name: string; days_due: number };
 type Purchase = {
   id: string;
   number: string;
@@ -41,6 +43,7 @@ export function PurchasesPage({ goBack }: { goBack: () => void }) {
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
+  const [paymentTerms, setPaymentTerms] = useState<PaymentTerm[]>([]);
   const [purchases, setPurchases] = useState<Purchase[]>([]);
   const [page, setPage] = useState(1);
   const [meta, setMeta] = useState<PageMeta>({ page: 1, page_size: 25, total: 0, total_pages: 0, has_previous: false, has_next: false });
@@ -50,6 +53,7 @@ export function PurchasesPage({ goBack }: { goBack: () => void }) {
   const [saving, setSaving] = useState(false);
   const [supplierId, setSupplierId] = useState("");
   const [warehouseId, setWarehouseId] = useState("");
+  const [paymentTermId, setPaymentTermId] = useState("");
   const [note, setNote] = useState("");
   const [lines, setLines] = useState<Line[]>([]);
   const [document, setDocument] = useState({
@@ -64,16 +68,18 @@ export function PurchasesPage({ goBack }: { goBack: () => void }) {
     setLoading(true);
     setError(null);
     try {
-      const [p, s, items, stores] = await Promise.all([
+      const [p, s, items, stores, terms] = await Promise.all([
         fetchPage<Purchase, "purchases">("/purchases", "purchases", targetPage, options),
         apiFetch<Supplier[]>("/suppliers", options),
         apiFetch<Product[]>("/products", options),
         apiFetch<Warehouse[]>("/purchases/warehouses", options),
+        apiFetch<PaymentTerm[]>("/purchases/payment-terms", options),
       ]);
       setPurchases(p.purchases); setMeta(p.meta);
       setSuppliers(s);
       setProducts(items);
       setWarehouses(stores);
+      setPaymentTerms(terms);
     } catch (cause) {
       setError(
         cause instanceof Error
@@ -103,6 +109,7 @@ export function PurchasesPage({ goBack }: { goBack: () => void }) {
     setError(null);
     setSupplierId(suppliers.find((item) => item.is_active)?.id ?? "");
     setWarehouseId(warehouses[0]?.id ?? "");
+    setPaymentTermId("");
     setNote("");
     setLines([]);
     setDocument({ type: "01", series: "", number: "", date: "", tax: "" });
@@ -148,6 +155,7 @@ export function PurchasesPage({ goBack }: { goBack: () => void }) {
           supplier_document_number: document.number || null,
           supplier_document_date: document.date || null,
           supplier_tax_amount: document.tax || null,
+          payment_term_id: paymentTermId || null,
         }),
       });
       setPage(1);
@@ -350,6 +358,18 @@ export function PurchasesPage({ goBack }: { goBack: () => void }) {
                     ))}
                 </select>
               </label>
+              <EntityPicker
+                label="Condición de pago (opcional)"
+                placeholder="Vencimiento al contado"
+                value={paymentTermId}
+                onChange={setPaymentTermId}
+                options={paymentTerms.map((term) => ({
+                  id: term.id,
+                  primary: term.name,
+                  secondary: term.code + " · " + term.days_due + " día(s)",
+                }))}
+              />
+              {paymentTermId && <p className="field-help">El vencimiento se calculará desde la fecha de emisión del comprobante; si no la indicas, se usará la fecha de recepción.</p>}
               <div className="sale-lines-header">
                 <span>Productos</span>
                 <button

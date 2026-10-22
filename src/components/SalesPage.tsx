@@ -22,6 +22,7 @@ type CustomerLookup = { existing_customer_id: string | null; tax_id: string; nam
 type Product = { id: string; sku: string; name: string; sale_price: string; tracking_mode: "none" | "lot" | "serial" };
 type Warehouse = { id: string; code: string; name: string; is_active: boolean };
 type PriceList = { id: string; code: string; name: string; currency_code: string; currency_symbol?: string | null };
+type PaymentTerm = { id: string; code: string; name: string; days_due: number };
 type PriceListQuote = { price_list_id: string; lines: { product_id: string; quantity: number; unit_price: string }[] };
 type Sale = {
   id: string;
@@ -70,6 +71,7 @@ export function SalesPage({ goBack }: { goBack: () => void }) {
   const [products, setProducts] = useState<Product[]>([]);
   const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
   const [priceLists, setPriceLists] = useState<PriceList[]>([]);
+  const [paymentTerms, setPaymentTerms] = useState<PaymentTerm[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isOpen, setIsOpen] = useState(false);
@@ -90,6 +92,7 @@ export function SalesPage({ goBack }: { goBack: () => void }) {
   const [customerPickerLoading, setCustomerPickerLoading] = useState(false);
   const [warehouseId, setWarehouseId] = useState("");
   const [priceListId, setPriceListId] = useState("");
+  const [paymentTermId, setPaymentTermId] = useState("");
   const [quotingPrices, setQuotingPrices] = useState(false);
   const [note, setNote] = useState("");
   const [lines, setLines] = useState<Line[]>([]);
@@ -107,18 +110,20 @@ export function SalesPage({ goBack }: { goBack: () => void }) {
     setLoading(true);
     setError(null);
     try {
-      const [history, people, items, stores, commercialLists] = await Promise.all([
+      const [history, people, items, stores, commercialLists, terms] = await Promise.all([
         fetchPage<Sale, "sales">("/sales", "sales", targetPage, options),
         apiFetch<Customer[]>("/customers", options),
         apiFetch<Product[]>("/products", options),
         apiFetch<Warehouse[]>("/sales/warehouses", options),
         apiFetch<PriceList[]>("/sales/price-lists", options),
+        apiFetch<PaymentTerm[]>("/sales/payment-terms", options),
       ]);
       setSales(history.sales); setMeta(history.meta);
       setCustomers(people);
       setProducts(items);
       setWarehouses(stores.filter((store) => store.is_active));
       setPriceLists(commercialLists);
+      setPaymentTerms(terms);
     } catch (cause) {
       setError(
         cause instanceof Error
@@ -143,6 +148,7 @@ export function SalesPage({ goBack }: { goBack: () => void }) {
     setCustomerTaxId(""); setCustomerName(""); setCustomerEmail(""); setCustomerPhone(""); setCustomerLookupHint(null);
     setWarehouseId(warehouses[0]?.id ?? "");
     setPriceListId("");
+    setPaymentTermId("");
     setNote("");
     setLines([]);
     setIsOpen(true);
@@ -201,6 +207,7 @@ export function SalesPage({ goBack }: { goBack: () => void }) {
           ...(customerMode === "existing" ? { customer_id: customerId } : { customer: { tax_id: customerTaxId, name: customerName, email: customerEmail || null, phone: customerPhone || null } }),
           warehouse_id: warehouseId,
           price_list_id: priceListId || null,
+          payment_term_id: paymentTermId || null,
           lines: lines.map(({ serial_text, ...line }) => ({ ...line, serial_numbers: serial_text ? serial_text.split(/[\n,]+/).map((item) => item.trim()).filter(Boolean) : null })),
           note: note || null,
         }),
@@ -444,9 +451,11 @@ export function SalesPage({ goBack }: { goBack: () => void }) {
               <div className="form-grid">
                 <EntityPicker label="Almacén" placeholder="Busca un almacén" required value={warehouseId} onChange={setWarehouseId} options={warehouses.map((store) => ({ id: store.id, primary: store.name, secondary: store.code }))} />
                 <div className="price-list-field"><EntityPicker label="Lista de precios (opcional)" placeholder="Precio estándar del producto" value={priceListId} onChange={setPriceListId} options={priceLists.map((list) => ({ id: list.id, primary: list.name, secondary: list.code + " · " + list.currency_code }))} />{priceListId && <button type="button" className="secondary-button" onClick={() => void applyPriceList()} disabled={quotingPrices || lines.length === 0}>{quotingPrices ? "Actualizando…" : "Actualizar tarifas"}</button>}</div>
+                <EntityPicker label="Condición de pago (opcional)" placeholder="Vencimiento al contado" value={paymentTermId} onChange={setPaymentTermId} options={paymentTerms.map((term) => ({ id: term.id, primary: term.name, secondary: term.code + " · " + term.days_due + " día(s)" }))} />
                 <p className="field-help sale-folio-help">El folio se asignará automáticamente según la entidad, sucursal y tipo de documento.</p>
               </div>
               {priceListId && <p className="field-help">La lista se valida nuevamente al registrar la venta. Si falta una tarifa vigente para un producto, la venta no se procesará.</p>}
+              {paymentTermId && <p className="field-help">El vencimiento se calculará y quedará registrado con la condición seleccionada.</p>}
               <section className="sale-customer-card">
                 <div className="sale-customer-heading"><div><span>Cliente</span><small>Usa un cliente registrado o consulta DNI/RUC.</small></div><div className="segmented-control"><button type="button" className={customerMode === "existing" ? "is-active" : ""} onClick={() => setCustomerMode("existing")}>Existente</button><button type="button" className={customerMode === "lookup" ? "is-active" : ""} onClick={() => setCustomerMode("lookup")}>Nuevo DNI/RUC</button></div></div>
                 {customerMode === "existing" ? <label className="customer-picker-field">Cliente registrado<button type="button" className="customer-picker-trigger" onClick={openCustomerPicker}><Search size={17} /><span>{customers.find((customer) => customer.id === customerId)?.name ?? "Buscar y seleccionar cliente"}</span><small>{customers.find((customer) => customer.id === customerId)?.code ?? "Nombre, código o documento"}</small></button></label> : <div className="customer-lookup-fields"><label>Documento DNI o RUC<input inputMode="numeric" maxLength={11} value={customerTaxId} onChange={(event) => setCustomerTaxId(event.target.value.replace(/\D/g, ""))} placeholder="Ingresa DNI o RUC" /></label><button type="button" className="secondary-button" onClick={() => void lookupCustomer()} disabled={customerLookupBusy}>{customerLookupBusy ? "Consultando…" : "Consultar"}</button><label className="wide">Nombre o razón social<input required value={customerName} onChange={(event) => setCustomerName(event.target.value)} placeholder="Se completa al consultar" /></label><label>Correo (opcional)<input type="email" value={customerEmail} onChange={(event) => setCustomerEmail(event.target.value)} /></label><label>Teléfono (opcional)<input value={customerPhone} onChange={(event) => setCustomerPhone(event.target.value)} /></label>{customerLookupHint && <p className="customer-lookup-hint">{customerLookupHint}</p>}</div>}
