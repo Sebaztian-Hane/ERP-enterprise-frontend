@@ -23,6 +23,7 @@ type Product = { id: string; sku: string; name: string; sale_price: string; trac
 type Warehouse = { id: string; code: string; name: string; is_active: boolean };
 type PriceList = { id: string; code: string; name: string; currency_code: string; currency_symbol?: string | null };
 type PaymentTerm = { id: string; code: string; name: string; days_due: number };
+type CostCenter = { id: string; code: string; name: string };
 type PriceListQuote = { price_list_id: string; lines: { product_id: string; quantity: number; unit_price: string }[] };
 type Sale = {
   id: string;
@@ -72,6 +73,7 @@ export function SalesPage({ goBack }: { goBack: () => void }) {
   const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
   const [priceLists, setPriceLists] = useState<PriceList[]>([]);
   const [paymentTerms, setPaymentTerms] = useState<PaymentTerm[]>([]);
+  const [costCenters, setCostCenters] = useState<CostCenter[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isOpen, setIsOpen] = useState(false);
@@ -93,6 +95,7 @@ export function SalesPage({ goBack }: { goBack: () => void }) {
   const [warehouseId, setWarehouseId] = useState("");
   const [priceListId, setPriceListId] = useState("");
   const [paymentTermId, setPaymentTermId] = useState("");
+  const [costCenterId, setCostCenterId] = useState("");
   const [quotingPrices, setQuotingPrices] = useState(false);
   const [note, setNote] = useState("");
   const [lines, setLines] = useState<Line[]>([]);
@@ -110,13 +113,14 @@ export function SalesPage({ goBack }: { goBack: () => void }) {
     setLoading(true);
     setError(null);
     try {
-      const [history, people, items, stores, commercialLists, terms] = await Promise.all([
+      const [history, people, items, stores, commercialLists, terms, centers] = await Promise.all([
         fetchPage<Sale, "sales">("/sales", "sales", targetPage, options),
         apiFetch<Customer[]>("/customers", options),
         apiFetch<Product[]>("/products", options),
         apiFetch<Warehouse[]>("/sales/warehouses", options),
         apiFetch<PriceList[]>("/sales/price-lists", options),
         apiFetch<PaymentTerm[]>("/sales/payment-terms", options),
+        apiFetch<CostCenter[]>("/sales/cost-centers", options),
       ]);
       setSales(history.sales); setMeta(history.meta);
       setCustomers(people);
@@ -124,6 +128,7 @@ export function SalesPage({ goBack }: { goBack: () => void }) {
       setWarehouses(stores.filter((store) => store.is_active));
       setPriceLists(commercialLists);
       setPaymentTerms(terms);
+      setCostCenters(centers);
     } catch (cause) {
       setError(
         cause instanceof Error
@@ -149,6 +154,7 @@ export function SalesPage({ goBack }: { goBack: () => void }) {
     setWarehouseId(warehouses[0]?.id ?? "");
     setPriceListId("");
     setPaymentTermId("");
+    setCostCenterId(costCenters.find((center) => center.code === "GENERAL")?.id ?? costCenters[0]?.id ?? "");
     setNote("");
     setLines([]);
     setIsOpen(true);
@@ -208,6 +214,7 @@ export function SalesPage({ goBack }: { goBack: () => void }) {
           warehouse_id: warehouseId,
           price_list_id: priceListId || null,
           payment_term_id: paymentTermId || null,
+          cost_center_id: costCenterId || null,
           lines: lines.map(({ serial_text, ...line }) => ({ ...line, serial_numbers: serial_text ? serial_text.split(/[\n,]+/).map((item) => item.trim()).filter(Boolean) : null })),
           note: note || null,
         }),
@@ -452,6 +459,7 @@ export function SalesPage({ goBack }: { goBack: () => void }) {
                 <EntityPicker label="Almacén" placeholder="Busca un almacén" required value={warehouseId} onChange={setWarehouseId} options={warehouses.map((store) => ({ id: store.id, primary: store.name, secondary: store.code }))} />
                 <div className="price-list-field"><EntityPicker label="Lista de precios (opcional)" placeholder="Precio estándar del producto" value={priceListId} onChange={setPriceListId} options={priceLists.map((list) => ({ id: list.id, primary: list.name, secondary: list.code + " · " + list.currency_code }))} />{priceListId && <button type="button" className="secondary-button" onClick={() => void applyPriceList()} disabled={quotingPrices || lines.length === 0}>{quotingPrices ? "Actualizando…" : "Actualizar tarifas"}</button>}</div>
                 <EntityPicker label="Condición de pago (opcional)" placeholder="Vencimiento al contado" value={paymentTermId} onChange={setPaymentTermId} options={paymentTerms.map((term) => ({ id: term.id, primary: term.name, secondary: term.code + " · " + term.days_due + " día(s)" }))} />
+                <EntityPicker label="Centro de costo" placeholder="Operación general" required value={costCenterId} onChange={setCostCenterId} options={costCenters.map((center) => ({ id: center.id, primary: center.name, secondary: center.code }))} />
                 <p className="field-help sale-folio-help">El folio se asignará automáticamente según la entidad, sucursal y tipo de documento.</p>
               </div>
               {priceListId && <p className="field-help">La lista se valida nuevamente al registrar la venta. Si falta una tarifa vigente para un producto, la venta no se procesará.</p>}

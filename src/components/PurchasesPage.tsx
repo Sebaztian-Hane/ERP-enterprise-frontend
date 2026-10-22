@@ -17,6 +17,7 @@ type Supplier = { id: string; name: string; is_active: boolean };
 type Product = { id: string; name: string; sale_price: string; tracking_mode: "none" | "lot" | "serial" };
 type Warehouse = { id: string; name: string };
 type PaymentTerm = { id: string; code: string; name: string; days_due: number };
+type CostCenter = { id: string; code: string; name: string };
 type Purchase = {
   id: string;
   number: string;
@@ -44,6 +45,7 @@ export function PurchasesPage({ goBack }: { goBack: () => void }) {
   const [products, setProducts] = useState<Product[]>([]);
   const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
   const [paymentTerms, setPaymentTerms] = useState<PaymentTerm[]>([]);
+  const [costCenters, setCostCenters] = useState<CostCenter[]>([]);
   const [purchases, setPurchases] = useState<Purchase[]>([]);
   const [page, setPage] = useState(1);
   const [meta, setMeta] = useState<PageMeta>({ page: 1, page_size: 25, total: 0, total_pages: 0, has_previous: false, has_next: false });
@@ -54,6 +56,7 @@ export function PurchasesPage({ goBack }: { goBack: () => void }) {
   const [supplierId, setSupplierId] = useState("");
   const [warehouseId, setWarehouseId] = useState("");
   const [paymentTermId, setPaymentTermId] = useState("");
+  const [costCenterId, setCostCenterId] = useState("");
   const [note, setNote] = useState("");
   const [lines, setLines] = useState<Line[]>([]);
   const [document, setDocument] = useState({
@@ -68,18 +71,20 @@ export function PurchasesPage({ goBack }: { goBack: () => void }) {
     setLoading(true);
     setError(null);
     try {
-      const [p, s, items, stores, terms] = await Promise.all([
+      const [p, s, items, stores, terms, centers] = await Promise.all([
         fetchPage<Purchase, "purchases">("/purchases", "purchases", targetPage, options),
         apiFetch<Supplier[]>("/suppliers", options),
         apiFetch<Product[]>("/products", options),
         apiFetch<Warehouse[]>("/purchases/warehouses", options),
         apiFetch<PaymentTerm[]>("/purchases/payment-terms", options),
+        apiFetch<CostCenter[]>("/purchases/cost-centers", options),
       ]);
       setPurchases(p.purchases); setMeta(p.meta);
       setSuppliers(s);
       setProducts(items);
       setWarehouses(stores);
       setPaymentTerms(terms);
+      setCostCenters(centers);
     } catch (cause) {
       setError(
         cause instanceof Error
@@ -110,6 +115,7 @@ export function PurchasesPage({ goBack }: { goBack: () => void }) {
     setSupplierId(suppliers.find((item) => item.is_active)?.id ?? "");
     setWarehouseId(warehouses[0]?.id ?? "");
     setPaymentTermId("");
+    setCostCenterId(costCenters.find((center) => center.code === "GENERAL")?.id ?? costCenters[0]?.id ?? "");
     setNote("");
     setLines([]);
     setDocument({ type: "01", series: "", number: "", date: "", tax: "" });
@@ -156,6 +162,7 @@ export function PurchasesPage({ goBack }: { goBack: () => void }) {
           supplier_document_date: document.date || null,
           supplier_tax_amount: document.tax || null,
           payment_term_id: paymentTermId || null,
+          cost_center_id: costCenterId || null,
         }),
       });
       setPage(1);
@@ -367,6 +374,18 @@ export function PurchasesPage({ goBack }: { goBack: () => void }) {
                   id: term.id,
                   primary: term.name,
                   secondary: term.code + " · " + term.days_due + " día(s)",
+                }))}
+              />
+              <EntityPicker
+                label="Centro de costo"
+                placeholder="Operación general"
+                required
+                value={costCenterId}
+                onChange={setCostCenterId}
+                options={costCenters.map((center) => ({
+                  id: center.id,
+                  primary: center.name,
+                  secondary: center.code,
                 }))}
               />
               {paymentTermId && <p className="field-help">El vencimiento se calculará desde la fecha de emisión del comprobante; si no la indicas, se usará la fecha de recepción.</p>}
