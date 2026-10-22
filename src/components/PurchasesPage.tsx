@@ -50,7 +50,6 @@ export function PurchasesPage({ goBack }: { goBack: () => void }) {
   const [saving, setSaving] = useState(false);
   const [supplierId, setSupplierId] = useState("");
   const [warehouseId, setWarehouseId] = useState("");
-  const [number, setNumber] = useState("");
   const [note, setNote] = useState("");
   const [lines, setLines] = useState<Line[]>([]);
   const [document, setDocument] = useState({
@@ -104,9 +103,6 @@ export function PurchasesPage({ goBack }: { goBack: () => void }) {
     setError(null);
     setSupplierId(suppliers.find((item) => item.is_active)?.id ?? "");
     setWarehouseId(warehouses[0]?.id ?? "");
-    setNumber(
-      `C-${new Date().toISOString().slice(0, 10).replaceAll("-", "")}-${String(meta.total + 1).padStart(3, "0")}`,
-    );
     setNote("");
     setLines([]);
     setDocument({ type: "01", series: "", number: "", date: "", tax: "" });
@@ -143,7 +139,6 @@ export function PurchasesPage({ goBack }: { goBack: () => void }) {
       await postIdempotent<Purchase>("/purchases", {
         ...options,
         body: JSON.stringify({
-          number,
           supplier_id: supplierId,
           warehouse_id: warehouseId,
           lines: lines.map(({ serial_text, ...line }) => ({ ...line, lot_number: line.lot_number || null, expiration_date: line.expiration_date || null, serial_numbers: serial_text ? serial_text.split(/[\n,]+/).map((item) => item.trim()).filter(Boolean) : null })),
@@ -322,14 +317,6 @@ export function PurchasesPage({ goBack }: { goBack: () => void }) {
             <form className="sale-form" onSubmit={save}>
               <div className="form-grid">
                 <label>
-                  Folio
-                  <input
-                    required
-                    value={number}
-                    onChange={(event) => setNumber(event.target.value)}
-                  />
-                </label>
-                <label>
                   Almacén
                   <select
                     required
@@ -344,6 +331,7 @@ export function PurchasesPage({ goBack }: { goBack: () => void }) {
                     ))}
                   </select>
                 </label>
+                <p className="field-help sale-folio-help">El folio se asignará automáticamente según la entidad, sucursal y tipo de documento.</p>
               </div>
               <label>
                 Proveedor

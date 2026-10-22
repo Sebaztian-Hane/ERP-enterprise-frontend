@@ -86,7 +86,6 @@ export function SalesPage({ goBack }: { goBack: () => void }) {
   const [customerPickerMeta, setCustomerPickerMeta] = useState<PageMeta>({ page: 1, page_size: 25, total: 0, total_pages: 0, has_previous: false, has_next: false });
   const [customerPickerLoading, setCustomerPickerLoading] = useState(false);
   const [warehouseId, setWarehouseId] = useState("");
-  const [number, setNumber] = useState("");
   const [note, setNote] = useState("");
   const [lines, setLines] = useState<Line[]>([]);
   const [billingSale, setBillingSale] = useState<Sale | null>(null);
@@ -136,9 +135,6 @@ export function SalesPage({ goBack }: { goBack: () => void }) {
     setCustomerMode(customers.length ? "existing" : "lookup");
     setCustomerTaxId(""); setCustomerName(""); setCustomerEmail(""); setCustomerPhone(""); setCustomerLookupHint(null);
     setWarehouseId(warehouses[0]?.id ?? "");
-    setNumber(
-      `V-${new Date().toISOString().slice(0, 10).replaceAll("-", "")}-${String(meta.total + 1).padStart(3, "0")}`,
-    );
     setNote("");
     setLines([]);
     setIsOpen(true);
@@ -173,7 +169,6 @@ export function SalesPage({ goBack }: { goBack: () => void }) {
       await postIdempotent<Sale>("/sales", {
         ...options,
         body: JSON.stringify({
-          number,
           ...(customerMode === "existing" ? { customer_id: customerId } : { customer: { tax_id: customerTaxId, name: customerName, email: customerEmail || null, phone: customerPhone || null } }),
           warehouse_id: warehouseId,
           lines: lines.map(({ serial_text, ...line }) => ({ ...line, serial_numbers: serial_text ? serial_text.split(/[\n,]+/).map((item) => item.trim()).filter(Boolean) : null })),
@@ -417,16 +412,8 @@ export function SalesPage({ goBack }: { goBack: () => void }) {
             </div>
             <form onSubmit={save} className="sale-form">
               <div className="form-grid">
-                <label>
-                  Folio
-                  <input
-                    required
-                    maxLength={40}
-                    value={number}
-                    onChange={(event) => setNumber(event.target.value)}
-                  />
-                </label>
                 <EntityPicker label="Almacén" placeholder="Busca un almacén" required value={warehouseId} onChange={setWarehouseId} options={warehouses.map((store) => ({ id: store.id, primary: store.name, secondary: store.code }))} />
+                <p className="field-help sale-folio-help">El folio se asignará automáticamente según la entidad, sucursal y tipo de documento.</p>
               </div>
               <section className="sale-customer-card">
                 <div className="sale-customer-heading"><div><span>Cliente</span><small>Usa un cliente registrado o consulta DNI/RUC.</small></div><div className="segmented-control"><button type="button" className={customerMode === "existing" ? "is-active" : ""} onClick={() => setCustomerMode("existing")}>Existente</button><button type="button" className={customerMode === "lookup" ? "is-active" : ""} onClick={() => setCustomerMode("lookup")}>Nuevo DNI/RUC</button></div></div>
