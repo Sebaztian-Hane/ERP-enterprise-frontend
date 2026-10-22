@@ -20,9 +20,9 @@ export function TablePagination({ meta, onPageChange, label = "registros" }: { m
   return <nav className="table-pagination" aria-label={`Paginación de ${label}`}>
     <span>Mostrando {first}–{last} de {meta.total} {label}</span>
     <div>
-      <button className="icon-button muted" onClick={() => onPageChange(meta.page - 1)} disabled={!meta.has_previous} aria-label="Página anterior"><ChevronLeft size={16} /></button>
+      <button type="button" className="icon-button muted" onClick={() => onPageChange(meta.page - 1)} disabled={!meta.has_previous} aria-label="Página anterior"><ChevronLeft size={16} /></button>
       <strong>Página {meta.page} de {meta.total_pages}</strong>
-      <button className="icon-button muted" onClick={() => onPageChange(meta.page + 1)} disabled={!meta.has_next} aria-label="Página siguiente"><ChevronRight size={16} /></button>
+      <button type="button" className="icon-button muted" onClick={() => onPageChange(meta.page + 1)} disabled={!meta.has_next} aria-label="Página siguiente"><ChevronRight size={16} /></button>
     </div>
   </nav>;
 }

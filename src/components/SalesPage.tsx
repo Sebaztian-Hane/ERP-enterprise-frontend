@@ -21,6 +21,8 @@ type Customer = { id: string; code: string; name: string };
 type CustomerLookup = { existing_customer_id: string | null; tax_id: string; name: string; address: string; document_type: "DNI" | "RUC" };
 type Product = { id: string; sku: string; name: string; sale_price: string; tracking_mode: "none" | "lot" | "serial" };
 type Warehouse = { id: string; code: string; name: string; is_active: boolean };
+type PriceList = { id: string; code: string; name: string; currency_code: string; currency_symbol?: string | null };
+type PriceListQuote = { price_list_id: string; lines: { product_id: string; quantity: number; unit_price: string }[] };
 type Sale = {
   id: string;
   number: string;
@@ -67,6 +69,7 @@ export function SalesPage({ goBack }: { goBack: () => void }) {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
+  const [priceLists, setPriceLists] = useState<PriceList[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isOpen, setIsOpen] = useState(false);
@@ -86,6 +89,8 @@ export function SalesPage({ goBack }: { goBack: () => void }) {
   const [customerPickerMeta, setCustomerPickerMeta] = useState<PageMeta>({ page: 1, page_size: 25, total: 0, total_pages: 0, has_previous: false, has_next: false });
   const [customerPickerLoading, setCustomerPickerLoading] = useState(false);
   const [warehouseId, setWarehouseId] = useState("");
+  const [priceListId, setPriceListId] = useState("");
+  const [quotingPrices, setQuotingPrices] = useState(false);
   const [note, setNote] = useState("");
   const [lines, setLines] = useState<Line[]>([]);
   const [billingSale, setBillingSale] = useState<Sale | null>(null);
@@ -102,16 +107,18 @@ export function SalesPage({ goBack }: { goBack: () => void }) {
     setLoading(true);
     setError(null);
     try {
-      const [history, people, items, stores] = await Promise.all([
+      const [history, people, items, stores, commercialLists] = await Promise.all([
         fetchPage<Sale, "sales">("/sales", "sales", targetPage, options),
         apiFetch<Customer[]>("/customers", options),
         apiFetch<Product[]>("/products", options),
         apiFetch<Warehouse[]>("/sales/warehouses", options),
+        apiFetch<PriceList[]>("/sales/price-lists", options),
       ]);
       setSales(history.sales); setMeta(history.meta);
       setCustomers(people);
       setProducts(items);
       setWarehouses(stores.filter((store) => store.is_active));
+      setPriceLists(commercialLists);
     } catch (cause) {
       setError(
         cause instanceof Error
@@ -135,6 +142,7 @@ export function SalesPage({ goBack }: { goBack: () => void }) {
     setCustomerMode(customers.length ? "existing" : "lookup");
     setCustomerTaxId(""); setCustomerName(""); setCustomerEmail(""); setCustomerPhone(""); setCustomerLookupHint(null);
     setWarehouseId(warehouses[0]?.id ?? "");
+    setPriceListId("");
     setNote("");
     setLines([]);
     setIsOpen(true);
@@ -157,6 +165,27 @@ export function SalesPage({ goBack }: { goBack: () => void }) {
     setLines((current) =>
       current.map((line, i) => (i === index ? { ...line, ...patch } : line)),
     );
+  const applyPriceList = async (targetPriceListId = priceListId) => {
+    if (!targetPriceListId || lines.length === 0) {
+      setError("Selecciona una lista de precios y agrega al menos un producto para aplicar sus tarifas.");
+      return;
+    }
+    setQuotingPrices(true);
+    setError(null);
+    try {
+      const quote = await apiFetch<PriceListQuote>("/sales/price-lists/" + targetPriceListId + "/quote", {
+        ...options,
+        method: "POST",
+        body: JSON.stringify({ lines: lines.map(({ product_id, quantity }) => ({ product_id, quantity })) }),
+      });
+      const prices = new Map(quote.lines.map((item) => [item.product_id, Number(item.unit_price)]));
+      setLines((current) => current.map((line) => ({ ...line, unit_price: prices.get(line.product_id) ?? line.unit_price })));
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "No se pudieron aplicar las tarifas vigentes.");
+    } finally {
+      setQuotingPrices(false);
+    }
+  };
   const save = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if ((!customerId && customerMode === "existing") || (!customerTaxId || !customerName) && customerMode === "lookup" || !warehouseId || lines.length === 0) {
@@ -171,6 +200,7 @@ export function SalesPage({ goBack }: { goBack: () => void }) {
         body: JSON.stringify({
           ...(customerMode === "existing" ? { customer_id: customerId } : { customer: { tax_id: customerTaxId, name: customerName, email: customerEmail || null, phone: customerPhone || null } }),
           warehouse_id: warehouseId,
+          price_list_id: priceListId || null,
           lines: lines.map(({ serial_text, ...line }) => ({ ...line, serial_numbers: serial_text ? serial_text.split(/[\n,]+/).map((item) => item.trim()).filter(Boolean) : null })),
           note: note || null,
         }),
@@ -413,8 +443,10 @@ export function SalesPage({ goBack }: { goBack: () => void }) {
             <form onSubmit={save} className="sale-form">
               <div className="form-grid">
                 <EntityPicker label="Almacén" placeholder="Busca un almacén" required value={warehouseId} onChange={setWarehouseId} options={warehouses.map((store) => ({ id: store.id, primary: store.name, secondary: store.code }))} />
+                <div className="price-list-field"><EntityPicker label="Lista de precios (opcional)" placeholder="Precio estándar del producto" value={priceListId} onChange={setPriceListId} options={priceLists.map((list) => ({ id: list.id, primary: list.name, secondary: list.code + " · " + list.currency_code }))} />{priceListId && <button type="button" className="secondary-button" onClick={() => void applyPriceList()} disabled={quotingPrices || lines.length === 0}>{quotingPrices ? "Actualizando…" : "Actualizar tarifas"}</button>}</div>
                 <p className="field-help sale-folio-help">El folio se asignará automáticamente según la entidad, sucursal y tipo de documento.</p>
               </div>
+              {priceListId && <p className="field-help">La lista se valida nuevamente al registrar la venta. Si falta una tarifa vigente para un producto, la venta no se procesará.</p>}
               <section className="sale-customer-card">
                 <div className="sale-customer-heading"><div><span>Cliente</span><small>Usa un cliente registrado o consulta DNI/RUC.</small></div><div className="segmented-control"><button type="button" className={customerMode === "existing" ? "is-active" : ""} onClick={() => setCustomerMode("existing")}>Existente</button><button type="button" className={customerMode === "lookup" ? "is-active" : ""} onClick={() => setCustomerMode("lookup")}>Nuevo DNI/RUC</button></div></div>
                 {customerMode === "existing" ? <label className="customer-picker-field">Cliente registrado<button type="button" className="customer-picker-trigger" onClick={openCustomerPicker}><Search size={17} /><span>{customers.find((customer) => customer.id === customerId)?.name ?? "Buscar y seleccionar cliente"}</span><small>{customers.find((customer) => customer.id === customerId)?.code ?? "Nombre, código o documento"}</small></button></label> : <div className="customer-lookup-fields"><label>Documento DNI o RUC<input inputMode="numeric" maxLength={11} value={customerTaxId} onChange={(event) => setCustomerTaxId(event.target.value.replace(/\D/g, ""))} placeholder="Ingresa DNI o RUC" /></label><button type="button" className="secondary-button" onClick={() => void lookupCustomer()} disabled={customerLookupBusy}>{customerLookupBusy ? "Consultando…" : "Consultar"}</button><label className="wide">Nombre o razón social<input required value={customerName} onChange={(event) => setCustomerName(event.target.value)} placeholder="Se completa al consultar" /></label><label>Correo (opcional)<input type="email" value={customerEmail} onChange={(event) => setCustomerEmail(event.target.value)} /></label><label>Teléfono (opcional)<input value={customerPhone} onChange={(event) => setCustomerPhone(event.target.value)} /></label>{customerLookupHint && <p className="customer-lookup-hint">{customerLookupHint}</p>}</div>}
@@ -462,11 +494,8 @@ export function SalesPage({ goBack }: { goBack: () => void }) {
                           min="0"
                           step="0.01"
                           value={line.unit_price}
-                          onChange={(event) =>
-                            updateLine(index, {
-                              unit_price: Number(event.target.value),
-                            })
-                          }
+                          readOnly={Boolean(priceListId)}
+                          onChange={(event) => updateLine(index, { unit_price: Number(event.target.value) })}
                         />
                       </label>
                       <strong>
