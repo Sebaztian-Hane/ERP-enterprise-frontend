@@ -15,13 +15,18 @@ import { useAuth } from "../auth/AuthProvider";
 import { apiFetch } from "../lib/api";
 import { fetchPage, PageMeta, TablePagination } from "../lib/pagination";
 import { DataMigrationPanel } from "./DataMigrationPanel";
+import { EntityPicker } from "./EntityPicker";
 
 type Category = { id: string; name: string; description: string | null };
+type Unit = { id: string; code: string; name: string; is_active: boolean };
 type Product = {
   id: string;
   sku: string;
   name: string;
   category_id: string | null;
+  unit_id: string;
+  unit_code: string;
+  unit_name: string;
   unit: string;
   sale_price: string;
   tracking_mode: "none" | "lot" | "serial";
@@ -33,7 +38,7 @@ type ProductForm = {
   sku: string;
   name: string;
   category_id: string;
-  unit: string;
+  unit_id: string;
   sale_price: string;
   tracking_mode: "none" | "lot" | "serial";
   cost_method: "weighted_average" | "fifo";
@@ -43,7 +48,7 @@ const blankProduct: ProductForm = {
   sku: "",
   name: "",
   category_id: "",
-  unit: "unit",
+  unit_id: "",
   sale_price: "0",
   tracking_mode: "none",
   cost_method: "weighted_average",
@@ -60,6 +65,7 @@ export function ProductsPage({ goBack }: { goBack: () => void }) {
   const [page, setPage] = useState(1);
   const [meta, setMeta] = useState<PageMeta>({ page: 1, page_size: 25, total: 0, total_pages: 0, has_previous: false, has_next: false });
   const [categories, setCategories] = useState<Category[]>([]);
+  const [units, setUnits] = useState<Unit[]>([]);
   const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -79,12 +85,14 @@ export function ProductsPage({ goBack }: { goBack: () => void }) {
     setLoading(true);
     setError(null);
     try {
-      const [catalog, groups] = await Promise.all([
+      const [catalog, groups, availableUnits] = await Promise.all([
         fetchPage<Product, "products">("/products", "products", targetPage, options),
         apiFetch<Category[]>("/products/categories", options),
+        apiFetch<Unit[]>("/products/units", options),
       ]);
       setProducts(catalog.products); setMeta(catalog.meta);
       setCategories(groups);
+      setUnits(availableUnits);
     } catch (cause) {
       setError(
         cause instanceof Error
@@ -119,7 +127,7 @@ export function ProductsPage({ goBack }: { goBack: () => void }) {
       sku: item.sku,
       name: item.name,
       category_id: item.category_id ?? "",
-      unit: item.unit,
+      unit_id: item.unit_id,
       sale_price: item.sale_price,
       tracking_mode: item.tracking_mode,
       cost_method: item.cost_method,
@@ -349,7 +357,7 @@ export function ProductsPage({ goBack }: { goBack: () => void }) {
                     </td>
                     <td>{item.sku}</td>
                     <td>{categoryNameFor(item.category_id)}</td>
-                    <td>{item.unit}</td>
+                    <td title={item.unit_name}>{item.unit_code}</td>
                     <td>
                       <strong>{money.format(Number(item.sale_price))}</strong>
                     </td>
@@ -443,21 +451,22 @@ export function ProductsPage({ goBack }: { goBack: () => void }) {
                   ))}
                 </select>
               </label>
-              <label>
-                Unidad
-                <input
+              <div>
+                <EntityPicker
+                  label="Unidad"
+                  placeholder="Buscar unidad por código o nombre"
+                  value={product.unit_id}
                   required
-                  maxLength={16}
-                  value={product.unit}
-                  onChange={(event) =>
-                    setProduct((current) => ({
-                      ...current,
-                      unit: event.target.value,
-                    }))
+                  options={units.map((unit) => ({
+                    id: unit.id,
+                    primary: unit.code,
+                    secondary: unit.name,
+                  }))}
+                  onChange={(unitId) =>
+                    setProduct((current) => ({ ...current, unit_id: unitId }))
                   }
-                  placeholder="unit"
                 />
-              </label>
+              </div>
             </div>
             <label>
               Precio de venta
