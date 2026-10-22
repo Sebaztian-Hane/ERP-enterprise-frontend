@@ -8,7 +8,7 @@ import {
   X,
 } from "lucide-react";
 import { useAuth } from "../auth/AuthProvider";
-import { apiFetch } from "../lib/api";
+import { apiFetch, postIdempotent } from "../lib/api";
 import { fetchPage, PageMeta, TablePagination } from "../lib/pagination";
 import { DataMigrationPanel } from "./DataMigrationPanel";
 
@@ -140,9 +140,8 @@ export function PurchasesPage({ goBack }: { goBack: () => void }) {
     }
     setSaving(true);
     try {
-      await apiFetch<Purchase>("/purchases", {
+      await postIdempotent<Purchase>("/purchases", {
         ...options,
-        method: "POST",
         body: JSON.stringify({
           number,
           supplier_id: supplierId,

@@ -11,7 +11,7 @@ import {
   X,
 } from "lucide-react";
 import { useAuth } from "../auth/AuthProvider";
-import { apiFetch } from "../lib/api";
+import { apiFetch, postIdempotent } from "../lib/api";
 import { DataMigrationPanel } from "./DataMigrationPanel";
 
 type Warehouse = {
@@ -156,9 +156,8 @@ export function InventoryPage({ goBack }: { goBack: () => void }) {
     setError(null);
     try {
       if (mode === "adjustment")
-        await apiFetch("/inventory/adjustments", {
+        await postIdempotent("/inventory/adjustments", {
           ...options,
-          method: "POST",
           body: JSON.stringify({
             product_id: productId,
             warehouse_id: warehouseId,
@@ -168,9 +167,8 @@ export function InventoryPage({ goBack }: { goBack: () => void }) {
           }),
         });
       if (mode === "transfer")
-        await apiFetch("/inventory/transfers", {
+        await postIdempotent("/inventory/transfers", {
           ...options,
-          method: "POST",
           body: JSON.stringify({
             number: reference,
             product_id: productId,
@@ -224,9 +222,8 @@ export function InventoryPage({ goBack }: { goBack: () => void }) {
     setSaving(true);
     setError(null);
     try {
-      await apiFetch(`/inventory/transfers/${transfer.id}/${action}`, {
+      await postIdempotent(`/inventory/transfers/${transfer.id}/${action}`, {
         ...options,
-        method: "POST",
       });
       await load();
     } catch (cause) {

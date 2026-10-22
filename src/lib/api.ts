@@ -76,3 +76,43 @@ export async function apiFetch<T>(
   if (response.status === 204) return undefined as T;
   return response.json() as Promise<T>;
 }
+
+function createIdempotencyKey(): string {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+  // All supported browsers provide crypto.randomUUID. This fallback preserves a
+  // safe-enough unique key for an older embedded browser without sending a
+  // predictable counter to a financial endpoint.
+  const values = new Uint32Array(4);
+  crypto.getRandomValues(values);
+  return Array.from(values, (value) => value.toString(16).padStart(8, "0")).join("-");
+}
+
+/**
+ * Submit a command once and retry only when the browser received no HTTP
+ * response. The same key is retained so the API can replay the original result
+ * rather than applying a duplicate sale or payment.
+ */
+export async function postIdempotent<T>(
+  path: string,
+  options: ApiOptions,
+): Promise<T> {
+  const idempotencyKey = createIdempotencyKey();
+  const request: ApiOptions = {
+    ...options,
+    method: "POST",
+    headers: {
+      ...options.headers,
+      "Idempotency-Key": idempotencyKey,
+    },
+  };
+  try {
+    return await apiFetch<T>(path, request);
+  } catch (cause) {
+    if (cause instanceof ApiError && cause.status === undefined) {
+      return apiFetch<T>(path, request);
+    }
+    throw cause;
+  }
+}

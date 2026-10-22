@@ -13,7 +13,7 @@ import {
   X,
 } from "lucide-react";
 import { useAuth } from "../auth/AuthProvider";
-import { ApiError, apiFetch } from "../lib/api";
+import { ApiError, apiFetch, postIdempotent } from "../lib/api";
 import { fetchPage, PageMeta, TablePagination } from "../lib/pagination";
 import { DataMigrationPanel } from "./DataMigrationPanel";
 
@@ -169,9 +169,8 @@ export function SalesPage({ goBack }: { goBack: () => void }) {
     setSaving(true);
     setError(null);
     try {
-      await apiFetch<Sale>("/sales", {
+      await postIdempotent<Sale>("/sales", {
         ...options,
-        method: "POST",
         body: JSON.stringify({
           number,
           ...(customerMode === "existing" ? { customer_id: customerId } : { customer: { tax_id: customerTaxId, name: customerName, email: customerEmail || null, phone: customerPhone || null } }),
@@ -244,8 +243,8 @@ export function SalesPage({ goBack }: { goBack: () => void }) {
     setBillingBusy(true);
     setError(null);
     try {
-      const document = await apiFetch<ElectronicDocument>(`/sales/${billingSale.id}/electronic-document`, {
-        ...options, method: "POST", body: JSON.stringify({ document_type: billingType }),
+      const document = await postIdempotent<ElectronicDocument>(`/sales/${billingSale.id}/electronic-document`, {
+        ...options, body: JSON.stringify({ document_type: billingType }),
       });
       setBillingDocument(document);
     } catch (cause) {

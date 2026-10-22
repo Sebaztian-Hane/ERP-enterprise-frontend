@@ -1,7 +1,7 @@
 import { ChangeEvent, useRef, useState } from "react";
 import { AlertTriangle, CheckCircle2, Download, FileSpreadsheet, FileUp, LoaderCircle, UploadCloud } from "lucide-react";
 import { useAuth } from "../auth/AuthProvider";
-import { apiFetch } from "../lib/api";
+import { apiFetch, postIdempotent } from "../lib/api";
 
 export type ImportModule = "products" | "customers" | "suppliers" | "warehouses" | "inventory" | "sales" | "purchases";
 
@@ -58,7 +58,7 @@ export function DataMigrationPanel({ module, onImported }: { module: ImportModul
     if (!preview?.can_commit) return;
     try {
       setBusy("commit"); setError(null);
-      const result = await apiFetch<{ imported: number }>(`/imports/${module}/commit`, { ...options, method: "POST", body: payload() });
+      const result = await postIdempotent<{ imported: number }>(`/imports/${module}/commit`, { ...options, body: payload() });
       reset(); setOpen(false); await onImported();
       window.alert(`${result.imported} registro(s) se migraron correctamente.`);
     } catch (cause) { setError(cause instanceof Error ? cause.message : "No se pudo completar la migración. No se guardaron cambios."); }
