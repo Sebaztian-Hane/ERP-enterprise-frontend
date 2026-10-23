@@ -54,13 +54,21 @@ const currency = new Intl.NumberFormat("es-PE", {
 
 type PickerOption = { id: string; primary: string; secondary?: string };
 
-function EntityPicker({ label, placeholder, value, options, onChange, required = false }: { label: string; placeholder: string; value: string; options: PickerOption[]; onChange: (id: string) => void; required?: boolean }) {
-  const [open, setOpen] = useState(false);
+function EntityPicker({ pickerId, label, placeholder, value, options, onChange, isOpen, onOpen, onClose, required = false }: { pickerId: string; label: string; placeholder: string; value: string; options: PickerOption[]; onChange: (id: string) => void; isOpen: boolean; onOpen: () => void; onClose: () => void; required?: boolean }) {
   const [query, setQuery] = useState("");
   const selected = options.find((option) => option.id === value);
   const matches = options.filter((option) => `${option.primary} ${option.secondary ?? ""}`.toLocaleLowerCase().includes(query.toLocaleLowerCase())).slice(0, 8);
-  const choose = (id: string) => { onChange(id); setQuery(""); setOpen(false); };
-  return <label className="entity-picker"><span>{label}</span><div className="entity-picker-control"><Search size={16} /><input required={required} value={open ? query : (selected?.primary ?? "")} onFocus={() => setOpen(true)} onChange={(event) => { setQuery(event.target.value); setOpen(true); }} placeholder={placeholder} aria-autocomplete="list" aria-expanded={open} role="combobox" /><button type="button" className="entity-picker-clear" onClick={() => { onChange(""); setQuery(""); setOpen(true); }} aria-label={`Limpiar ${label}`}>×</button></div>{open && <div className="entity-picker-menu" role="listbox">{matches.length ? matches.map((option) => <button type="button" role="option" aria-selected={value === option.id} key={option.id} onMouseDown={(event) => event.preventDefault()} onClick={() => choose(option.id)}><strong>{option.primary}</strong>{option.secondary && <small>{option.secondary}</small>}</button>) : <p>Sin coincidencias. Ajusta la búsqueda.</p>}</div>}</label>;
+  const choose = (id: string) => { onChange(id); setQuery(""); onClose(); };
+  const menuId = `${pickerId}-options`;
+  return <div className="entity-picker" onKeyDown={(event) => { if (event.key === "Escape") { event.preventDefault(); onClose(); } }}>
+    <label htmlFor={pickerId}>{label}</label>
+    <div className="entity-picker-control">
+      <Search size={16} />
+      <input id={pickerId} required={required} value={isOpen ? query : (selected?.primary ?? "")} onFocus={onOpen} onChange={(event) => { setQuery(event.target.value); onOpen(); }} placeholder={placeholder} aria-autocomplete="list" aria-controls={menuId} aria-expanded={isOpen} role="combobox" />
+      <button type="button" className="entity-picker-clear" onMouseDown={(event) => event.preventDefault()} onClick={() => { onChange(""); setQuery(""); onOpen(); }} aria-label={`Limpiar ${label}`}>×</button>
+    </div>
+    {isOpen && <div id={menuId} className="entity-picker-menu" role="listbox">{matches.length ? matches.map((option) => <button type="button" role="option" aria-selected={value === option.id} key={option.id} onMouseDown={(event) => event.preventDefault()} onClick={() => choose(option.id)}><strong>{option.primary}</strong>{option.secondary && <small>{option.secondary}</small>}</button>) : <p>Sin coincidencias. Ajusta la búsqueda.</p>}</div>}
+  </div>;
 }
 
 export function SalesPage({ goBack }: { goBack: () => void }) {
@@ -96,6 +104,7 @@ export function SalesPage({ goBack }: { goBack: () => void }) {
   const [priceListId, setPriceListId] = useState("");
   const [paymentTermId, setPaymentTermId] = useState("");
   const [costCenterId, setCostCenterId] = useState("");
+  const [activePicker, setActivePicker] = useState<string | null>(null);
   const [quotingPrices, setQuotingPrices] = useState(false);
   const [note, setNote] = useState("");
   const [lines, setLines] = useState<Line[]>([]);
@@ -148,15 +157,19 @@ export function SalesPage({ goBack }: { goBack: () => void }) {
   );
   const openNew = () => {
     setError(null);
-    setCustomerId(customers[0]?.id ?? "");
+    // Transactional identities must always be deliberately selected.  Choosing
+    // the first customer or warehouse here can post stock and receivables to
+    // the wrong party when the user simply submits a new form.
+    setCustomerId("");
     setCustomerMode(customers.length ? "existing" : "lookup");
     setCustomerTaxId(""); setCustomerName(""); setCustomerEmail(""); setCustomerPhone(""); setCustomerLookupHint(null);
-    setWarehouseId(warehouses[0]?.id ?? "");
+    setWarehouseId("");
     setPriceListId("");
     setPaymentTermId("");
     setCostCenterId(costCenters.find((center) => center.code === "GENERAL")?.id ?? costCenters[0]?.id ?? "");
     setNote("");
     setLines([]);
+    setActivePicker(null);
     setIsOpen(true);
   };
   const addLine = () => {
@@ -200,8 +213,18 @@ export function SalesPage({ goBack }: { goBack: () => void }) {
   };
   const save = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if ((!customerId && customerMode === "existing") || (!customerTaxId || !customerName) && customerMode === "lookup" || !warehouseId || lines.length === 0) {
-      setError("Completa el cliente, almacén y al menos un producto.");
+    const invalidLine = lines.some((line) => !line.product_id || !Number.isInteger(line.quantity) || line.quantity < 1 || !Number.isFinite(line.unit_price) || line.unit_price < 0);
+    if ((!customerId && customerMode === "existing") || ((!customerTaxId || !customerName) && customerMode === "lookup") || !warehouseId || !costCenterId || lines.length === 0 || invalidLine) {
+      setError("Completa el cliente, almacén, centro de costo y líneas válidas antes de registrar la venta.");
+      return;
+    }
+    const serialLine = lines.find((line) => {
+      const product = products.find((item) => item.id === line.product_id);
+      const serials = (line.serial_text ?? "").split(/[\n,]+/).map((item) => item.trim()).filter(Boolean);
+      return product?.tracking_mode === "serial" && serials.length !== line.quantity;
+    });
+    if (serialLine) {
+      setError("La cantidad de series ingresadas debe coincidir con la cantidad vendida del producto serializado.");
       return;
     }
     setSaving(true);
@@ -239,7 +262,12 @@ export function SalesPage({ goBack }: { goBack: () => void }) {
     try {
       const result = await apiFetch<CustomerLookup>(`/sales/customer-lookup/${taxId}`, options);
       setCustomerName(result.name);
-      if (result.existing_customer_id) { setCustomerId(result.existing_customer_id); setCustomerMode("existing"); setCustomerLookupHint("Cliente existente encontrado: se reutilizará en esta venta."); }
+      if (result.existing_customer_id) {
+        setCustomerId(result.existing_customer_id);
+        setCustomers((current) => current.some((customer) => customer.id === result.existing_customer_id) ? current : [...current, { id: result.existing_customer_id!, name: result.name, code: `CLI-${result.tax_id}` }]);
+        setCustomerMode("existing");
+        setCustomerLookupHint("Cliente existente encontrado: se reutilizará en esta venta.");
+      }
       else setCustomerLookupHint(`${result.document_type} consultado. Verifica los datos antes de registrar la venta.`);
     } catch (cause) { setCustomerLookupHint(cause instanceof Error ? cause.message : "No se pudo consultar el documento."); }
     finally { setCustomerLookupBusy(false); }
@@ -255,7 +283,7 @@ export function SalesPage({ goBack }: { goBack: () => void }) {
     } catch (cause) { setError(cause instanceof Error ? cause.message : "No se pudieron buscar los clientes."); }
     finally { setCustomerPickerLoading(false); }
   };
-  const openCustomerPicker = () => { setCustomerPickerPage(1); setCustomerPickerOpen(true); void loadCustomerPicker(1); };
+  const openCustomerPicker = () => { setActivePicker(null); setCustomerPickerPage(1); setCustomerPickerOpen(true); void loadCustomerPicker(1); };
   const selectCustomer = (customer: Customer) => {
     setCustomerId(customer.id);
     setCustomers((current) => current.some((item) => item.id === customer.id) ? current : [...current, customer]);
@@ -263,6 +291,12 @@ export function SalesPage({ goBack }: { goBack: () => void }) {
   };
   const nameFor = (id: string) =>
     customers.find((customer) => customer.id === id)?.name ?? "Cliente";
+  const selectCustomerMode = (mode: "existing" | "lookup") => {
+    setCustomerMode(mode);
+    setError(null);
+    setCustomerLookupHint(null);
+    if (mode === "lookup") setCustomerId("");
+  };
   const openBilling = async (sale: Sale) => {
     setError(null);
     setBillingSale(sale);
@@ -456,16 +490,16 @@ export function SalesPage({ goBack }: { goBack: () => void }) {
             </div>
             <form onSubmit={save} className="sale-form">
               <div className="form-grid">
-                <EntityPicker label="Almacén" placeholder="Busca un almacén" required value={warehouseId} onChange={setWarehouseId} options={warehouses.map((store) => ({ id: store.id, primary: store.name, secondary: store.code }))} />
-                <div className="price-list-field"><EntityPicker label="Lista de precios (opcional)" placeholder="Precio estándar del producto" value={priceListId} onChange={setPriceListId} options={priceLists.map((list) => ({ id: list.id, primary: list.name, secondary: list.code + " · " + list.currency_code }))} />{priceListId && <button type="button" className="secondary-button" onClick={() => void applyPriceList()} disabled={quotingPrices || lines.length === 0}>{quotingPrices ? "Actualizando…" : "Actualizar tarifas"}</button>}</div>
-                <EntityPicker label="Condición de pago (opcional)" placeholder="Vencimiento al contado" value={paymentTermId} onChange={setPaymentTermId} options={paymentTerms.map((term) => ({ id: term.id, primary: term.name, secondary: term.code + " · " + term.days_due + " día(s)" }))} />
-                <EntityPicker label="Centro de costo" placeholder="Operación general" required value={costCenterId} onChange={setCostCenterId} options={costCenters.map((center) => ({ id: center.id, primary: center.name, secondary: center.code }))} />
+                <EntityPicker pickerId="sale-warehouse" label="Almacén" placeholder="Busca un almacén" required value={warehouseId} onChange={setWarehouseId} isOpen={activePicker === "warehouse"} onOpen={() => setActivePicker("warehouse")} onClose={() => setActivePicker(null)} options={warehouses.map((store) => ({ id: store.id, primary: store.name, secondary: store.code }))} />
+                <div className="price-list-field"><EntityPicker pickerId="sale-price-list" label="Lista de precios (opcional)" placeholder="Precio estándar del producto" value={priceListId} onChange={setPriceListId} isOpen={activePicker === "price-list"} onOpen={() => setActivePicker("price-list")} onClose={() => setActivePicker(null)} options={priceLists.map((list) => ({ id: list.id, primary: list.name, secondary: list.code + " · " + list.currency_code }))} />{priceListId && <button type="button" className="secondary-button" onClick={() => void applyPriceList()} disabled={quotingPrices || lines.length === 0}>{quotingPrices ? "Actualizando…" : "Actualizar tarifas"}</button>}</div>
+                <EntityPicker pickerId="sale-payment-term" label="Condición de pago (opcional)" placeholder="Vencimiento al contado" value={paymentTermId} onChange={setPaymentTermId} isOpen={activePicker === "payment-term"} onOpen={() => setActivePicker("payment-term")} onClose={() => setActivePicker(null)} options={paymentTerms.map((term) => ({ id: term.id, primary: term.name, secondary: term.code + " · " + term.days_due + " día(s)" }))} />
+                <EntityPicker pickerId="sale-cost-center" label="Centro de costo" placeholder="Operación general" required value={costCenterId} onChange={setCostCenterId} isOpen={activePicker === "cost-center"} onOpen={() => setActivePicker("cost-center")} onClose={() => setActivePicker(null)} options={costCenters.map((center) => ({ id: center.id, primary: center.name, secondary: center.code }))} />
                 <p className="field-help sale-folio-help">El folio se asignará automáticamente según la entidad, sucursal y tipo de documento.</p>
               </div>
               {priceListId && <p className="field-help">La lista se valida nuevamente al registrar la venta. Si falta una tarifa vigente para un producto, la venta no se procesará.</p>}
               {paymentTermId && <p className="field-help">El vencimiento se calculará y quedará registrado con la condición seleccionada.</p>}
               <section className="sale-customer-card">
-                <div className="sale-customer-heading"><div><span>Cliente</span><small>Usa un cliente registrado o consulta DNI/RUC.</small></div><div className="segmented-control"><button type="button" className={customerMode === "existing" ? "is-active" : ""} onClick={() => setCustomerMode("existing")}>Existente</button><button type="button" className={customerMode === "lookup" ? "is-active" : ""} onClick={() => setCustomerMode("lookup")}>Nuevo DNI/RUC</button></div></div>
+                <div className="sale-customer-heading"><div><span>Cliente</span><small>Usa un cliente registrado o consulta DNI/RUC.</small></div><div className="segmented-control"><button type="button" className={customerMode === "existing" ? "is-active" : ""} onClick={() => selectCustomerMode("existing")}>Existente</button><button type="button" className={customerMode === "lookup" ? "is-active" : ""} onClick={() => selectCustomerMode("lookup")}>Nuevo DNI/RUC</button></div></div>
                 {customerMode === "existing" ? <label className="customer-picker-field">Cliente registrado<button type="button" className="customer-picker-trigger" onClick={openCustomerPicker}><Search size={17} /><span>{customers.find((customer) => customer.id === customerId)?.name ?? "Buscar y seleccionar cliente"}</span><small>{customers.find((customer) => customer.id === customerId)?.code ?? "Nombre, código o documento"}</small></button></label> : <div className="customer-lookup-fields"><label>Documento DNI o RUC<input inputMode="numeric" maxLength={11} value={customerTaxId} onChange={(event) => setCustomerTaxId(event.target.value.replace(/\D/g, ""))} placeholder="Ingresa DNI o RUC" /></label><button type="button" className="secondary-button" onClick={() => void lookupCustomer()} disabled={customerLookupBusy}>{customerLookupBusy ? "Consultando…" : "Consultar"}</button><label className="wide">Nombre o razón social<input required value={customerName} onChange={(event) => setCustomerName(event.target.value)} placeholder="Se completa al consultar" /></label><label>Correo (opcional)<input type="email" value={customerEmail} onChange={(event) => setCustomerEmail(event.target.value)} /></label><label>Teléfono (opcional)<input value={customerPhone} onChange={(event) => setCustomerPhone(event.target.value)} /></label>{customerLookupHint && <p className="customer-lookup-hint">{customerLookupHint}</p>}</div>}
               </section>
               <div className="sale-lines-header">
@@ -489,7 +523,7 @@ export function SalesPage({ goBack }: { goBack: () => void }) {
                 ) : (
                   lines.map((line, index) => (
                     <div className="sale-line-wrap" key={line.product_id}><div className="sale-line">
-                      <EntityPicker label="Producto" placeholder="Busca por nombre o SKU" value={line.product_id} onChange={(productId) => { const item = products.find((product) => product.id === productId); updateLine(index, { product_id: productId, unit_price: Number(item?.sale_price ?? 0), serial_text: "" }); }} options={products.filter((product) => product.id === line.product_id || !lines.some((other) => other.product_id === product.id)).map((product) => ({ id: product.id, primary: product.name, secondary: product.sku }))} />
+                      <EntityPicker pickerId={`sale-product-${line.product_id}`} label="Producto" placeholder="Busca por nombre o SKU" value={line.product_id} onChange={(productId) => { const item = products.find((product) => product.id === productId); updateLine(index, { product_id: productId, unit_price: Number(item?.sale_price ?? 0), serial_text: "" }); }} isOpen={activePicker === `product-${line.product_id}`} onOpen={() => setActivePicker(`product-${line.product_id}`)} onClose={() => setActivePicker(null)} options={products.filter((product) => product.id === line.product_id || !lines.some((other) => other.product_id === product.id)).map((product) => ({ id: product.id, primary: product.name, secondary: product.sku }))} />
                       <label>
                         Cant.
                         <input
