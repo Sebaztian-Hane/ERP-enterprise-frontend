@@ -1,36 +1,842 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
-import { Building2, ChevronLeft, Landmark, LoaderCircle, Plus, ReceiptText, WalletCards, X } from "lucide-react";
+import {
+  Building2,
+  ChevronLeft,
+  Landmark,
+  LoaderCircle,
+  Plus,
+  ReceiptText,
+  WalletCards,
+  X,
+} from "lucide-react";
 import { useAuth } from "../auth/AuthProvider";
 import { apiFetch, postIdempotent } from "../lib/api";
 
-type Receivable = { id: string; sale_id: string; customer_id: string; original_amount: string; balance_amount: string; status: string };
-type Payable = { id: string; purchase_id: string; supplier_id: string; original_amount: string; balance_amount: string; status: string };
+type Receivable = {
+  id: string;
+  sale_id: string;
+  customer_id: string;
+  original_amount: string;
+  balance_amount: string;
+  status: string;
+};
+type Payable = {
+  id: string;
+  purchase_id: string;
+  supplier_id: string;
+  original_amount: string;
+  balance_amount: string;
+  status: string;
+};
 type Customer = { id: string; name: string };
 type Supplier = { id: string; name: string };
-type CashAccount = { id: string; code: string; name: string; account_type: "cash" | "bank"; currency: string; is_active: boolean };
-type Payment = { id: string; number: string; payment_type: "receipt" | "payment"; customer_id: string | null; supplier_id: string | null; cash_account_id: string; amount: string; method: string; reference: string | null };
+type CashAccount = {
+  id: string;
+  code: string;
+  name: string;
+  account_type: "cash" | "bank";
+  currency: string;
+  is_active: boolean;
+};
+type PettyCashFund = {
+  id: string;
+  code: string;
+  name: string;
+  fixed_amount: string;
+  current_balance: string;
+  currency: string;
+  status: string;
+  cash_account_name: string;
+  pending_expenses: number;
+  pending_replenishments: number;
+};
+type Payment = {
+  id: string;
+  number: string;
+  payment_type: "receipt" | "payment";
+  customer_id: string | null;
+  supplier_id: string | null;
+  cash_account_id: string;
+  amount: string;
+  method: string;
+  reference: string | null;
+};
 type PaymentKind = "receipt" | "payment";
-const money = new Intl.NumberFormat("es-PE", { style: "currency", currency: "PEN" });
-const paymentNumber = (kind: PaymentKind) => `${kind === "receipt" ? "COB" : "PAG"}-${new Date().toISOString().replace(/[-:.TZ]/g, "").slice(0, 14)}`;
+const money = new Intl.NumberFormat("es-PE", {
+  style: "currency",
+  currency: "PEN",
+});
+const paymentNumber = (kind: PaymentKind) =>
+  `${kind === "receipt" ? "COB" : "PAG"}-${new Date()
+    .toISOString()
+    .replace(/[-:.TZ]/g, "")
+    .slice(0, 14)}`;
 
 export function FinancePage({ goBack }: { goBack: () => void }) {
   const { session, tenantId } = useAuth();
-  const [receivables, setReceivables] = useState<Receivable[]>([]); const [payables, setPayables] = useState<Payable[]>([]); const [customers, setCustomers] = useState<Customer[]>([]); const [suppliers, setSuppliers] = useState<Supplier[]>([]); const [accounts, setAccounts] = useState<CashAccount[]>([]); const [payments, setPayments] = useState<Payment[]>([]);
-  const [loading, setLoading] = useState(true); const [error, setError] = useState<string | null>(null); const [accountOpen, setAccountOpen] = useState(false); const [paymentOpen, setPaymentOpen] = useState<PaymentKind | null>(null); const [saving, setSaving] = useState(false);
-  const [accountForm, setAccountForm] = useState({ code: "", name: "", account_type: "bank", currency: "PEN" });
-  const [paymentForm, setPaymentForm] = useState({ number: paymentNumber("receipt"), documentId: "", cashAccountId: "", amount: "", method: "transferencia", reference: "", note: "" });
-  const options = { accessToken: session?.access_token, tenantId: tenantId ?? undefined };
-  const load = async () => { if (!session || !tenantId) return; setLoading(true); setError(null); try { const [ar, ap, customersData, suppliersData, accountsData, paymentsData] = await Promise.all([apiFetch<Receivable[]>("/accounts/receivable", options), apiFetch<Payable[]>("/accounts/payable", options), apiFetch<Customer[]>("/customers", options), apiFetch<Supplier[]>("/suppliers", options), apiFetch<CashAccount[]>("/treasury/accounts", options), apiFetch<Payment[]>("/payments", options)]); setReceivables(ar); setPayables(ap); setCustomers(customersData); setSuppliers(suppliersData); setAccounts(accountsData); setPayments(paymentsData); } catch (cause) { setError(cause instanceof Error ? cause.message : "No se pudo cargar información financiera."); } finally { setLoading(false); } };
-  useEffect(() => { void load(); }, [session?.access_token, tenantId]); // eslint-disable-line react-hooks/exhaustive-deps
-  const dueReceivable = useMemo(() => receivables.filter((item) => item.status !== "paid" && item.status !== "cancelled").reduce((sum, item) => sum + Number(item.balance_amount), 0), [receivables]); const duePayable = useMemo(() => payables.filter((item) => item.status !== "paid" && item.status !== "cancelled").reduce((sum, item) => sum + Number(item.balance_amount), 0), [payables]); const customerName = (id: string) => customers.find((item) => item.id === id)?.name ?? "Cliente"; const supplierName = (id: string) => suppliers.find((item) => item.id === id)?.name ?? "Proveedor";
-  const openPayment = (kind: PaymentKind) => { setError(null); setPaymentForm({ number: paymentNumber(kind), documentId: "", cashAccountId: accounts.find((account) => account.is_active)?.id ?? "", amount: "", method: "transferencia", reference: "", note: "" }); setPaymentOpen(kind); };
-  const selectedDocument = paymentOpen === "receipt" ? receivables.find((item) => item.id === paymentForm.documentId) : payables.find((item) => item.id === paymentForm.documentId);
-  const saveAccount = async (event: FormEvent) => { event.preventDefault(); setSaving(true); try { const created = await apiFetch<CashAccount>("/treasury/accounts", { ...options, method: "POST", body: JSON.stringify(accountForm) }); setAccounts((current) => [...current, created]); setAccountOpen(false); setAccountForm({ code: "", name: "", account_type: "bank", currency: "PEN" }); } catch (cause) { setError(cause instanceof Error ? cause.message : "No fue posible crear la cuenta."); } finally { setSaving(false); } };
-  const savePayment = async (event: FormEvent) => { event.preventDefault(); if (!paymentOpen || !selectedDocument) { setError("Selecciona un documento pendiente."); return; } const amount = Number(paymentForm.amount); if (!Number.isFinite(amount) || amount <= 0 || amount > Number(selectedDocument.balance_amount)) { setError("El importe debe ser mayor a cero y no superar el saldo pendiente."); return; } setSaving(true); setError(null); try { const body = { number: paymentForm.number, payment_type: paymentOpen, amount, method: paymentForm.method, reference: paymentForm.reference || null, note: paymentForm.note || null, cash_account_id: paymentForm.cashAccountId, ...(paymentOpen === "receipt" ? { customer_id: (selectedDocument as Receivable).customer_id, allocations: [{ receivable_id: selectedDocument.id, amount }] } : { supplier_id: (selectedDocument as Payable).supplier_id, allocations: [{ payable_id: selectedDocument.id, amount }] }) }; await postIdempotent<Payment>("/payments", { ...options, body: JSON.stringify(body) }); setPaymentOpen(null); await load(); } catch (cause) { setError(cause instanceof Error ? cause.message : "No fue posible registrar la operación."); } finally { setSaving(false); } };
-  const pendingDocuments = paymentOpen === "receipt" ? receivables.filter((item) => item.status !== "paid" && Number(item.balance_amount) > 0) : payables.filter((item) => item.status !== "paid" && Number(item.balance_amount) > 0);
-  return <section className="module-page"><div className="module-heading"><div><button className="back-link" onClick={goBack}><ChevronLeft size={16} /> Panel general</button><p className="eyebrow">CONTROL FINANCIERO</p><h1>Finanzas</h1><p className="subtitle">Supervisa saldos pendientes y administra cuentas de caja y banco.</p></div><div className="heading-actions"><button className="secondary-button finance-action" onClick={() => openPayment("payment")}><ReceiptText size={16} /> Registrar pago</button><button className="primary-button finance-action" onClick={() => openPayment("receipt")}><Plus size={18} /> Registrar cobro</button></div></div><section className="metric-grid finance-metrics"><article className="metric-card"><p>Por cobrar</p><strong>{money.format(dueReceivable)}</strong><span className="trend neutral">{receivables.length} documentos registrados</span></article><article className="metric-card"><p>Por pagar</p><strong>{money.format(duePayable)}</strong><span className="trend neutral">{payables.length} documentos registrados</span></article><article className="metric-card"><p>Movimientos registrados</p><strong>{payments.length}</strong><span className="trend positive">Cobros y pagos de la empresa</span></article></section>{error && !accountOpen && !paymentOpen && <div className="module-error">{error}<button onClick={() => void load()}>Reintentar</button></div>}<section className="finance-grid">{loading ? <article className="panel finance-panel"><div className="module-state"><LoaderCircle className="spin" size={22} /> Cargando saldos…</div></article> : <><AccountTable title="Cuentas por cobrar" label="CLIENTE" rows={receivables} nameFor={customerName} /><AccountTable title="Cuentas por pagar" label="PROVEEDOR" rows={payables} nameFor={supplierName} /></>}</section><article className="panel treasury-panel"><div className="panel-header"><div><p className="card-label">TESORERÍA</p><h2>Caja y bancos</h2></div><button className="text-button" onClick={() => { setError(null); setAccountOpen(true); }}>Nueva cuenta</button></div>{accounts.length === 0 ? <div className="module-state compact"><WalletCards size={26} /><strong>Aún no hay cuentas de tesorería</strong><span>Crea una cuenta para registrar cobros y pagos.</span></div> : <div className="treasury-cards">{accounts.map((account) => <div key={account.id}><span className="treasury-icon"><Landmark size={18} /></span><span><strong>{account.name}</strong><small>{account.code} · {account.currency}</small></span><span className={`status-pill ${account.is_active ? "active" : "inactive"}`}>{account.account_type === "bank" ? "Banco" : "Caja"}</span></div>)}</div>}</article><PaymentTable payments={payments} customerName={customerName} supplierName={supplierName} />{accountOpen && <Modal title="Nueva cuenta" eyebrow="TESORERÍA" onClose={() => setAccountOpen(false)}><form className="customer-form" onSubmit={saveAccount}><div className="form-grid"><label>Código<input required value={accountForm.code} onChange={(e) => setAccountForm((current) => ({ ...current, code: e.target.value }))} placeholder="BAN-001" /></label><label>Tipo<select value={accountForm.account_type} onChange={(e) => setAccountForm((current) => ({ ...current, account_type: e.target.value }))}><option value="bank">Banco</option><option value="cash">Caja</option></select></label></div><label>Nombre<input required value={accountForm.name} onChange={(e) => setAccountForm((current) => ({ ...current, name: e.target.value }))} placeholder="Cuenta principal" /></label><label>Moneda<input required maxLength={3} value={accountForm.currency} onChange={(e) => setAccountForm((current) => ({ ...current, currency: e.target.value.toUpperCase() }))} /></label>{error && <p className="login-error">{error}</p>}<div className="modal-actions"><button type="button" className="secondary-button" onClick={() => setAccountOpen(false)}>Cancelar</button><button className="primary-button" disabled={saving}>{saving ? "Guardando…" : "Guardar cuenta"}</button></div></form></Modal>}{paymentOpen && <Modal title={paymentOpen === "receipt" ? "Registrar cobro" : "Registrar pago"} eyebrow={paymentOpen === "receipt" ? "CUENTAS POR COBRAR" : "CUENTAS POR PAGAR"} onClose={() => setPaymentOpen(null)}><form className="customer-form" onSubmit={savePayment}><label>Documento pendiente<select required value={paymentForm.documentId} onChange={(e) => { const document = (paymentOpen === "receipt" ? receivables : payables).find((item) => item.id === e.target.value); setPaymentForm((current) => ({ ...current, documentId: e.target.value, amount: document?.balance_amount ?? "" })); }}><option value="">Selecciona un documento</option>{pendingDocuments.map((document) => <option key={document.id} value={document.id}>{paymentOpen === "receipt" ? customerName((document as Receivable).customer_id) : supplierName((document as Payable).supplier_id)} · {money.format(Number(document.balance_amount))}</option>)}</select></label><div className="form-grid"><label>Cuenta de origen<select required value={paymentForm.cashAccountId} onChange={(e) => setPaymentForm((current) => ({ ...current, cashAccountId: e.target.value }))}><option value="">Selecciona una cuenta</option>{accounts.filter((account) => account.is_active).map((account) => <option key={account.id} value={account.id}>{account.name} · {account.currency}</option>)}</select></label><label>Método<select value={paymentForm.method} onChange={(e) => setPaymentForm((current) => ({ ...current, method: e.target.value }))}><option value="transferencia">Transferencia</option><option value="efectivo">Efectivo</option><option value="tarjeta">Tarjeta</option><option value="cheque">Cheque</option></select></label></div><div className="form-grid"><label>Número<input required value={paymentForm.number} onChange={(e) => setPaymentForm((current) => ({ ...current, number: e.target.value }))} /></label><label>Importe<input required type="number" min="0.01" step="0.01" max={selectedDocument?.balance_amount} value={paymentForm.amount} onChange={(e) => setPaymentForm((current) => ({ ...current, amount: e.target.value }))} /></label></div><label>Referencia<input value={paymentForm.reference} onChange={(e) => setPaymentForm((current) => ({ ...current, reference: e.target.value }))} placeholder="Folio bancario o referencia" /></label><label>Nota<input value={paymentForm.note} onChange={(e) => setPaymentForm((current) => ({ ...current, note: e.target.value }))} placeholder="Opcional" /></label>{error && <p className="login-error">{error}</p>}<div className="modal-actions"><button type="button" className="secondary-button" onClick={() => setPaymentOpen(null)}>Cancelar</button><button className="primary-button" disabled={saving || !selectedDocument}>{saving ? "Registrando…" : paymentOpen === "receipt" ? "Registrar cobro" : "Registrar pago"}</button></div></form></Modal>}</section>;
+  const [receivables, setReceivables] = useState<Receivable[]>([]);
+  const [payables, setPayables] = useState<Payable[]>([]);
+  const [customers, setCustomers] = useState<Customer[]>([]);
+  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
+  const [accounts, setAccounts] = useState<CashAccount[]>([]);
+  const [payments, setPayments] = useState<Payment[]>([]);
+  const [pettyCashFunds, setPettyCashFunds] = useState<PettyCashFund[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [accountOpen, setAccountOpen] = useState(false);
+  const [paymentOpen, setPaymentOpen] = useState<PaymentKind | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [accountForm, setAccountForm] = useState({
+    code: "",
+    name: "",
+    account_type: "bank",
+    currency: "PEN",
+  });
+  const [paymentForm, setPaymentForm] = useState({
+    number: paymentNumber("receipt"),
+    documentId: "",
+    cashAccountId: "",
+    amount: "",
+    method: "transferencia",
+    reference: "",
+    note: "",
+  });
+  const options = {
+    accessToken: session?.access_token,
+    tenantId: tenantId ?? undefined,
+  };
+  const load = async () => {
+    if (!session || !tenantId) return;
+    setLoading(true);
+    setError(null);
+    try {
+      const [ar, ap, customersData, suppliersData, accountsData, paymentsData, fundsData] =
+        await Promise.all([
+          apiFetch<Receivable[]>("/accounts/receivable", options),
+          apiFetch<Payable[]>("/accounts/payable", options),
+          apiFetch<Customer[]>("/customers", options),
+          apiFetch<Supplier[]>("/suppliers", options),
+          apiFetch<CashAccount[]>("/treasury/accounts", options),
+          apiFetch<Payment[]>("/payments", options),
+          apiFetch<PettyCashFund[]>("/treasury/petty-cash/funds", options),
+        ]);
+      setReceivables(ar);
+      setPayables(ap);
+      setCustomers(customersData);
+      setSuppliers(suppliersData);
+      setAccounts(accountsData);
+      setPayments(paymentsData);
+      setPettyCashFunds(fundsData);
+    } catch (cause) {
+      setError(
+        cause instanceof Error
+          ? cause.message
+          : "No se pudo cargar información financiera.",
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+  useEffect(() => {
+    void load();
+  }, [session?.access_token, tenantId]); // eslint-disable-line react-hooks/exhaustive-deps
+  const dueReceivable = useMemo(
+    () =>
+      receivables
+        .filter((item) => item.status !== "paid" && item.status !== "cancelled")
+        .reduce((sum, item) => sum + Number(item.balance_amount), 0),
+    [receivables],
+  );
+  const duePayable = useMemo(
+    () =>
+      payables
+        .filter((item) => item.status !== "paid" && item.status !== "cancelled")
+        .reduce((sum, item) => sum + Number(item.balance_amount), 0),
+    [payables],
+  );
+  const customerName = (id: string) =>
+    customers.find((item) => item.id === id)?.name ?? "Cliente";
+  const supplierName = (id: string) =>
+    suppliers.find((item) => item.id === id)?.name ?? "Proveedor";
+  const openPayment = (kind: PaymentKind) => {
+    setError(null);
+    setPaymentForm({
+      number: paymentNumber(kind),
+      documentId: "",
+      cashAccountId: accounts.find((account) => account.is_active)?.id ?? "",
+      amount: "",
+      method: "transferencia",
+      reference: "",
+      note: "",
+    });
+    setPaymentOpen(kind);
+  };
+  const selectedDocument =
+    paymentOpen === "receipt"
+      ? receivables.find((item) => item.id === paymentForm.documentId)
+      : payables.find((item) => item.id === paymentForm.documentId);
+  const saveAccount = async (event: FormEvent) => {
+    event.preventDefault();
+    setSaving(true);
+    try {
+      const created = await apiFetch<CashAccount>("/treasury/accounts", {
+        ...options,
+        method: "POST",
+        body: JSON.stringify(accountForm),
+      });
+      setAccounts((current) => [...current, created]);
+      setAccountOpen(false);
+      setAccountForm({
+        code: "",
+        name: "",
+        account_type: "bank",
+        currency: "PEN",
+      });
+    } catch (cause) {
+      setError(
+        cause instanceof Error
+          ? cause.message
+          : "No fue posible crear la cuenta.",
+      );
+    } finally {
+      setSaving(false);
+    }
+  };
+  const savePayment = async (event: FormEvent) => {
+    event.preventDefault();
+    if (!paymentOpen || !selectedDocument) {
+      setError("Selecciona un documento pendiente.");
+      return;
+    }
+    const amount = Number(paymentForm.amount);
+    if (
+      !Number.isFinite(amount) ||
+      amount <= 0 ||
+      amount > Number(selectedDocument.balance_amount)
+    ) {
+      setError(
+        "El importe debe ser mayor a cero y no superar el saldo pendiente.",
+      );
+      return;
+    }
+    setSaving(true);
+    setError(null);
+    try {
+      const body = {
+        number: paymentForm.number,
+        payment_type: paymentOpen,
+        amount,
+        method: paymentForm.method,
+        reference: paymentForm.reference || null,
+        note: paymentForm.note || null,
+        cash_account_id: paymentForm.cashAccountId,
+        ...(paymentOpen === "receipt"
+          ? {
+              customer_id: (selectedDocument as Receivable).customer_id,
+              allocations: [{ receivable_id: selectedDocument.id, amount }],
+            }
+          : {
+              supplier_id: (selectedDocument as Payable).supplier_id,
+              allocations: [{ payable_id: selectedDocument.id, amount }],
+            }),
+      };
+      await postIdempotent<Payment>("/payments", {
+        ...options,
+        body: JSON.stringify(body),
+      });
+      setPaymentOpen(null);
+      await load();
+    } catch (cause) {
+      setError(
+        cause instanceof Error
+          ? cause.message
+          : "No fue posible registrar la operación.",
+      );
+    } finally {
+      setSaving(false);
+    }
+  };
+  const pendingDocuments =
+    paymentOpen === "receipt"
+      ? receivables.filter(
+          (item) => item.status !== "paid" && Number(item.balance_amount) > 0,
+        )
+      : payables.filter(
+          (item) => item.status !== "paid" && Number(item.balance_amount) > 0,
+        );
+  return (
+    <section className="module-page">
+      <div className="module-heading">
+        <div>
+          <button className="back-link" onClick={goBack}>
+            <ChevronLeft size={16} /> Panel general
+          </button>
+          <p className="eyebrow">CONTROL FINANCIERO</p>
+          <h1>Finanzas</h1>
+          <p className="subtitle">
+            Supervisa saldos pendientes y administra cuentas de caja y banco.
+          </p>
+        </div>
+        <div className="heading-actions">
+          <button
+            className="secondary-button finance-action"
+            onClick={() => openPayment("payment")}
+          >
+            <ReceiptText size={16} /> Registrar pago
+          </button>
+          <button
+            className="primary-button finance-action"
+            onClick={() => openPayment("receipt")}
+          >
+            <Plus size={18} /> Registrar cobro
+          </button>
+        </div>
+      </div>
+      <section className="metric-grid finance-metrics">
+        <article className="metric-card">
+          <p>Por cobrar</p>
+          <strong>{money.format(dueReceivable)}</strong>
+          <span className="trend neutral">
+            {receivables.length} documentos registrados
+          </span>
+        </article>
+        <article className="metric-card">
+          <p>Por pagar</p>
+          <strong>{money.format(duePayable)}</strong>
+          <span className="trend neutral">
+            {payables.length} documentos registrados
+          </span>
+        </article>
+        <article className="metric-card">
+          <p>Movimientos registrados</p>
+          <strong>{payments.length}</strong>
+          <span className="trend positive">Cobros y pagos de la empresa</span>
+        </article>
+      </section>
+      {error && !accountOpen && !paymentOpen && (
+        <div className="module-error">
+          {error}
+          <button onClick={() => void load()}>Reintentar</button>
+        </div>
+      )}
+      <section className="finance-grid">
+        {loading ? (
+          <article className="panel finance-panel">
+            <div className="module-state">
+              <LoaderCircle className="spin" size={22} /> Cargando saldos…
+            </div>
+          </article>
+        ) : (
+          <>
+            <AccountTable
+              title="Cuentas por cobrar"
+              label="CLIENTE"
+              rows={receivables}
+              nameFor={customerName}
+            />
+            <AccountTable
+              title="Cuentas por pagar"
+              label="PROVEEDOR"
+              rows={payables}
+              nameFor={supplierName}
+            />
+          </>
+        )}
+      </section>
+      <article className="panel treasury-panel">
+        <div className="panel-header">
+          <div>
+            <p className="card-label">TESORERÍA</p>
+            <h2>Caja y bancos</h2>
+          </div>
+          <button
+            className="text-button"
+            onClick={() => {
+              setError(null);
+              setAccountOpen(true);
+            }}
+          >
+            Nueva cuenta
+          </button>
+        </div>
+        {accounts.length === 0 ? (
+          <div className="module-state compact">
+            <WalletCards size={26} />
+            <strong>Aún no hay cuentas de tesorería</strong>
+            <span>Crea una cuenta para registrar cobros y pagos.</span>
+          </div>
+        ) : (
+          <div className="treasury-cards">
+            {accounts.map((account) => (
+              <div key={account.id}>
+                <span className="treasury-icon">
+                  <Landmark size={18} />
+                </span>
+                <span>
+                  <strong>{account.name}</strong>
+                  <small>
+                    {account.code} · {account.currency}
+                  </small>
+                </span>
+                <span
+                  className={`status-pill ${account.is_active ? "active" : "inactive"}`}
+                >
+                  {account.account_type === "bank" ? "Banco" : "Caja"}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+      </article>
+      <article className="panel treasury-panel">
+        <div className="panel-header">
+          <div>
+            <p className="card-label">TESORERÍA CONTROLADA</p>
+            <h2>Caja chica</h2>
+          </div>
+          <span className="status-pill inactive">Aprobación requerida</span>
+        </div>
+        {pettyCashFunds.length === 0 ? (
+          <div className="module-state compact">
+            <WalletCards size={26} />
+            <strong>Aún no hay fondos de caja chica</strong>
+            <span>Los fondos operan con vales, reposiciones, documentos y separación de funciones.</span>
+          </div>
+        ) : (
+          <div className="table-wrap">
+            <table className="finance-table">
+              <thead><tr><th>FONDO</th><th>CUENTA</th><th>FIJO</th><th>SALDO</th><th>PENDIENTES</th><th>ESTADO</th></tr></thead>
+              <tbody>{pettyCashFunds.map((fund) => <tr key={fund.id}>
+                <td><strong>{fund.name}</strong><br /><small>{fund.code}</small></td>
+                <td>{fund.cash_account_name}</td>
+                <td>{money.format(Number(fund.fixed_amount))}</td>
+                <td><strong>{money.format(Number(fund.current_balance))}</strong></td>
+                <td>{Number(fund.pending_expenses) + Number(fund.pending_replenishments)}</td>
+                <td><span className={`status-pill ${fund.status === "active" ? "active" : "inactive"}`}>{fund.status}</span></td>
+              </tr>)}</tbody>
+            </table>
+          </div>
+        )}
+      </article>
+      <PaymentTable
+        payments={payments}
+        customerName={customerName}
+        supplierName={supplierName}
+      />
+      {accountOpen && (
+        <Modal
+          title="Nueva cuenta"
+          eyebrow="TESORERÍA"
+          onClose={() => setAccountOpen(false)}
+        >
+          <form className="customer-form" onSubmit={saveAccount}>
+            <div className="form-grid">
+              <label>
+                Código
+                <input
+                  required
+                  value={accountForm.code}
+                  onChange={(e) =>
+                    setAccountForm((current) => ({
+                      ...current,
+                      code: e.target.value,
+                    }))
+                  }
+                  placeholder="BAN-001"
+                />
+              </label>
+              <label>
+                Tipo
+                <select
+                  value={accountForm.account_type}
+                  onChange={(e) =>
+                    setAccountForm((current) => ({
+                      ...current,
+                      account_type: e.target.value,
+                    }))
+                  }
+                >
+                  <option value="bank">Banco</option>
+                  <option value="cash">Caja</option>
+                </select>
+              </label>
+            </div>
+            <label>
+              Nombre
+              <input
+                required
+                value={accountForm.name}
+                onChange={(e) =>
+                  setAccountForm((current) => ({
+                    ...current,
+                    name: e.target.value,
+                  }))
+                }
+                placeholder="Cuenta principal"
+              />
+            </label>
+            <label>
+              Moneda
+              <input
+                required
+                maxLength={3}
+                value={accountForm.currency}
+                onChange={(e) =>
+                  setAccountForm((current) => ({
+                    ...current,
+                    currency: e.target.value.toUpperCase(),
+                  }))
+                }
+              />
+            </label>
+            {error && <p className="login-error">{error}</p>}
+            <div className="modal-actions">
+              <button
+                type="button"
+                className="secondary-button"
+                onClick={() => setAccountOpen(false)}
+              >
+                Cancelar
+              </button>
+              <button className="primary-button" disabled={saving}>
+                {saving ? "Guardando…" : "Guardar cuenta"}
+              </button>
+            </div>
+          </form>
+        </Modal>
+      )}
+      {paymentOpen && (
+        <Modal
+          title={
+            paymentOpen === "receipt" ? "Registrar cobro" : "Registrar pago"
+          }
+          eyebrow={
+            paymentOpen === "receipt"
+              ? "CUENTAS POR COBRAR"
+              : "CUENTAS POR PAGAR"
+          }
+          onClose={() => setPaymentOpen(null)}
+        >
+          <form className="customer-form" onSubmit={savePayment}>
+            <label>
+              Documento pendiente
+              <select
+                required
+                value={paymentForm.documentId}
+                onChange={(e) => {
+                  const document = (
+                    paymentOpen === "receipt" ? receivables : payables
+                  ).find((item) => item.id === e.target.value);
+                  setPaymentForm((current) => ({
+                    ...current,
+                    documentId: e.target.value,
+                    amount: document?.balance_amount ?? "",
+                  }));
+                }}
+              >
+                <option value="">Selecciona un documento</option>
+                {pendingDocuments.map((document) => (
+                  <option key={document.id} value={document.id}>
+                    {paymentOpen === "receipt"
+                      ? customerName((document as Receivable).customer_id)
+                      : supplierName((document as Payable).supplier_id)}{" "}
+                    · {money.format(Number(document.balance_amount))}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <div className="form-grid">
+              <label>
+                Cuenta de origen
+                <select
+                  required
+                  value={paymentForm.cashAccountId}
+                  onChange={(e) =>
+                    setPaymentForm((current) => ({
+                      ...current,
+                      cashAccountId: e.target.value,
+                    }))
+                  }
+                >
+                  <option value="">Selecciona una cuenta</option>
+                  {accounts
+                    .filter((account) => account.is_active)
+                    .map((account) => (
+                      <option key={account.id} value={account.id}>
+                        {account.name} · {account.currency}
+                      </option>
+                    ))}
+                </select>
+              </label>
+              <label>
+                Método
+                <select
+                  value={paymentForm.method}
+                  onChange={(e) =>
+                    setPaymentForm((current) => ({
+                      ...current,
+                      method: e.target.value,
+                    }))
+                  }
+                >
+                  <option value="transferencia">Transferencia</option>
+                  <option value="efectivo">Efectivo</option>
+                  <option value="tarjeta">Tarjeta</option>
+                  <option value="cheque">Cheque</option>
+                </select>
+              </label>
+            </div>
+            <div className="form-grid">
+              <label>
+                Número
+                <input
+                  required
+                  value={paymentForm.number}
+                  onChange={(e) =>
+                    setPaymentForm((current) => ({
+                      ...current,
+                      number: e.target.value,
+                    }))
+                  }
+                />
+              </label>
+              <label>
+                Importe
+                <input
+                  required
+                  type="number"
+                  min="0.01"
+                  step="0.01"
+                  max={selectedDocument?.balance_amount}
+                  value={paymentForm.amount}
+                  onChange={(e) =>
+                    setPaymentForm((current) => ({
+                      ...current,
+                      amount: e.target.value,
+                    }))
+                  }
+                />
+              </label>
+            </div>
+            <label>
+              Referencia
+              <input
+                value={paymentForm.reference}
+                onChange={(e) =>
+                  setPaymentForm((current) => ({
+                    ...current,
+                    reference: e.target.value,
+                  }))
+                }
+                placeholder="Folio bancario o referencia"
+              />
+            </label>
+            <label>
+              Nota
+              <input
+                value={paymentForm.note}
+                onChange={(e) =>
+                  setPaymentForm((current) => ({
+                    ...current,
+                    note: e.target.value,
+                  }))
+                }
+                placeholder="Opcional"
+              />
+            </label>
+            {error && <p className="login-error">{error}</p>}
+            <div className="modal-actions">
+              <button
+                type="button"
+                className="secondary-button"
+                onClick={() => setPaymentOpen(null)}
+              >
+                Cancelar
+              </button>
+              <button
+                className="primary-button"
+                disabled={saving || !selectedDocument}
+              >
+                {saving
+                  ? "Registrando…"
+                  : paymentOpen === "receipt"
+                    ? "Registrar cobro"
+                    : "Registrar pago"}
+              </button>
+            </div>
+          </form>
+        </Modal>
+      )}
+    </section>
+  );
 }
 
-function AccountTable({ title, label, rows, nameFor }: { title: string; label: string; rows: (Receivable | Payable)[]; nameFor: (id: string) => string }) { return <article className="panel finance-panel"><div className="panel-header"><div><p className="card-label">CARTERA</p><h2>{title}</h2></div></div>{rows.length === 0 ? <div className="module-state compact"><Building2 size={24} /><span>Sin documentos pendientes.</span></div> : <div className="table-wrap"><table className="finance-table"><thead><tr><th>{label}</th><th>ORIGINAL</th><th>SALDO</th><th>ESTADO</th></tr></thead><tbody>{rows.map((row) => <tr key={row.id}><td>{nameFor("customer_id" in row ? row.customer_id : row.supplier_id)}</td><td>{money.format(Number(row.original_amount))}</td><td><strong>{money.format(Number(row.balance_amount))}</strong></td><td><span className={`status-pill ${row.status === "paid" ? "active" : "inactive"}`}>{row.status}</span></td></tr>)}</tbody></table></div>}</article>; }
-function PaymentTable({ payments, customerName, supplierName }: { payments: Payment[]; customerName: (id: string) => string; supplierName: (id: string) => string }) { return <article className="panel payments-panel"><div className="panel-header"><div><p className="card-label">MOVIMIENTOS</p><h2>Últimos cobros y pagos</h2></div><ReceiptText size={20} className="muted-icon" /></div>{payments.length === 0 ? <div className="module-state compact"><ReceiptText size={24} /><span>Aún no se han registrado cobros o pagos.</span></div> : <div className="table-wrap"><table className="finance-table payments-table"><thead><tr><th>NÚMERO</th><th>TIPO</th><th>CONTRAPARTE</th><th>MÉTODO</th><th>IMPORTE</th></tr></thead><tbody>{payments.slice(0, 8).map((payment) => <tr key={payment.id}><td><strong>{payment.number}</strong></td><td><span className={`status-pill ${payment.payment_type === "receipt" ? "active" : "inactive"}`}>{payment.payment_type === "receipt" ? "Cobro" : "Pago"}</span></td><td>{payment.customer_id ? customerName(payment.customer_id) : payment.supplier_id ? supplierName(payment.supplier_id) : "—"}</td><td>{payment.method}</td><td><strong>{money.format(Number(payment.amount))}</strong></td></tr>)}</tbody></table></div>}</article>; }
-function Modal({ title, eyebrow, children, onClose }: { title: string; eyebrow: string; children: React.ReactNode; onClose: () => void }) { return <div className="modal-layer"><section className="customer-modal" role="dialog" aria-modal="true" aria-label={title}><div className="modal-header"><div><p className="eyebrow">{eyebrow}</p><h2>{title}</h2></div><button type="button" className="icon-button" onClick={onClose} aria-label="Cerrar"><X size={20} /></button></div>{children}</section></div>; }
+function AccountTable({
+  title,
+  label,
+  rows,
+  nameFor,
+}: {
+  title: string;
+  label: string;
+  rows: (Receivable | Payable)[];
+  nameFor: (id: string) => string;
+}) {
+  return (
+    <article className="panel finance-panel">
+      <div className="panel-header">
+        <div>
+          <p className="card-label">CARTERA</p>
+          <h2>{title}</h2>
+        </div>
+      </div>
+      {rows.length === 0 ? (
+        <div className="module-state compact">
+          <Building2 size={24} />
+          <span>Sin documentos pendientes.</span>
+        </div>
+      ) : (
+        <div className="table-wrap">
+          <table className="finance-table">
+            <thead>
+              <tr>
+                <th>{label}</th>
+                <th>ORIGINAL</th>
+                <th>SALDO</th>
+                <th>ESTADO</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((row) => (
+                <tr key={row.id}>
+                  <td>
+                    {nameFor(
+                      "customer_id" in row ? row.customer_id : row.supplier_id,
+                    )}
+                  </td>
+                  <td>{money.format(Number(row.original_amount))}</td>
+                  <td>
+                    <strong>{money.format(Number(row.balance_amount))}</strong>
+                  </td>
+                  <td>
+                    <span
+                      className={`status-pill ${row.status === "paid" ? "active" : "inactive"}`}
+                    >
+                      {row.status}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </article>
+  );
+}
+function PaymentTable({
+  payments,
+  customerName,
+  supplierName,
+}: {
+  payments: Payment[];
+  customerName: (id: string) => string;
+  supplierName: (id: string) => string;
+}) {
+  return (
+    <article className="panel payments-panel">
+      <div className="panel-header">
+        <div>
+          <p className="card-label">MOVIMIENTOS</p>
+          <h2>Últimos cobros y pagos</h2>
+        </div>
+        <ReceiptText size={20} className="muted-icon" />
+      </div>
+      {payments.length === 0 ? (
+        <div className="module-state compact">
+          <ReceiptText size={24} />
+          <span>Aún no se han registrado cobros o pagos.</span>
+        </div>
+      ) : (
+        <div className="table-wrap">
+          <table className="finance-table payments-table">
+            <thead>
+              <tr>
+                <th>NÚMERO</th>
+                <th>TIPO</th>
+                <th>CONTRAPARTE</th>
+                <th>MÉTODO</th>
+                <th>IMPORTE</th>
+              </tr>
+            </thead>
+            <tbody>
+              {payments.slice(0, 8).map((payment) => (
+                <tr key={payment.id}>
+                  <td>
+                    <strong>{payment.number}</strong>
+                  </td>
+                  <td>
+                    <span
+                      className={`status-pill ${payment.payment_type === "receipt" ? "active" : "inactive"}`}
+                    >
+                      {payment.payment_type === "receipt" ? "Cobro" : "Pago"}
+                    </span>
+                  </td>
+                  <td>
+                    {payment.customer_id
+                      ? customerName(payment.customer_id)
+                      : payment.supplier_id
+                        ? supplierName(payment.supplier_id)
+                        : "—"}
+                  </td>
+                  <td>{payment.method}</td>
+                  <td>
+                    <strong>{money.format(Number(payment.amount))}</strong>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </article>
+  );
+}
+function Modal({
+  title,
+  eyebrow,
+  children,
+  onClose,
+}: {
+  title: string;
+  eyebrow: string;
+  children: React.ReactNode;
+  onClose: () => void;
+}) {
+  return (
+    <div className="modal-layer">
+      <section
+        className="customer-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-label={title}
+      >
+        <div className="modal-header">
+          <div>
+            <p className="eyebrow">{eyebrow}</p>
+            <h2>{title}</h2>
+          </div>
+          <button
+            type="button"
+            className="icon-button"
+            onClick={onClose}
+            aria-label="Cerrar"
+          >
+            <X size={20} />
+          </button>
+        </div>
+        {children}
+      </section>
+    </div>
+  );
+}
