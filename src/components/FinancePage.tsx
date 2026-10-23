@@ -84,6 +84,7 @@ export function FinancePage({ goBack }: { goBack: () => void }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [accountOpen, setAccountOpen] = useState(false);
+  const [pettyCashOpen, setPettyCashOpen] = useState(false);
   const [paymentOpen, setPaymentOpen] = useState<PaymentKind | null>(null);
   const [saving, setSaving] = useState(false);
   const [accountForm, setAccountForm] = useState({
@@ -91,6 +92,13 @@ export function FinancePage({ goBack }: { goBack: () => void }) {
     name: "",
     account_type: "bank",
     currency: "PEN",
+  });
+  const [pettyCashForm, setPettyCashForm] = useState({
+    code: "",
+    name: "",
+    cash_account_id: "",
+    funding_cash_account_id: "",
+    fixed_amount: "",
   });
   const [paymentForm, setPaymentForm] = useState({
     number: paymentNumber("receipt"),
@@ -201,6 +209,19 @@ export function FinancePage({ goBack }: { goBack: () => void }) {
     } finally {
       setSaving(false);
     }
+  };
+  const savePettyCashFund = async (event: FormEvent) => {
+    event.preventDefault();
+    if (!session?.user.id) return;
+    setSaving(true); setError(null);
+    try {
+      await postIdempotent("/treasury/petty-cash/funds", { ...options, body: JSON.stringify({ ...pettyCashForm, fixed_amount: Number(pettyCashForm.fixed_amount), custodian_user_id: session.user.id }) });
+      setPettyCashOpen(false);
+      setPettyCashForm({ code: "", name: "", cash_account_id: "", funding_cash_account_id: "", fixed_amount: "" });
+      await load();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "No fue posible constituir la caja chica.");
+    } finally { setSaving(false); }
   };
   const savePayment = async (event: FormEvent) => {
     event.preventDefault();
@@ -394,7 +415,7 @@ export function FinancePage({ goBack }: { goBack: () => void }) {
             <p className="card-label">TESORERÍA CONTROLADA</p>
             <h2>Caja chica</h2>
           </div>
-          <span className="status-pill inactive">Aprobación requerida</span>
+          <button className="text-button" onClick={() => { setError(null); setPettyCashOpen(true); }}>Constituir fondo</button>
         </div>
         {pettyCashFunds.length === 0 ? (
           <div className="module-state compact">
@@ -502,6 +523,19 @@ export function FinancePage({ goBack }: { goBack: () => void }) {
                 {saving ? "Guardando…" : "Guardar cuenta"}
               </button>
             </div>
+          </form>
+        </Modal>
+      )}
+      {pettyCashOpen && (
+        <Modal title="Constituir caja chica" eyebrow="TESORERÍA CONTROLADA" onClose={() => setPettyCashOpen(false)}>
+          <form className="customer-form" onSubmit={savePettyCashFund}>
+            <div className="form-grid"><label>Código<input required value={pettyCashForm.code} onChange={(e) => setPettyCashForm((v) => ({ ...v, code: e.target.value }))} placeholder="CC-001" /></label><label>Fondo fijo<input required type="number" min="0.01" step="0.01" value={pettyCashForm.fixed_amount} onChange={(e) => setPettyCashForm((v) => ({ ...v, fixed_amount: e.target.value }))} /></label></div>
+            <label>Nombre<input required value={pettyCashForm.name} onChange={(e) => setPettyCashForm((v) => ({ ...v, name: e.target.value }))} placeholder="Caja chica administrativa" /></label>
+            <label>Cuenta de caja chica<select required value={pettyCashForm.cash_account_id} onChange={(e) => setPettyCashForm((v) => ({ ...v, cash_account_id: e.target.value }))}><option value="">Selecciona una caja</option>{accounts.filter((a) => a.account_type === "cash" && a.is_active).map((a) => <option key={a.id} value={a.id}>{a.name} · {a.currency}</option>)}</select></label>
+            <label>Cuenta que financia<select required value={pettyCashForm.funding_cash_account_id} onChange={(e) => setPettyCashForm((v) => ({ ...v, funding_cash_account_id: e.target.value }))}><option value="">Selecciona origen</option>{accounts.filter((a) => a.is_active && a.id !== pettyCashForm.cash_account_id).map((a) => <option key={a.id} value={a.id}>{a.name} · {a.currency}</option>)}</select></label>
+            <p className="form-help">El usuario actual quedará como custodio. La constitución crea movimientos y un asiento contable.</p>
+            {error && <p className="login-error">{error}</p>}
+            <div className="modal-actions"><button type="button" className="secondary-button" onClick={() => setPettyCashOpen(false)}>Cancelar</button><button className="primary-button" disabled={saving}>{saving ? "Constituyendo…" : "Constituir fondo"}</button></div>
           </form>
         </Modal>
       )}
