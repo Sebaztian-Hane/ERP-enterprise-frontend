@@ -85,6 +85,7 @@ export function FinancePage({ goBack }: { goBack: () => void }) {
   const [error, setError] = useState<string | null>(null);
   const [accountOpen, setAccountOpen] = useState(false);
   const [pettyCashOpen, setPettyCashOpen] = useState(false);
+  const [expenseFund, setExpenseFund] = useState<PettyCashFund | null>(null);
   const [paymentOpen, setPaymentOpen] = useState<PaymentKind | null>(null);
   const [saving, setSaving] = useState(false);
   const [accountForm, setAccountForm] = useState({
@@ -100,6 +101,7 @@ export function FinancePage({ goBack }: { goBack: () => void }) {
     funding_cash_account_id: "",
     fixed_amount: "",
   });
+  const [expenseForm, setExpenseForm] = useState({ number: "", description: "", merchant_name: "", receipt_number: "", amount: "", expense_account_code: "6590" });
   const [paymentForm, setPaymentForm] = useState({
     number: paymentNumber("receipt"),
     documentId: "",
@@ -222,6 +224,16 @@ export function FinancePage({ goBack }: { goBack: () => void }) {
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "No fue posible constituir la caja chica.");
     } finally { setSaving(false); }
+  };
+  const savePettyCashExpense = async (event: FormEvent) => {
+    event.preventDefault();
+    if (!expenseFund) return;
+    setSaving(true); setError(null);
+    try {
+      const expense = await postIdempotent<{ id: string }>(`/treasury/petty-cash/funds/${expenseFund.id}/expenses`, { ...options, body: JSON.stringify({ ...expenseForm, amount: Number(expenseForm.amount) }) });
+      await postIdempotent(`/treasury/petty-cash/expenses/${expense.id}/submit`, { ...options, body: JSON.stringify({}) });
+      setExpenseFund(null); setExpenseForm({ number: "", description: "", merchant_name: "", receipt_number: "", amount: "", expense_account_code: "6590" }); await load();
+    } catch (cause) { setError(cause instanceof Error ? cause.message : "No fue posible enviar el vale a aprobación."); } finally { setSaving(false); }
   };
   const savePayment = async (event: FormEvent) => {
     event.preventDefault();
@@ -426,7 +438,7 @@ export function FinancePage({ goBack }: { goBack: () => void }) {
         ) : (
           <div className="table-wrap">
             <table className="finance-table">
-              <thead><tr><th>FONDO</th><th>CUENTA</th><th>FIJO</th><th>SALDO</th><th>PENDIENTES</th><th>ESTADO</th></tr></thead>
+              <thead><tr><th>FONDO</th><th>CUENTA</th><th>FIJO</th><th>SALDO</th><th>PENDIENTES</th><th>ESTADO</th><th></th></tr></thead>
               <tbody>{pettyCashFunds.map((fund) => <tr key={fund.id}>
                 <td><strong>{fund.name}</strong><br /><small>{fund.code}</small></td>
                 <td>{fund.cash_account_name}</td>
@@ -434,6 +446,7 @@ export function FinancePage({ goBack }: { goBack: () => void }) {
                 <td><strong>{money.format(Number(fund.current_balance))}</strong></td>
                 <td>{Number(fund.pending_expenses) + Number(fund.pending_replenishments)}</td>
                 <td><span className={`status-pill ${fund.status === "active" ? "active" : "inactive"}`}>{fund.status}</span></td>
+                <td><button className="text-button" disabled={fund.status !== "active"} onClick={() => { setError(null); setExpenseFund(fund); }}>Nuevo vale</button></td>
               </tr>)}</tbody>
             </table>
           </div>
@@ -536,6 +549,19 @@ export function FinancePage({ goBack }: { goBack: () => void }) {
             <p className="form-help">El usuario actual quedará como custodio. La constitución crea movimientos y un asiento contable.</p>
             {error && <p className="login-error">{error}</p>}
             <div className="modal-actions"><button type="button" className="secondary-button" onClick={() => setPettyCashOpen(false)}>Cancelar</button><button className="primary-button" disabled={saving}>{saving ? "Constituyendo…" : "Constituir fondo"}</button></div>
+          </form>
+        </Modal>
+      )}
+      {expenseFund && (
+        <Modal title="Vale de caja chica" eyebrow={expenseFund.name} onClose={() => setExpenseFund(null)}>
+          <form className="customer-form" onSubmit={savePettyCashExpense}>
+            <div className="form-grid"><label>Número del vale<input required value={expenseForm.number} onChange={(e) => setExpenseForm((v) => ({ ...v, number: e.target.value }))} placeholder="VC-0001" /></label><label>Importe<input required type="number" min="0.01" max={expenseFund.current_balance} step="0.01" value={expenseForm.amount} onChange={(e) => setExpenseForm((v) => ({ ...v, amount: e.target.value }))} /></label></div>
+            <label>Descripción<input required value={expenseForm.description} onChange={(e) => setExpenseForm((v) => ({ ...v, description: e.target.value }))} placeholder="Movilidad, suministros u otro gasto" /></label>
+            <div className="form-grid"><label>Proveedor o comercio<input value={expenseForm.merchant_name} onChange={(e) => setExpenseForm((v) => ({ ...v, merchant_name: e.target.value }))} /></label><label>Comprobante<input value={expenseForm.receipt_number} onChange={(e) => setExpenseForm((v) => ({ ...v, receipt_number: e.target.value }))} /></label></div>
+            <label>Cuenta de gasto<input required value={expenseForm.expense_account_code} onChange={(e) => setExpenseForm((v) => ({ ...v, expense_account_code: e.target.value }))} /></label>
+            <p className="form-help">Al enviar, el vale quedará pendiente de aprobación. Aún no descuenta saldo ni contabiliza el gasto.</p>
+            {error && <p className="login-error">{error}</p>}
+            <div className="modal-actions"><button type="button" className="secondary-button" onClick={() => setExpenseFund(null)}>Cancelar</button><button className="primary-button" disabled={saving}>{saving ? "Enviando…" : "Enviar a aprobación"}</button></div>
           </form>
         </Modal>
       )}
