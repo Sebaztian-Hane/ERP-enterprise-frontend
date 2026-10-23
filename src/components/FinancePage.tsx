@@ -61,6 +61,8 @@ type Payment = {
   amount: string;
   method: string;
   reference: string | null;
+  status: string;
+  approval_request_id: string | null;
 };
 type PaymentKind = "receipt" | "payment";
 const money = new Intl.NumberFormat("es-PE", {
@@ -255,6 +257,13 @@ export function FinancePage({ goBack }: { goBack: () => void }) {
       await postIdempotent(`/treasury/petty-cash/replenishments/${replenishment.id}/execute`, { ...options, body: JSON.stringify({}) });
       await load();
     } catch (cause) { setError(cause instanceof Error ? cause.message : "No fue posible ejecutar la reposición."); } finally { setSaving(false); }
+  };
+  const executeSupplierPayment = async (payment: Payment) => {
+    setSaving(true); setError(null);
+    try {
+      await postIdempotent(`/payments/${payment.id}/execute`, { ...options, body: JSON.stringify({}) });
+      await load();
+    } catch (cause) { setError(cause instanceof Error ? cause.message : "No fue posible ejecutar el pago aprobado."); } finally { setSaving(false); }
   };
   const savePayment = async (event: FormEvent) => {
     event.preventDefault();
@@ -483,6 +492,8 @@ export function FinancePage({ goBack }: { goBack: () => void }) {
         payments={payments}
         customerName={customerName}
         supplierName={supplierName}
+        saving={saving}
+        onExecute={executeSupplierPayment}
       />
       {accountOpen && (
         <Modal
@@ -825,10 +836,14 @@ function PaymentTable({
   payments,
   customerName,
   supplierName,
+  saving,
+  onExecute,
 }: {
   payments: Payment[];
   customerName: (id: string) => string;
   supplierName: (id: string) => string;
+  saving: boolean;
+  onExecute: (payment: Payment) => void;
 }) {
   return (
     <article className="panel payments-panel">
@@ -854,6 +869,8 @@ function PaymentTable({
                 <th>CONTRAPARTE</th>
                 <th>MÉTODO</th>
                 <th>IMPORTE</th>
+                <th>ESTADO</th>
+                <th></th>
               </tr>
             </thead>
             <tbody>
@@ -880,6 +897,8 @@ function PaymentTable({
                   <td>
                     <strong>{money.format(Number(payment.amount))}</strong>
                   </td>
+                  <td><span className={`status-pill ${payment.status === "posted" ? "active" : "inactive"}`}>{payment.status === "submitted" ? "Pendiente aprobación" : payment.status === "approved" ? "Aprobado" : payment.status}</span></td>
+                  <td>{payment.payment_type === "payment" && payment.status === "approved" && <button className="primary-button" disabled={saving} onClick={() => onExecute(payment)}>Ejecutar</button>}</td>
                 </tr>
               ))}
             </tbody>
