@@ -235,6 +235,16 @@ export function FinancePage({ goBack }: { goBack: () => void }) {
       setExpenseFund(null); setExpenseForm({ number: "", description: "", merchant_name: "", receipt_number: "", amount: "", expense_account_code: "6590" }); await load();
     } catch (cause) { setError(cause instanceof Error ? cause.message : "No fue posible enviar el vale a aprobación."); } finally { setSaving(false); }
   };
+  const requestPettyCashReplenishment = async (fund: PettyCashFund) => {
+    const amount = Number(fund.fixed_amount) - Number(fund.current_balance);
+    if (amount <= 0) { setError("Este fondo ya está completamente repuesto."); return; }
+    setSaving(true); setError(null);
+    try {
+      const number = `RC-${new Date().toISOString().replace(/[-:.TZ]/g, "").slice(0, 14)}`;
+      await postIdempotent(`/treasury/petty-cash/funds/${fund.id}/replenishments`, { ...options, body: JSON.stringify({ number, amount }) });
+      await load();
+    } catch (cause) { setError(cause instanceof Error ? cause.message : "No fue posible solicitar la reposición."); } finally { setSaving(false); }
+  };
   const savePayment = async (event: FormEvent) => {
     event.preventDefault();
     if (!paymentOpen || !selectedDocument) {
@@ -446,7 +456,7 @@ export function FinancePage({ goBack }: { goBack: () => void }) {
                 <td><strong>{money.format(Number(fund.current_balance))}</strong></td>
                 <td>{Number(fund.pending_expenses) + Number(fund.pending_replenishments)}</td>
                 <td><span className={`status-pill ${fund.status === "active" ? "active" : "inactive"}`}>{fund.status}</span></td>
-                <td><button className="text-button" disabled={fund.status !== "active"} onClick={() => { setError(null); setExpenseFund(fund); }}>Nuevo vale</button></td>
+                <td><button className="text-button" disabled={fund.status !== "active"} onClick={() => { setError(null); setExpenseFund(fund); }}>Nuevo vale</button><button className="text-button" disabled={saving || fund.status !== "active" || Number(fund.current_balance) >= Number(fund.fixed_amount)} onClick={() => void requestPettyCashReplenishment(fund)}>Reponer</button></td>
               </tr>)}</tbody>
             </table>
           </div>
