@@ -50,6 +50,7 @@ type PettyCashFund = {
   pending_expenses: number;
   pending_replenishments: number;
 };
+type PettyCashReplenishment = { id: string; number: string; amount: string; status: string; fund_name: string; fund_code: string };
 type Payment = {
   id: string;
   number: string;
@@ -81,6 +82,7 @@ export function FinancePage({ goBack }: { goBack: () => void }) {
   const [accounts, setAccounts] = useState<CashAccount[]>([]);
   const [payments, setPayments] = useState<Payment[]>([]);
   const [pettyCashFunds, setPettyCashFunds] = useState<PettyCashFund[]>([]);
+  const [approvedReplenishments, setApprovedReplenishments] = useState<PettyCashReplenishment[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [accountOpen, setAccountOpen] = useState(false);
@@ -120,7 +122,7 @@ export function FinancePage({ goBack }: { goBack: () => void }) {
     setLoading(true);
     setError(null);
     try {
-      const [ar, ap, customersData, suppliersData, accountsData, paymentsData, fundsData] =
+      const [ar, ap, customersData, suppliersData, accountsData, paymentsData, fundsData, replenishmentsData] =
         await Promise.all([
           apiFetch<Receivable[]>("/accounts/receivable", options),
           apiFetch<Payable[]>("/accounts/payable", options),
@@ -129,6 +131,7 @@ export function FinancePage({ goBack }: { goBack: () => void }) {
           apiFetch<CashAccount[]>("/treasury/accounts", options),
           apiFetch<Payment[]>("/payments", options),
           apiFetch<PettyCashFund[]>("/treasury/petty-cash/funds", options),
+          apiFetch<PettyCashReplenishment[]>("/treasury/petty-cash/replenishments?status_filter=approved", options),
         ]);
       setReceivables(ar);
       setPayables(ap);
@@ -137,6 +140,7 @@ export function FinancePage({ goBack }: { goBack: () => void }) {
       setAccounts(accountsData);
       setPayments(paymentsData);
       setPettyCashFunds(fundsData);
+      setApprovedReplenishments(replenishmentsData);
     } catch (cause) {
       setError(
         cause instanceof Error
@@ -244,6 +248,13 @@ export function FinancePage({ goBack }: { goBack: () => void }) {
       await postIdempotent(`/treasury/petty-cash/funds/${fund.id}/replenishments`, { ...options, body: JSON.stringify({ number, amount }) });
       await load();
     } catch (cause) { setError(cause instanceof Error ? cause.message : "No fue posible solicitar la reposición."); } finally { setSaving(false); }
+  };
+  const executePettyCashReplenishment = async (replenishment: PettyCashReplenishment) => {
+    setSaving(true); setError(null);
+    try {
+      await postIdempotent(`/treasury/petty-cash/replenishments/${replenishment.id}/execute`, { ...options, body: JSON.stringify({}) });
+      await load();
+    } catch (cause) { setError(cause instanceof Error ? cause.message : "No fue posible ejecutar la reposición."); } finally { setSaving(false); }
   };
   const savePayment = async (event: FormEvent) => {
     event.preventDefault();
@@ -462,6 +473,12 @@ export function FinancePage({ goBack }: { goBack: () => void }) {
           </div>
         )}
       </article>
+      {approvedReplenishments.length > 0 && <article className="panel treasury-panel">
+        <div className="panel-header"><div><p className="card-label">EJECUCIÓN PENDIENTE</p><h2>Reposiciones aprobadas</h2></div></div>
+        <div className="table-wrap"><table className="finance-table"><thead><tr><th>FONDO</th><th>NÚMERO</th><th>IMPORTE</th><th></th></tr></thead><tbody>
+          {approvedReplenishments.map((replenishment) => <tr key={replenishment.id}><td><strong>{replenishment.fund_name}</strong><br /><small>{replenishment.fund_code}</small></td><td>{replenishment.number}</td><td>{money.format(Number(replenishment.amount))}</td><td><button className="primary-button" disabled={saving} onClick={() => void executePettyCashReplenishment(replenishment)}>Ejecutar reposición</button></td></tr>)}
+        </tbody></table></div>
+      </article>}
       <PaymentTable
         payments={payments}
         customerName={customerName}
