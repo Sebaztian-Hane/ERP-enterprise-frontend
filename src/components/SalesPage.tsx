@@ -214,8 +214,13 @@ export function SalesPage({ goBack }: { goBack: () => void }) {
   const save = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const invalidLine = lines.some((line) => !line.product_id || !Number.isInteger(line.quantity) || line.quantity < 1 || !Number.isFinite(line.unit_price) || line.unit_price < 0);
+    const lookupDocumentIsValid = /^\d{8}(\d{3})?$/.test(customerTaxId);
     if ((!customerId && customerMode === "existing") || ((!customerTaxId || !customerName) && customerMode === "lookup") || !warehouseId || !costCenterId || lines.length === 0 || invalidLine) {
       setError("Completa el cliente, almacén, centro de costo y líneas válidas antes de registrar la venta.");
+      return;
+    }
+    if (customerMode === "lookup" && !lookupDocumentIsValid) {
+      setError("El cliente nuevo debe tener un DNI de 8 dígitos o un RUC de 11 dígitos.");
       return;
     }
     const serialLine = lines.find((line) => {
@@ -488,7 +493,7 @@ export function SalesPage({ goBack }: { goBack: () => void }) {
                 <X size={20} />
               </button>
             </div>
-            <form onSubmit={save} className="sale-form">
+            <form noValidate onSubmit={save} className="sale-form">
               <div className="form-grid">
                 <EntityPicker pickerId="sale-warehouse" label="Almacén" placeholder="Busca un almacén" required value={warehouseId} onChange={setWarehouseId} isOpen={activePicker === "warehouse"} onOpen={() => setActivePicker("warehouse")} onClose={() => setActivePicker(null)} options={warehouses.map((store) => ({ id: store.id, primary: store.name, secondary: store.code }))} />
                 <div className="price-list-field"><EntityPicker pickerId="sale-price-list" label="Lista de precios (opcional)" placeholder="Precio estándar del producto" value={priceListId} onChange={setPriceListId} isOpen={activePicker === "price-list"} onOpen={() => setActivePicker("price-list")} onClose={() => setActivePicker(null)} options={priceLists.map((list) => ({ id: list.id, primary: list.name, secondary: list.code + " · " + list.currency_code }))} />{priceListId && <button type="button" className="secondary-button" onClick={() => void applyPriceList()} disabled={quotingPrices || lines.length === 0}>{quotingPrices ? "Actualizando…" : "Actualizar tarifas"}</button>}</div>
