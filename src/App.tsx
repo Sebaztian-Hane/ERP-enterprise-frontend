@@ -5,6 +5,7 @@ import {
   type ComponentType,
   type ReactNode,
   useEffect,
+  useRef,
   useState,
 } from "react";
 import {
@@ -368,10 +369,12 @@ function Sidebar({
         </label>
         <nav aria-label="Navegación principal">
           <p className="nav-caption">ESPACIO DE TRABAJO</p>
-          <a className={`nav-item ${view === "#dashboard" ? "active" : ""}`} href="#dashboard">
-            <Gauge size={18} strokeWidth={view === "#dashboard" ? 2.2 : 1.8} />
-            <span>Panel ejecutivo</span>
-          </a>
+          {canAccessModule(roleCode, "#dashboard") && (
+            <a className={`nav-item ${view === "#dashboard" ? "active" : ""}`} href="#dashboard">
+              <Gauge size={18} strokeWidth={view === "#dashboard" ? 2.2 : 1.8} />
+              <span>Panel ejecutivo</span>
+            </a>
+          )}
           {moduleCategories
             .filter((category) => navigation.some((item) => item.category === category.id && item.href !== "#dashboard" && canAccessModule(roleCode, item.href)))
             .map((category) => (
@@ -611,6 +614,7 @@ export default function App() {
   const [launcherOpen, setLauncherOpen] = useState(false);
   const [assistantOpen, setAssistantOpen] = useState(false);
   const [quickQuery, setQuickQuery] = useState("");
+  const globalSearchRef = useRef<HTMLInputElement>(null);
   const [view, setView] = useState(readView);
   const [theme, setTheme] = useState<"light" | "dark">(() =>
     localStorage.getItem("enterprisecloud.theme") === "dark" ? "dark" : "light",
@@ -634,6 +638,17 @@ export default function App() {
     syncView();
     window.addEventListener("hashchange", syncView);
     return () => window.removeEventListener("hashchange", syncView);
+  }, [isProviderPortal]);
+  useEffect(() => {
+    if (isProviderPortal) return;
+    const focusGlobalSearch = (event: KeyboardEvent) => {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
+        event.preventDefault();
+        globalSearchRef.current?.focus();
+      }
+    };
+    window.addEventListener("keydown", focusGlobalSearch);
+    return () => window.removeEventListener("keydown", focusGlobalSearch);
   }, [isProviderPortal]);
   useEffect(() => {
     if (isProviderPortal) return;
@@ -727,6 +742,7 @@ export default function App() {
           <div className="search global-search">
             <Search size={18} />
             <input
+              ref={globalSearchRef}
               aria-label="Buscar"
               placeholder="Buscar en EnterpriseCloud"
               value={quickQuery}
@@ -806,7 +822,7 @@ export default function App() {
                   <span>Te redirigiremos a las herramientas asignadas a tu rol.</span>
                 </section>
               ) : view === "#perfil" ? (
-                <ProfilePage goBack={() => { window.location.hash = "dashboard"; }} />
+                <ProfilePage goBack={() => { window.location.hash = "#dashboard"; }} />
               ) : view === "#dashboard" ? (
                 <DashboardPage
                   userName={userName}
@@ -817,115 +833,115 @@ export default function App() {
                   {view === "#clientes" ? (
                     <CustomersPage
                       goBack={() => {
-                        window.location.hash = "dashboard";
+                        window.location.hash = "#dashboard";
                       }}
                     />
                   ) : view === "#proveedores" ? (
                     <SuppliersPage
                       goBack={() => {
-                        window.location.hash = "dashboard";
+                        window.location.hash = "#dashboard";
                       }}
                     />
                   ) : view === "#productos" ? (
                     <ProductsPage
                       goBack={() => {
-                        window.location.hash = "dashboard";
+                        window.location.hash = "#dashboard";
                       }}
                     />
                   ) : view === "#ventas" ? (
                     <SalesPage
                       goBack={() => {
-                        window.location.hash = "dashboard";
+                        window.location.hash = "#dashboard";
                       }}
                     />
                   ) : view === "#cotizaciones" ? (
                     <QuotesPage
                       goBack={() => {
-                        window.location.hash = "dashboard";
+                        window.location.hash = "#dashboard";
                       }}
                     />
                   ) : view === "#pedidos-de-venta" ? (
                     <SalesOrdersPage
                       goBack={() => {
-                        window.location.hash = "dashboard";
+                        window.location.hash = "#dashboard";
                       }}
                     />
                   ) : view === "#ordenes-de-compra" ? (
                     <PurchaseOrdersPage
                       goBack={() => {
-                        window.location.hash = "dashboard";
+                        window.location.hash = "#dashboard";
                       }}
                     />
                   ) : view === "#inventario" ? (
                     <InventoryPage
                       goBack={() => {
-                        window.location.hash = "dashboard";
+                        window.location.hash = "#dashboard";
                       }}
                     />
                   ) : view === "#almacenes" ? (
                     <WarehousesPage
                       goBack={() => {
-                        window.location.hash = "inventario";
+                        window.location.hash = "#inventario";
                       }}
                     />
                   ) : view === "#kardex" ? (
                     <InventoryHistoryPage
                       goBack={() => {
-                        window.location.hash = "inventario";
+                        window.location.hash = "#inventario";
                       }}
                     />
                   ) : view === "#inventario-fisico" ? (
-                    <InventoryCountsPage goBack={() => { window.location.hash = "inventario"; }} />
+                    <InventoryCountsPage goBack={() => { window.location.hash = "#inventario"; }} />
                   ) : view === "#compras" ? (
                     <PurchasesPage
                       goBack={() => {
-                        window.location.hash = "dashboard";
+                        window.location.hash = "#dashboard";
                       }}
                     />
                   ) : view === "#finanzas" ? (
                     <FinancePage
                       goBack={() => {
-                        window.location.hash = "dashboard";
+                        window.location.hash = "#dashboard";
                       }}
                     />
                   ) : view === "#cuentas" ? (
                     <AccountsPage
-                      goBack={() => { window.location.hash = "finanzas"; }}
+                      goBack={() => { window.location.hash = "#finanzas"; }}
                     />
                   ) : view === "#conciliacion" ? (
                     <ReconciliationPage
                       goBack={() => {
-                        window.location.hash = "finanzas";
+                        window.location.hash = "#finanzas";
                       }}
                     />
                   ) : view === "#documentos" ? (
                     <DocumentsPage
                       goBack={() => {
-                        window.location.hash = "dashboard";
+                        window.location.hash = "#dashboard";
                       }}
                     />
                   ) : view === "#reportes" ? (
                     <ReportsPage
                       goBack={() => {
-                        window.location.hash = "dashboard";
+                        window.location.hash = "#dashboard";
                       }}
                     />
                   ) : view === "#configuracion" ? (
                     <ConfigurationPage
                       goBack={() => {
-                        window.location.hash = "dashboard";
+                        window.location.hash = "#dashboard";
                       }}
                     />
                   ) : view === "#administracion" ? (
                     <AdministrationPage
                       goBack={() => {
-                        window.location.hash = "dashboard";
+                        window.location.hash = "#dashboard";
                       }}
                     />
                   ) : view === "#control-operativo" ? (
                     <OperationsPage
                       goBack={() => {
-                        window.location.hash = "dashboard";
+                        window.location.hash = "#dashboard";
                       }}
                     />
                   ) : (

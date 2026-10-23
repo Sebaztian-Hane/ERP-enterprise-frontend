@@ -84,9 +84,12 @@ function createIdempotencyKey(): string {
   // All supported browsers provide crypto.randomUUID. This fallback preserves a
   // safe-enough unique key for an older embedded browser without sending a
   // predictable counter to a financial endpoint.
-  const values = new Uint32Array(4);
-  crypto.getRandomValues(values);
-  return Array.from(values, (value) => value.toString(16).padStart(8, "0")).join("-");
+  if (typeof crypto !== "undefined" && typeof crypto.getRandomValues === "function") {
+    const values = new Uint32Array(4);
+    crypto.getRandomValues(values);
+    return Array.from(values, (value) => value.toString(16).padStart(8, "0")).join("-");
+  }
+  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 14)}`;
 }
 
 /**

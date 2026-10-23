@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
 import { apiFetch } from "../lib/api";
 import type { RoleCode } from "../lib/roleAccess";
@@ -35,7 +35,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [tenants, setTenants] = useState<Tenant[]>([]);
   const [tenantId, setTenantId] = useState<string | null>(null);
+  const tenantIdRef = useRef<string | null>(null);
   const [roleCode, setRoleCode] = useState<RoleCode | null>(null);
+  const roleCodeRef = useRef<RoleCode | null>(null);
   const [isRoleLoading, setIsRoleLoading] = useState(false);
   const [roleError, setRoleError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -53,6 +55,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setTenants(available);
       const stored = localStorage.getItem(storedTenantKey);
       const next = available.some((tenant) => tenant.id === stored) ? stored : available[0]?.id ?? null;
+      tenantIdRef.current = next;
       setTenantId(next);
       if (next) localStorage.setItem(storedTenantKey, next);
     } catch (cause) {
@@ -65,27 +68,48 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   useEffect(() => {
+    tenantIdRef.current = tenantId;
+  }, [tenantId]);
+
+  useEffect(() => {
     let active = true;
     if (!session || !tenantId) {
+      roleCodeRef.current = null;
       setRoleCode(null);
       setRoleError(null);
       setIsRoleLoading(false);
       return () => { active = false; };
     }
-    setIsRoleLoading(true);
+    // A TOKEN_REFRESHED event replaces only the access token. Keeping the
+    // already-authorized role on screen avoids unmounting the active page (and
+    // therefore losing an in-progress form) whenever a browser tab regains
+    // focus. A tenant switch clears roleCode first, so it still blocks until
+    // the role for the new company has been verified.
+    const shouldBlockWorkspace = roleCodeRef.current === null;
+    if (shouldBlockWorkspace) setIsRoleLoading(true);
     setRoleError(null);
     void apiFetch<{ role_code: RoleCode }>("/auth/me", {
       accessToken: session.access_token,
       tenantId,
     }).then((actor) => {
-      if (active) setRoleCode(actor.role_code);
+      if (active) {
+        roleCodeRef.current = actor.role_code;
+        setRoleCode(actor.role_code);
+      }
     }).catch((cause) => {
       if (active) {
-        setRoleCode(null);
-        setRoleError(`No se pudo validar tu rol de acceso: ${message(cause)}`);
+        // Preserve a previously verified role during a transient refresh
+        // failure. The next authenticated API request remains protected by
+        // the server; this only prevents a harmless network hiccup from
+        // destroying an unsaved local form.
+        if (shouldBlockWorkspace) {
+          roleCodeRef.current = null;
+          setRoleCode(null);
+          setRoleError(`No se pudo validar tu rol de acceso: ${message(cause)}`);
+        }
       }
     }).finally(() => {
-      if (active) setIsRoleLoading(false);
+      if (active && shouldBlockWorkspace) setIsRoleLoading(false);
     });
     return () => { active = false; };
   }, [session?.access_token, tenantId]);
@@ -101,13 +125,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, nextSession) => {
       setSession(nextSession);
       if (!nextSession) {
+        roleCodeRef.current = null;
+        tenantIdRef.current = null;
         setTenants([]); setTenantId(null); setError(null); setIsLoading(false);
         return;
       }
       // This must never trigger the full-page loader. Apart from token refresh,
       // Supabase may emit SIGNED_IN while restoring a persisted tab session.
       // Tenant data can refresh in the background without unmounting a form.
-      if (event === "SIGNED_IN" && !isProviderPortal) void loadTenants(nextSession.access_token);
+      if (event === "SIGNED_IN" && !isProviderPortal) {
+        // A new login must show the session loader until a company is known.
+        // A restored/focused tab already has a tenant and refreshes silently.
+        void loadTenants(nextSession.access_token, tenantIdRef.current === null);
+      }
     });
     return () => { active = false; subscription.unsubscribe(); };
   }, [isProviderPortal, loadTenants]);
@@ -121,7 +151,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const { data: { session: refreshed } } = await supabase.auth.getSession();
     setSession(refreshed);
   };
-  const selectTenant = (nextId: string) => { setRoleCode(null); setTenantId(nextId); localStorage.setItem(storedTenantKey, nextId); };
+  const selectTenant = (nextId: string) => { roleCodeRef.current = null; tenantIdRef.current = nextId; setRoleCode(null); setTenantId(nextId); localStorage.setItem(storedTenantKey, nextId); };
   const value = useMemo(() => ({ session, tenants, tenantId, roleCode, isRoleLoading, roleError, isLoading, error, signIn, signOut, selectTenant, refreshSession }), [session, tenants, tenantId, roleCode, isRoleLoading, roleError, isLoading, error]);
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

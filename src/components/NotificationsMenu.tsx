@@ -17,9 +17,9 @@ const destinationByModule: Record<string, string> = {
   Inventario: "#inventario",
   Finanzas: "#finanzas",
   Conciliación: "#conciliacion",
-  Compras: "#ordenes-compra",
+  Compras: "#ordenes-de-compra",
   Cotizaciones: "#cotizaciones",
-  "Pedidos de venta": "#pedidos-venta",
+  "Pedidos de venta": "#pedidos-de-venta",
 };
 
 function detail(error: unknown) {
@@ -71,7 +71,7 @@ export function NotificationsMenu() {
         setError(detail(cause));
       }
     }
-    window.location.hash = destinationByModule[notification.module] ?? "#inicio";
+    window.location.hash = destinationByModule[notification.module] ?? "#dashboard";
     setIsOpen(false);
   };
 
