@@ -69,6 +69,7 @@ export function InventoryPage({ goBack }: { goBack: () => void }) {
   const [destinationId, setDestinationId] = useState("");
   const [quantity, setQuantity] = useState("0");
   const [reference, setReference] = useState("");
+  const [reason, setReason] = useState("");
   const [note, setNote] = useState("");
   const [unitCost, setUnitCost] = useState("0");
   const [lotNumber, setLotNumber] = useState("");
@@ -143,6 +144,7 @@ export function InventoryPage({ goBack }: { goBack: () => void }) {
     setDestinationId(warehouses[1]?.id ?? "");
     setQuantity(next === "adjustment" ? "0" : "1");
     setReference("");
+    setReason("");
     setNote("");
     setUnitCost("0");
     setLotNumber("");
@@ -163,6 +165,7 @@ export function InventoryPage({ goBack }: { goBack: () => void }) {
             warehouse_id: warehouseId,
             quantity: Number(quantity),
             reference: reference || null,
+            reason,
             note: note || null,
           }),
         });
@@ -562,6 +565,7 @@ export function InventoryPage({ goBack }: { goBack: () => void }) {
                       />
                     </label>
                   </div>
+                  {mode === "adjustment" && <label>Motivo del ajuste<input required value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Ej.: corrección de conteo físico" /></label>}
                   <label>
                     Nota
                     <input
@@ -582,7 +586,7 @@ export function InventoryPage({ goBack }: { goBack: () => void }) {
                   Cancelar
                 </button>
                 <button className="primary-button" disabled={saving}>
-                  {saving ? "Guardando…" : mode === "transfer" ? "Crear transferencia" : mode === "lot" ? "Registrar lote" : mode === "serial" ? "Registrar series" : "Confirmar"}
+                  {saving ? "Guardando…" : mode === "transfer" ? "Crear transferencia" : mode === "lot" ? "Registrar lote" : mode === "serial" ? "Registrar series" : "Enviar a aprobación"}
                 </button>
               </div>
             </form>
