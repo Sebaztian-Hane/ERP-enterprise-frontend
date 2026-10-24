@@ -124,7 +124,7 @@ export function FinancePage({ goBack }: { goBack: () => void }) {
     setLoading(true);
     setError(null);
     try {
-      const [ar, ap, customersData, suppliersData, accountsData, paymentsData, fundsData, replenishmentsData] =
+      const [ar, ap, customersData, suppliersData, accountsData, paymentsData] =
         await Promise.all([
           apiFetch<Receivable[]>("/accounts/receivable", options),
           apiFetch<Payable[]>("/accounts/payable", options),
@@ -132,6 +132,10 @@ export function FinancePage({ goBack }: { goBack: () => void }) {
           apiFetch<Supplier[]>("/suppliers", options),
           apiFetch<CashAccount[]>("/treasury/accounts", options),
           apiFetch<Payment[]>("/payments", options),
+        ]);
+      // Caja chica es una extensión de tesorería. Su indisponibilidad no debe
+      // ocultar saldos, cuentas ni cobros de toda la pantalla financiera.
+      const [fundsResult, replenishmentsResult] = await Promise.allSettled([
           apiFetch<PettyCashFund[]>("/treasury/petty-cash/funds", options),
           apiFetch<PettyCashReplenishment[]>("/treasury/petty-cash/replenishments?status_filter=approved", options),
         ]);
@@ -141,8 +145,8 @@ export function FinancePage({ goBack }: { goBack: () => void }) {
       setSuppliers(suppliersData);
       setAccounts(accountsData);
       setPayments(paymentsData);
-      setPettyCashFunds(fundsData);
-      setApprovedReplenishments(replenishmentsData);
+      setPettyCashFunds(fundsResult.status === "fulfilled" ? fundsResult.value : []);
+      setApprovedReplenishments(replenishmentsResult.status === "fulfilled" ? replenishmentsResult.value : []);
     } catch (cause) {
       setError(
         cause instanceof Error
