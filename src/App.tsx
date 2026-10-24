@@ -221,6 +221,7 @@ const moduleCategories: Array<{
 const navigation: NavItem[] = [
   { label: "Inicio", icon: Gauge, href: "#dashboard", category: "administracion" },
   { label: "Ventas", icon: ShoppingCart, href: "#ventas", category: "comercial" },
+  { label: "Punto de venta", icon: ShoppingCart, href: "#pos", category: "comercial" },
   { label: "Cotizaciones", icon: FileText, href: "#cotizaciones", category: "comercial" },
   { label: "Pedidos de venta", icon: ClipboardList, href: "#pedidos-de-venta", category: "comercial" },
   { label: "Clientes", icon: UsersRound, href: "#clientes", category: "comercial" },
@@ -242,6 +243,7 @@ const navigation: NavItem[] = [
 const appModules: AppModule[] = [
   { label: "Panel ejecutivo", icon: Gauge, href: "#dashboard", category: "administracion", description: "Indicadores de tu operación", tone: "sky" },
   { label: "Ventas", icon: ShoppingCart, href: "#ventas", category: "comercial", description: "Facturación y registro comercial", tone: "blue" },
+  { label: "Punto de venta", icon: ShoppingCart, href: "#pos", category: "comercial", description: "Venta rápida para mostrador", tone: "emerald" },
   { label: "Cotizaciones", icon: FileText, href: "#cotizaciones", category: "comercial", description: "Propuestas para tus clientes", tone: "violet" },
   { label: "Pedidos de venta", icon: ClipboardList, href: "#pedidos-de-venta", category: "comercial", description: "Seguimiento de pedidos", tone: "indigo" },
   { label: "Clientes", icon: UsersRound, href: "#clientes", category: "comercial", description: "Relaciones comerciales", tone: "purple" },
@@ -262,6 +264,14 @@ const appModules: AppModule[] = [
   { label: "Documentos", icon: FileText, href: "#documentos", category: "administracion", description: "Archivo empresarial", tone: "slate" },
   { label: "Control operativo", icon: BadgeCheck, href: "#control-operativo", category: "finanzas", description: "Aprobaciones y contabilidad", tone: "indigo" },
 ];
+type BusinessProfile = "retail" | "wholesale" | "hybrid";
+const PROFILE_BLOCKED_VIEWS: Record<BusinessProfile, ReadonlySet<string>> = {
+  retail: new Set(["#cotizaciones", "#pedidos-de-venta"]),
+  wholesale: new Set(["#pos"]),
+  hybrid: new Set(),
+};
+const isProfileModuleAvailable = (profile: BusinessProfile | undefined, href: string) =>
+  !PROFILE_BLOCKED_VIEWS[profile ?? "hybrid"].has(href);
 const supportedViews = new Set([
   // The launcher is the source of truth. Keeping the recognized hashes in
   // sync with its modules prevents an app from silently falling back to the
@@ -431,10 +441,12 @@ function ModuleLauncher({
   onClose,
   tenantName,
   roleCode,
+  businessProfile,
 }: {
   onClose: () => void;
   tenantName: string;
   roleCode: string | null;
+  businessProfile: BusinessProfile | undefined;
 }) {
   const [moduleSearch, setModuleSearch] = useState("");
   useEffect(() => {
@@ -453,6 +465,7 @@ function ModuleLauncher({
   const visibleModules = appModules.filter(
     (module) =>
       canAccessModule(roleCode, module.href) &&
+      isProfileModuleAvailable(businessProfile, module.href) &&
       (!normalizedSearch ||
         `${module.label} ${module.description}`
           .toLocaleLowerCase("es-MX")
@@ -611,6 +624,7 @@ export default function App() {
     selectTenant,
     signOut,
   } = useAuth();
+  const activeTenant = tenants.find((tenant) => tenant.id === tenantId);
   const [launcherOpen, setLauncherOpen] = useState(false);
   const [assistantOpen, setAssistantOpen] = useState(false);
   const [quickQuery, setQuickQuery] = useState("");
@@ -653,11 +667,11 @@ export default function App() {
   useEffect(() => {
     if (isProviderPortal) return;
     if (isRoleLoading || !roleCode) return;
-    const allowed = view === "#perfil" || canAccessModule(roleCode, view);
+    const allowed = view === "#perfil" || (canAccessModule(roleCode, view) && isProfileModuleAvailable(activeTenant?.business_profile, view));
     if (allowed) return;
     const fallback = defaultModuleFor(roleCode);
     if (fallback) window.location.hash = fallback;
-  }, [isProviderPortal, isRoleLoading, roleCode, view]);
+  }, [activeTenant?.business_profile, isProviderPortal, isRoleLoading, roleCode, view]);
   if (isProviderPortal) return <ProviderPortal />;
   if (isLoading)
     return (
@@ -691,11 +705,10 @@ export default function App() {
     return <main className="session-loading"><p>Configurando tu espacio de trabajo…</p></main>;
   if (!roleCode)
     return <main className="session-loading"><div><h1>No se pudo validar tu acceso</h1><p>{roleError ?? "Tu cuenta no tiene un rol operativo válido."}</p><button className="primary-button" onClick={() => void signOut()}>Cerrar sesión</button></div></main>;
-  const activeTenant = tenants.find((tenant) => tenant.id === tenantId);
   const profileName = typeof session.user.user_metadata.full_name === "string" ? session.user.user_metadata.full_name.trim() : "";
   const userName = profileName || (session.user.email?.split("@")[0] ?? "Usuario");
   const avatarPath = typeof session.user.user_metadata.avatar_path === "string" ? session.user.user_metadata.avatar_path : null;
-  const allowedNavigation = navigation.filter((item) => canAccessModule(roleCode, item.href));
+  const allowedNavigation = navigation.filter((item) => canAccessModule(roleCode, item.href) && isProfileModuleAvailable(activeTenant?.business_profile, item.href));
   const allQuickLinks = [
     ...allowedNavigation,
     ...(canAccessModule(roleCode, "#administracion")
@@ -815,7 +828,7 @@ export default function App() {
                 </div>
               }
             >
-              {view !== "#perfil" && !canAccessModule(roleCode, view) ? (
+              {view !== "#perfil" && (!canAccessModule(roleCode, view) || !isProfileModuleAvailable(activeTenant?.business_profile, view)) ? (
                 <section className="module-state dashboard-state">
                   <AlertTriangle size={27} />
                   <strong>No tienes acceso a este módulo</strong>
@@ -848,8 +861,9 @@ export default function App() {
                         window.location.hash = "#dashboard";
                       }}
                     />
-                  ) : view === "#ventas" ? (
+                  ) : view === "#ventas" || view === "#pos" ? (
                     <SalesPage
+                      mode={view === "#pos" ? "pos" : "sales"}
                       goBack={() => {
                         window.location.hash = "#dashboard";
                       }}
@@ -1205,6 +1219,7 @@ export default function App() {
         <ModuleLauncher
           tenantName={activeTenant?.name ?? "tu empresa"}
           roleCode={roleCode}
+          businessProfile={activeTenant?.business_profile}
           onClose={() => {
             setLauncherOpen(false);
           }}

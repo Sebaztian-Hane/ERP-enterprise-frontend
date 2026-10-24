@@ -71,7 +71,8 @@ function EntityPicker({ pickerId, label, placeholder, value, options, onChange, 
   </div>;
 }
 
-export function SalesPage({ goBack }: { goBack: () => void }) {
+export function SalesPage({ goBack, mode = "sales" }: { goBack: () => void; mode?: "sales" | "pos" }) {
+  const isPos = mode === "pos";
   const { session, tenantId } = useAuth();
   const [sales, setSales] = useState<Sale[]>([]);
   const [page, setPage] = useState(1);
@@ -371,13 +372,13 @@ export function SalesPage({ goBack }: { goBack: () => void }) {
             <ChevronLeft size={16} /> Panel general
           </button>
           <p className="eyebrow">OPERACIÓN COMERCIAL</p>
-          <h1>Ventas</h1>
+          <h1>{isPos ? "Punto de venta" : "Ventas"}</h1>
           <p className="subtitle">
-            Registra operaciones y consulta las ventas procesadas de la empresa.
+            {isPos ? "Registra cobros de mostrador con el mismo stock, clientes y comprobantes de la empresa." : "Registra operaciones y consulta las ventas procesadas de la empresa."}
           </p>
         </div>
         <button className="primary-button" onClick={openNew}>
-          <Plus size={18} /> Nueva venta
+          <Plus size={18} /> {isPos ? "Abrir venta rápida" : "Nueva venta"}
         </button>
       </div>
       <section className="customer-summary">
@@ -483,7 +484,7 @@ export function SalesPage({ goBack }: { goBack: () => void }) {
             <div className="modal-header">
               <div>
                 <p className="eyebrow">OPERACIÓN COMERCIAL</p>
-                <h2>Nueva venta</h2>
+                <h2>{isPos ? "Venta rápida" : "Nueva venta"}</h2>
               </div>
               <button
                 className="icon-button"
@@ -496,13 +497,13 @@ export function SalesPage({ goBack }: { goBack: () => void }) {
             <form noValidate onSubmit={save} className="sale-form">
               <div className="form-grid">
                 <EntityPicker pickerId="sale-warehouse" label="Almacén" placeholder="Busca un almacén" required value={warehouseId} onChange={setWarehouseId} isOpen={activePicker === "warehouse"} onOpen={() => setActivePicker("warehouse")} onClose={() => setActivePicker(null)} options={warehouses.map((store) => ({ id: store.id, primary: store.name, secondary: store.code }))} />
-                <div className="price-list-field"><EntityPicker pickerId="sale-price-list" label="Lista de precios (opcional)" placeholder="Precio estándar del producto" value={priceListId} onChange={setPriceListId} isOpen={activePicker === "price-list"} onOpen={() => setActivePicker("price-list")} onClose={() => setActivePicker(null)} options={priceLists.map((list) => ({ id: list.id, primary: list.name, secondary: list.code + " · " + list.currency_code }))} />{priceListId && <button type="button" className="secondary-button" onClick={() => void applyPriceList()} disabled={quotingPrices || lines.length === 0}>{quotingPrices ? "Actualizando…" : "Actualizar tarifas"}</button>}</div>
+                {!isPos && <><div className="price-list-field"><EntityPicker pickerId="sale-price-list" label="Lista de precios (opcional)" placeholder="Precio estándar del producto" value={priceListId} onChange={setPriceListId} isOpen={activePicker === "price-list"} onOpen={() => setActivePicker("price-list")} onClose={() => setActivePicker(null)} options={priceLists.map((list) => ({ id: list.id, primary: list.name, secondary: list.code + " · " + list.currency_code }))} />{priceListId && <button type="button" className="secondary-button" onClick={() => void applyPriceList()} disabled={quotingPrices || lines.length === 0}>{quotingPrices ? "Actualizando…" : "Actualizar tarifas"}</button>}</div>
                 <EntityPicker pickerId="sale-payment-term" label="Condición de pago (opcional)" placeholder="Vencimiento al contado" value={paymentTermId} onChange={setPaymentTermId} isOpen={activePicker === "payment-term"} onOpen={() => setActivePicker("payment-term")} onClose={() => setActivePicker(null)} options={paymentTerms.map((term) => ({ id: term.id, primary: term.name, secondary: term.code + " · " + term.days_due + " día(s)" }))} />
-                <EntityPicker pickerId="sale-cost-center" label="Centro de costo" placeholder="Operación general" required value={costCenterId} onChange={setCostCenterId} isOpen={activePicker === "cost-center"} onOpen={() => setActivePicker("cost-center")} onClose={() => setActivePicker(null)} options={costCenters.map((center) => ({ id: center.id, primary: center.name, secondary: center.code }))} />
-                <p className="field-help sale-folio-help">El folio se asignará automáticamente según la entidad, sucursal y tipo de documento.</p>
+                <EntityPicker pickerId="sale-cost-center" label="Centro de costo" placeholder="Operación general" required value={costCenterId} onChange={setCostCenterId} isOpen={activePicker === "cost-center"} onOpen={() => setActivePicker("cost-center")} onClose={() => setActivePicker(null)} options={costCenters.map((center) => ({ id: center.id, primary: center.name, secondary: center.code }))} /></>}
+                <p className="field-help sale-folio-help">{isPos ? "La venta se registra al contado con el centro de costo general. El comprobante se puede emitir desde el historial." : "El folio se asignará automáticamente según la entidad, sucursal y tipo de documento."}</p>
               </div>
-              {priceListId && <p className="field-help">La lista se valida nuevamente al registrar la venta. Si falta una tarifa vigente para un producto, la venta no se procesará.</p>}
-              {paymentTermId && <p className="field-help">El vencimiento se calculará y quedará registrado con la condición seleccionada.</p>}
+              {!isPos && priceListId && <p className="field-help">La lista se valida nuevamente al registrar la venta. Si falta una tarifa vigente para un producto, la venta no se procesará.</p>}
+              {!isPos && paymentTermId && <p className="field-help">El vencimiento se calculará y quedará registrado con la condición seleccionada.</p>}
               <section className="sale-customer-card">
                 <div className="sale-customer-heading"><div><span>Cliente</span><small>Usa un cliente registrado o consulta DNI/RUC.</small></div><div className="segmented-control"><button type="button" className={customerMode === "existing" ? "is-active" : ""} onClick={() => selectCustomerMode("existing")}>Existente</button><button type="button" className={customerMode === "lookup" ? "is-active" : ""} onClick={() => selectCustomerMode("lookup")}>Nuevo DNI/RUC</button></div></div>
                 {customerMode === "existing" ? <label className="customer-picker-field">Cliente registrado<button type="button" className="customer-picker-trigger" onClick={openCustomerPicker}><Search size={17} /><span>{customers.find((customer) => customer.id === customerId)?.name ?? "Buscar y seleccionar cliente"}</span><small>{customers.find((customer) => customer.id === customerId)?.code ?? "Nombre, código o documento"}</small></button></label> : <div className="customer-lookup-fields"><label>Documento DNI o RUC<input inputMode="numeric" maxLength={11} value={customerTaxId} onChange={(event) => setCustomerTaxId(event.target.value.replace(/\D/g, ""))} placeholder="Ingresa DNI o RUC" /></label><button type="button" className="secondary-button" onClick={() => void lookupCustomer()} disabled={customerLookupBusy}>{customerLookupBusy ? "Consultando…" : "Consultar"}</button><label className="wide">Nombre o razón social<input required value={customerName} onChange={(event) => setCustomerName(event.target.value)} placeholder="Se completa al consultar" /></label><label>Correo (opcional)<input type="email" value={customerEmail} onChange={(event) => setCustomerEmail(event.target.value)} /></label><label>Teléfono (opcional)<input value={customerPhone} onChange={(event) => setCustomerPhone(event.target.value)} /></label>{customerLookupHint && <p className="customer-lookup-hint">{customerLookupHint}</p>}</div>}

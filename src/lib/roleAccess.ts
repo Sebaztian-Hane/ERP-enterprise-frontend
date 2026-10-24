@@ -14,6 +14,7 @@ const modulesByRole: Record<RoleCode, readonly string[]> = {
   admin: ["*"],
   sales: [
     "#ventas",
+    "#pos",
     "#cotizaciones",
     "#pedidos-de-venta",
     "#clientes",
@@ -30,6 +31,7 @@ const modulesByRole: Record<RoleCode, readonly string[]> = {
   viewer: [
     "#dashboard",
     "#ventas",
+    "#pos",
     "#compras",
     "#proveedores",
     "#inventario",

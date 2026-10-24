@@ -4,7 +4,7 @@ import { apiFetch } from "../lib/api";
 import type { RoleCode } from "../lib/roleAccess";
 import { supabase } from "../lib/supabase";
 
-export type Tenant = { id: string; name: string; timezone: string };
+export type Tenant = { id: string; name: string; timezone: string; business_profile: "retail" | "wholesale" | "hybrid" };
 type AuthContextValue = {
   session: Session | null;
   tenants: Tenant[];
