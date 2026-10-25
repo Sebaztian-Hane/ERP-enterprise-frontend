@@ -565,9 +565,22 @@ a {
 .password-change-panel h3 { display: flex; align-items: center; gap: 8px; margin: 4px 0; color: #294d60; font-size: 14px; }
 .password-change-panel > div > p:last-child { margin: 0; color: #66808e; font-size: 11px; line-height: 1.45; }
 .password-change-panel .customer-form { padding: 16px 0 0; }
+.mfa-panel { margin-top: 14px; }
+.mfa-enrollment { display: grid; gap: 12px; max-width: 360px; padding-top: 16px; }
+.mfa-enrollment img { width: 176px; height: 176px; padding: 8px; background: #fff; border: 1px solid #d8e7ed; border-radius: 8px; }
+.mfa-enrollment p { margin: 0; color: #66808e; font-size: 12px; line-height: 1.5; }
+.mfa-enrollment code { overflow-wrap: anywhere; color: #23566e; font-size: 11px; }
+.mfa-enabled { display: grid; gap: 10px; padding-top: 16px; }
+.mfa-enabled > span { display: inline-flex; align-items: center; gap: 6px; color: #267253; font-size: 12px; font-weight: 700; }
+.mfa-factor { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px; border: 1px solid #d8e7ed; border-radius: 7px; }
+.mfa-factor small { color: #506d7b; }
 html[data-theme="dark"] .password-change-panel { background: #142d38; border-color: #3d6272; }
 html[data-theme="dark"] .password-change-panel h3 { color: #e1f0f5; }
 html[data-theme="dark"] .password-change-panel > div > p:last-child { color: #abc5cf; }
+html[data-theme="dark"] .mfa-enrollment img { border-color: #3d6272; }
+html[data-theme="dark"] .mfa-enrollment p, html[data-theme="dark"] .mfa-factor small { color: #abc5cf; }
+html[data-theme="dark"] .mfa-enrollment code { color: #a9deef; }
+html[data-theme="dark"] .mfa-factor { border-color: #3d6272; }
 .logout-button { color: #5b6d7b; }
 
 @media (max-width: 760px) {
