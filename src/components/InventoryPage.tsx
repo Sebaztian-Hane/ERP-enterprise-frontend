@@ -13,6 +13,7 @@ import {
 import { useAuth } from "../auth/AuthProvider";
 import { apiFetch, postIdempotent } from "../lib/api";
 import { DataMigrationPanel } from "./DataMigrationPanel";
+import { EntityPicker } from "./EntityPicker";
 
 type Warehouse = {
   id: string;
@@ -463,20 +464,8 @@ export function InventoryPage({ goBack }: { goBack: () => void }) {
             <form className="customer-form" onSubmit={save}>
               {mode === "lot" || mode === "serial" ? (
                 <>
-                  <label>
-                    Producto configurado para {mode === "lot" ? "lotes" : "series"}
-                    <select required value={productId} onChange={(e) => setProductId(e.target.value)}>
-                      <option value="">Selecciona un producto</option>
-                      {products.filter((item) => item.tracking_mode === mode).map((item) => <option value={item.id} key={item.id}>{item.name} · {item.sku}</option>)}
-                    </select>
-                  </label>
-                  <label>
-                    Almacén
-                    <select required value={warehouseId} onChange={(e) => setWarehouseId(e.target.value)}>
-                      <option value="">Selecciona un almacén</option>
-                      {warehouses.filter((item) => item.is_active).map((item) => <option value={item.id} key={item.id}>{item.name}</option>)}
-                    </select>
-                  </label>
+                  <EntityPicker required label={`Producto configurado para ${mode === "lot" ? "lotes" : "series"}`} placeholder="Busca por nombre o SKU" value={productId} onChange={setProductId} options={products.filter((item) => item.tracking_mode === mode).map((item) => ({ id: item.id, primary: item.name, secondary: item.sku }))} />
+                  <EntityPicker required label="Almacén" placeholder="Busca un almacén" value={warehouseId} onChange={setWarehouseId} options={warehouses.filter((item) => item.is_active).map((item) => ({ id: item.id, primary: item.name, secondary: item.code }))} />
                   {mode === "lot" ? <>
                     <div className="form-grid"><label>Número de lote<input required value={lotNumber} onChange={(e) => setLotNumber(e.target.value)} placeholder="LOT-2026-001" /></label><label>Vencimiento<input type="date" value={expirationDate} onChange={(e) => setExpirationDate(e.target.value)} /></label></div>
                     <label>Cantidad<input required type="number" min="1" step="1" value={quantity} onChange={(e) => setQuantity(e.target.value)} /></label>
@@ -486,60 +475,11 @@ export function InventoryPage({ goBack }: { goBack: () => void }) {
                 </>
               ) : (
                 <>
-                  <label>
-                    Producto
-                    <select
-                      required
-                      value={productId}
-                      onChange={(e) => setProductId(e.target.value)}
-                    >
-                      <option value="">Selecciona un producto</option>
-                      {products.map((item) => (
-                        <option value={item.id} key={item.id}>
-                          {item.name} · {item.sku}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
+                  <EntityPicker required label="Producto" placeholder="Busca por nombre o SKU" value={productId} onChange={setProductId} options={products.map((item) => ({ id: item.id, primary: item.name, secondary: item.sku }))} />
                   <div className="form-grid">
-                    <label>
-                      {mode === "transfer" ? "Almacén origen" : "Almacén"}
-                      <select
-                        required
-                        value={warehouseId}
-                        onChange={(e) => setWarehouseId(e.target.value)}
-                      >
-                        <option value="">Selecciona un almacén</option>
-                        {warehouses
-                          .filter((item) => item.is_active)
-                          .map((item) => (
-                            <option value={item.id} key={item.id}>
-                              {item.name}
-                            </option>
-                          ))}
-                      </select>
-                    </label>
+                    <EntityPicker required label={mode === "transfer" ? "Almacén origen" : "Almacén"} placeholder="Busca un almacén" value={warehouseId} onChange={(id) => { setWarehouseId(id); if (id === destinationId) setDestinationId(""); }} options={warehouses.filter((item) => item.is_active).map((item) => ({ id: item.id, primary: item.name, secondary: item.code }))} />
                     {mode === "transfer" && (
-                      <label>
-                        Almacén destino
-                        <select
-                          required
-                          value={destinationId}
-                          onChange={(e) => setDestinationId(e.target.value)}
-                        >
-                          <option value="">Selecciona un almacén</option>
-                          {warehouses
-                            .filter(
-                              (item) =>
-                                item.is_active && item.id !== warehouseId,
-                            )
-                            .map((item) => (
-                              <option value={item.id} key={item.id}>
-                                {item.name}
-                              </option>
-                            ))}
-                        </select>
-                      </label>
+                      <EntityPicker required label="Almacén destino" placeholder="Busca un almacén" value={destinationId} onChange={setDestinationId} options={warehouses.filter((item) => item.is_active && item.id !== warehouseId).map((item) => ({ id: item.id, primary: item.name, secondary: item.code }))} />
                     )}
                   </div>
                   <div className="form-grid">
