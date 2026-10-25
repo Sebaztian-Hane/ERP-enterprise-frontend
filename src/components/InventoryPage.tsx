@@ -178,6 +178,7 @@ export function InventoryPage({ goBack }: { goBack: () => void }) {
             source_warehouse_id: warehouseId,
             destination_warehouse_id: destinationId,
             quantity: Number(quantity),
+            serial_numbers: products.find((item) => item.id === productId)?.tracking_mode === "serial" ? serialText.split(/[\n,]+/).map((item) => item.trim()).filter(Boolean) : null,
             note: note || null,
           }),
         });
@@ -566,6 +567,7 @@ export function InventoryPage({ goBack }: { goBack: () => void }) {
                     </label>
                   </div>
                   {mode === "adjustment" && <label>Motivo del ajuste<input required value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Ej.: corrección de conteo físico" /></label>}
+                  {mode === "transfer" && products.find((item) => item.id === productId)?.tracking_mode === "serial" && <label>Series a trasladar (una por línea o separadas por coma)<textarea required value={serialText} onChange={(event) => setSerialText(event.target.value)} placeholder={"SER-001\nSER-002"} rows={4} /><small>La cantidad de series debe coincidir con la cantidad transferida.</small></label>}
                   <label>
                     Nota
                     <input

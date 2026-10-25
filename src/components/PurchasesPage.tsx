@@ -66,6 +66,9 @@ export function PurchasesPage({ goBack }: { goBack: () => void }) {
     date: "",
     tax: "",
   });
+  const [returningPurchase, setReturningPurchase] = useState<Purchase | null>(null);
+  const [returnReason, setReturnReason] = useState("");
+  const [returningBusy, setReturningBusy] = useState(false);
   const load = async (targetPage = page) => {
     if (!session || !tenantId) return;
     setLoading(true);
@@ -178,6 +181,15 @@ export function PurchasesPage({ goBack }: { goBack: () => void }) {
       setSaving(false);
     }
   };
+  const returnPurchase = async () => {
+    if (!returningPurchase || returnReason.trim().length < 3) return;
+    setReturningBusy(true); setError(null);
+    try {
+      await postIdempotent(`/purchases/${returningPurchase.id}/return`, { ...options, body: JSON.stringify({ reason: returnReason.trim() }) });
+      setReturningPurchase(null); setReturnReason(""); await load();
+    } catch (cause) { setError(cause instanceof Error ? cause.message : "No se pudo registrar la devolución."); }
+    finally { setReturningBusy(false); }
+  };
   return (
     <section className="module-page">
       <div className="module-heading">
@@ -271,6 +283,7 @@ export function PurchasesPage({ goBack }: { goBack: () => void }) {
                   <th>TOTAL</th>
                   <th>NOTA</th>
                   <th>COMPROBANTE</th>
+                  <th aria-label="Devolución" />
                 </tr>
               </thead>
               <tbody>
@@ -281,8 +294,8 @@ export function PurchasesPage({ goBack }: { goBack: () => void }) {
                     </td>
                     <td>{supplierName(item.supplier_id)}</td>
                     <td>
-                      <span className="status-pill active">
-                        {item.status === "received" ? "Recibida" : item.status}
+                      <span className={`status-pill ${item.status === "returned" || item.status === "cancelled" ? "inactive" : "active"}`}>
+                        {item.status === "received" ? "Recibida" : item.status === "returned" ? "Devuelta" : item.status}
                       </span>
                     </td>
                     <td>
@@ -306,6 +319,7 @@ export function PurchasesPage({ goBack }: { goBack: () => void }) {
                         "—"
                       )}
                     </td>
+                    <td>{item.status === "received" ? <button className="text-button danger-button" onClick={() => { setReturnReason(""); setReturningPurchase(item); }}>Devolver</button> : "—"}</td>
                   </tr>
                 ))}
               </tbody>
@@ -331,40 +345,10 @@ export function PurchasesPage({ goBack }: { goBack: () => void }) {
             </div>
             <form className="sale-form" onSubmit={save}>
               <div className="form-grid">
-                <label>
-                  Almacén
-                  <select
-                    required
-                    value={warehouseId}
-                    onChange={(event) => setWarehouseId(event.target.value)}
-                  >
-                    <option value="">Selecciona</option>
-                    {warehouses.map((item) => (
-                      <option key={item.id} value={item.id}>
-                        {item.name}
-                      </option>
-                    ))}
-                  </select>
-                </label>
+                <EntityPicker label="Almacén" placeholder="Busca un almacén" required value={warehouseId} onChange={setWarehouseId} options={warehouses.map((item) => ({ id: item.id, primary: item.name }))} />
                 <p className="field-help sale-folio-help">El folio se asignará automáticamente según la entidad, sucursal y tipo de documento.</p>
               </div>
-              <label>
-                Proveedor
-                <select
-                  required
-                  value={supplierId}
-                  onChange={(event) => setSupplierId(event.target.value)}
-                >
-                  <option value="">Selecciona</option>
-                  {suppliers
-                    .filter((item) => item.is_active)
-                    .map((item) => (
-                      <option key={item.id} value={item.id}>
-                        {item.name}
-                      </option>
-                    ))}
-                </select>
-              </label>
+              <EntityPicker label="Proveedor" placeholder="Busca un proveedor" required value={supplierId} onChange={setSupplierId} options={suppliers.filter((item) => item.is_active).map((item) => ({ id: item.id, primary: item.name }))} />
               <EntityPicker
                 label="Condición de pago (opcional)"
                 placeholder="Vencimiento al contado"
@@ -403,33 +387,7 @@ export function PurchasesPage({ goBack }: { goBack: () => void }) {
                 {lines.length ? (
                   lines.map((line, index) => (
                     <div className="sale-line-wrap" key={line.product_id}><div className="sale-line">
-                      <select
-                        value={line.product_id}
-                        onChange={(event) => {
-                          const product = products.find(
-                            (item) => item.id === event.target.value,
-                          );
-                          updateLine(index, {
-                            product_id: event.target.value,
-                            unit_cost: Number(product?.sale_price ?? 0),
-                            lot_number: "", expiration_date: "", serial_text: "",
-                          });
-                        }}
-                      >
-                        {products
-                          .filter(
-                            (item) =>
-                              item.id === line.product_id ||
-                              !lines.some(
-                                (other) => other.product_id === item.id,
-                              ),
-                          )
-                          .map((item) => (
-                            <option key={item.id} value={item.id}>
-                              {item.name}
-                            </option>
-                          ))}
-                      </select>
+                      <EntityPicker label="Producto" placeholder="Busca un producto" value={line.product_id} onChange={(productId) => { const product = products.find((item) => item.id === productId); updateLine(index, { product_id: productId, unit_cost: Number(product?.sale_price ?? 0), lot_number: "", expiration_date: "", serial_text: "" }); }} options={products.filter((item) => item.id === line.product_id || !lines.some((other) => other.product_id === item.id)).map((item) => ({ id: item.id, primary: item.name }))} />
                       <label>
                         Cant.
                         <input
@@ -595,6 +553,7 @@ export function PurchasesPage({ goBack }: { goBack: () => void }) {
           </section>
         </div>
       )}
+      {returningPurchase && <div className="modal-layer"><section className="customer-modal" role="dialog" aria-modal="true" aria-label="Devolver compra"><div className="modal-header"><div><p className="eyebrow">DEVOLUCIÓN A PROVEEDOR</p><h2>Devolver compra {returningPurchase.number}</h2></div><button className="icon-button" onClick={() => setReturningPurchase(null)} aria-label="Cerrar"><X size={20} /></button></div><div className="customer-form"><p className="field-help">Se revertirá completamente la recepción, la cuenta por pagar y el asiento. No se permite si existen pagos aplicados o si el stock ya fue consumido.</p><label>Motivo<input autoFocus minLength={3} value={returnReason} onChange={(event) => setReturnReason(event.target.value)} placeholder="Describe el motivo de la devolución" /></label>{error && <p className="login-error">{error}</p>}<div className="modal-actions"><button type="button" className="secondary-button" onClick={() => setReturningPurchase(null)}>Cancelar</button><button type="button" className="danger-button" disabled={returningBusy || returnReason.trim().length < 3} onClick={() => void returnPurchase()}>{returningBusy ? "Registrando…" : "Confirmar devolución"}</button></div></div></section></div>}
     </section>
   );
 }

@@ -114,6 +114,9 @@ export function SalesPage({ goBack, mode = "sales" }: { goBack: () => void; mode
   const [billingType, setBillingType] = useState<"01" | "03">("03");
   const [billingBusy, setBillingBusy] = useState(false);
   const [voidReason, setVoidReason] = useState("Anulación solicitada desde EnterpriseCloud");
+  const [returningSale, setReturningSale] = useState<Sale | null>(null);
+  const [returnReason, setReturnReason] = useState("");
+  const [returningBusy, setReturningBusy] = useState(false);
   const options = {
     accessToken: session?.access_token,
     tenantId: tenantId ?? undefined,
@@ -364,6 +367,15 @@ export function SalesPage({ goBack, mode = "sales" }: { goBack: () => void; mode
     void_pending: "Anulación pendiente",
     voided: "Anulado",
   }[value] ?? value);
+  const returnSale = async () => {
+    if (!returningSale || returnReason.trim().length < 3) return;
+    setReturningBusy(true); setError(null);
+    try {
+      await postIdempotent(`/sales/${returningSale.id}/return`, { ...options, body: JSON.stringify({ reason: returnReason.trim() }) });
+      setReturningSale(null); setReturnReason(""); await load();
+    } catch (cause) { setError(cause instanceof Error ? cause.message : "No se pudo registrar la devolución."); }
+    finally { setReturningBusy(false); }
+  };
   return (
     <section className="module-page">
       <div className="module-heading">
@@ -447,6 +459,7 @@ export function SalesPage({ goBack, mode = "sales" }: { goBack: () => void; mode
                   <th>TOTAL</th>
                   <th>NOTA</th>
                   <th aria-label="Facturación electrónica" />
+                  <th aria-label="Devolución" />
                 </tr>
               </thead>
               <tbody>
@@ -457,8 +470,8 @@ export function SalesPage({ goBack, mode = "sales" }: { goBack: () => void; mode
                     </td>
                     <td>{nameFor(sale.customer_id)}</td>
                     <td>
-                      <span className="status-pill active">
-                        {sale.status === "posted" ? "Procesada" : sale.status}
+                      <span className={`status-pill ${sale.status === "returned" || sale.status === "cancelled" ? "inactive" : "active"}`}>
+                        {sale.status === "posted" ? "Procesada" : sale.status === "returned" ? "Devuelta" : sale.status}
                       </span>
                     </td>
                     <td>
@@ -466,6 +479,7 @@ export function SalesPage({ goBack, mode = "sales" }: { goBack: () => void; mode
                     </td>
                     <td>{sale.note || "—"}</td>
                     <td><button className="table-action-button" onClick={() => void openBilling(sale)}><FileText size={15} /> Comprobante</button></td>
+                    <td>{sale.status === "posted" ? <button className="text-button danger-button" onClick={() => { setReturnReason(""); setReturningSale(sale); }}>Devolver</button> : "—"}</td>
                   </tr>
                 ))}
               </tbody>
@@ -613,6 +627,7 @@ export function SalesPage({ goBack, mode = "sales" }: { goBack: () => void; mode
           </section>
         </div>
       )}
+      {returningSale && <div className="modal-layer"><section className="customer-modal" role="dialog" aria-modal="true" aria-label="Devolver venta"><div className="modal-header"><div><p className="eyebrow">DEVOLUCIÓN COMERCIAL</p><h2>Devolver venta {returningSale.number}</h2></div><button className="icon-button" onClick={() => setReturningSale(null)} aria-label="Cerrar"><X size={20} /></button></div><div className="customer-form"><p className="field-help">Se revertirá completamente el stock, la cuenta por cobrar y el asiento. Si existe un CPE activo, primero corresponde emitir su nota de crédito.</p><label>Motivo<input autoFocus minLength={3} value={returnReason} onChange={(event) => setReturnReason(event.target.value)} placeholder="Describe el motivo de la devolución" /></label>{error && <p className="login-error">{error}</p>}<div className="modal-actions"><button type="button" className="secondary-button" onClick={() => setReturningSale(null)}>Cancelar</button><button type="button" className="danger-button" disabled={returningBusy || returnReason.trim().length < 3} onClick={() => void returnSale()}>{returningBusy ? "Registrando…" : "Confirmar devolución"}</button></div></div></section></div>}
     </section>
   );
 }
