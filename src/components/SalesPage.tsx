@@ -35,6 +35,11 @@ type Sale = {
   note: string | null;
 };
 type Line = { product_id: string; quantity: number; unit_price: number; serial_text?: string };
+type SalesDraft = {
+  customerId: string; customerMode: "existing" | "lookup"; customerTaxId: string; customerName: string;
+  customerEmail: string; customerPhone: string; warehouseId: string; priceListId: string;
+  paymentTermId: string; costCenterId: string; note: string; lines: Line[];
+};
 type ElectronicDocument = {
   id: string;
   document_type: "01" | "03";
@@ -121,6 +126,21 @@ export function SalesPage({ goBack, mode = "sales" }: { goBack: () => void; mode
     accessToken: session?.access_token,
     tenantId: tenantId ?? undefined,
   };
+  const draftKey = tenantId && session?.user.id ? `enterprisecloud.draft.sale.${mode}.${tenantId}.${session.user.id}` : null;
+  const clearDraft = () => { if (draftKey) localStorage.removeItem(draftKey); };
+  const restoreDraft = (): SalesDraft | null => {
+    if (!draftKey) return null;
+    try {
+      const parsed = JSON.parse(localStorage.getItem(draftKey) ?? "null") as Partial<SalesDraft> | null;
+      if (!parsed || !Array.isArray(parsed.lines)) return null;
+      return {
+        customerId: parsed.customerId ?? "", customerMode: parsed.customerMode === "lookup" ? "lookup" : "existing",
+        customerTaxId: parsed.customerTaxId ?? "", customerName: parsed.customerName ?? "", customerEmail: parsed.customerEmail ?? "", customerPhone: parsed.customerPhone ?? "",
+        warehouseId: parsed.warehouseId ?? "", priceListId: parsed.priceListId ?? "", paymentTermId: parsed.paymentTermId ?? "", costCenterId: parsed.costCenterId ?? "", note: parsed.note ?? "",
+        lines: parsed.lines.filter((line): line is Line => Boolean(line && typeof line.product_id === "string" && Number.isFinite(Number(line.quantity)) && Number.isFinite(Number(line.unit_price)))),
+      };
+    } catch { return null; }
+  };
   const load = async (targetPage = page) => {
     if (!session || !tenantId) return;
     setLoading(true);
@@ -155,12 +175,23 @@ export function SalesPage({ goBack, mode = "sales" }: { goBack: () => void; mode
   useEffect(() => {
     void load();
   }, [session?.access_token, tenantId, page]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (!isOpen || !draftKey) return;
+    const draft: SalesDraft = { customerId, customerMode, customerTaxId, customerName, customerEmail, customerPhone, warehouseId, priceListId, paymentTermId, costCenterId, note, lines };
+    localStorage.setItem(draftKey, JSON.stringify(draft));
+  }, [isOpen, draftKey, customerId, customerMode, customerTaxId, customerName, customerEmail, customerPhone, warehouseId, priceListId, paymentTermId, costCenterId, note, lines]);
   const total = useMemo(
     () => lines.reduce((sum, line) => sum + line.quantity * line.unit_price, 0),
     [lines],
   );
   const openNew = () => {
     setError(null);
+    const saved = restoreDraft();
+    if (saved) {
+      setCustomerId(saved.customerId); setCustomerMode(saved.customerMode); setCustomerTaxId(saved.customerTaxId); setCustomerName(saved.customerName); setCustomerEmail(saved.customerEmail); setCustomerPhone(saved.customerPhone);
+      setWarehouseId(saved.warehouseId); setPriceListId(saved.priceListId); setPaymentTermId(saved.paymentTermId); setCostCenterId(saved.costCenterId); setNote(saved.note); setLines(saved.lines);
+      setCustomerLookupHint("Se restauró tu borrador local. Verifica los datos antes de registrar la venta."); setActivePicker(null); setIsOpen(true); return;
+    }
     // Transactional identities must always be deliberately selected.  Choosing
     // the first customer or warehouse here can post stock and receivables to
     // the wrong party when the user simply submits a new form.
@@ -253,6 +284,7 @@ export function SalesPage({ goBack, mode = "sales" }: { goBack: () => void; mode
       });
       setPage(1);
       await load(1);
+      clearDraft();
       setIsOpen(false);
     } catch (cause) {
       setError(

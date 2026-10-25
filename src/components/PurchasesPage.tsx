@@ -30,6 +30,10 @@ type Purchase = {
   supplier_document_number: string | null;
 };
 type Line = { product_id: string; quantity: number; unit_cost: number; lot_number?: string; expiration_date?: string; serial_text?: string };
+type PurchaseDraft = {
+  supplierId: string; warehouseId: string; paymentTermId: string; costCenterId: string; note: string;
+  lines: Line[]; document: { type: string; series: string; number: string; date: string; tax: string };
+};
 const money = new Intl.NumberFormat("es-PE", {
   style: "currency",
   currency: "PEN",
@@ -69,6 +73,20 @@ export function PurchasesPage({ goBack }: { goBack: () => void }) {
   const [returningPurchase, setReturningPurchase] = useState<Purchase | null>(null);
   const [returnReason, setReturnReason] = useState("");
   const [returningBusy, setReturningBusy] = useState(false);
+  const draftKey = tenantId && session?.user.id ? `enterprisecloud.draft.purchase.${tenantId}.${session.user.id}` : null;
+  const clearDraft = () => { if (draftKey) localStorage.removeItem(draftKey); };
+  const restoreDraft = (): PurchaseDraft | null => {
+    if (!draftKey) return null;
+    try {
+      const parsed = JSON.parse(localStorage.getItem(draftKey) ?? "null") as Partial<PurchaseDraft> | null;
+      if (!parsed || !Array.isArray(parsed.lines) || !parsed.document) return null;
+      return {
+        supplierId: parsed.supplierId ?? "", warehouseId: parsed.warehouseId ?? "", paymentTermId: parsed.paymentTermId ?? "", costCenterId: parsed.costCenterId ?? "", note: parsed.note ?? "",
+        lines: parsed.lines.filter((line): line is Line => Boolean(line && typeof line.product_id === "string" && Number.isFinite(Number(line.quantity)) && Number.isFinite(Number(line.unit_cost)))),
+        document: { type: parsed.document.type ?? "01", series: parsed.document.series ?? "", number: parsed.document.number ?? "", date: parsed.document.date ?? "", tax: parsed.document.tax ?? "" },
+      };
+    } catch { return null; }
+  };
   const load = async (targetPage = page) => {
     if (!session || !tenantId) return;
     setLoading(true);
@@ -101,6 +119,10 @@ export function PurchasesPage({ goBack }: { goBack: () => void }) {
   useEffect(() => {
     void load();
   }, [session?.access_token, tenantId, page]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (!isOpen || !draftKey) return;
+    localStorage.setItem(draftKey, JSON.stringify({ supplierId, warehouseId, paymentTermId, costCenterId, note, lines, document } satisfies PurchaseDraft));
+  }, [isOpen, draftKey, supplierId, warehouseId, paymentTermId, costCenterId, note, lines, document]);
   const total = useMemo(
     () => lines.reduce((sum, line) => sum + line.quantity * line.unit_cost, 0),
     [lines],
@@ -115,6 +137,11 @@ export function PurchasesPage({ goBack }: { goBack: () => void }) {
       return;
     }
     setError(null);
+    const saved = restoreDraft();
+    if (saved) {
+      setSupplierId(saved.supplierId); setWarehouseId(saved.warehouseId); setPaymentTermId(saved.paymentTermId); setCostCenterId(saved.costCenterId); setNote(saved.note); setLines(saved.lines); setDocument(saved.document);
+      setIsOpen(true); return;
+    }
     setSupplierId(suppliers.find((item) => item.is_active)?.id ?? "");
     setWarehouseId(warehouses[0]?.id ?? "");
     setPaymentTermId("");
@@ -170,6 +197,7 @@ export function PurchasesPage({ goBack }: { goBack: () => void }) {
       });
       setPage(1);
       await load(1);
+      clearDraft();
       setIsOpen(false);
     } catch (cause) {
       setError(

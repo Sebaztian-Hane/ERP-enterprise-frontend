@@ -2111,6 +2111,20 @@ html[data-theme="dark"] .supplier-lookup-notice { color: #b8e9f8; background: #1
   }
 }
 
+.integrity-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 20px;
+  margin: 12px 0 16px;
+  color: var(--text-muted);
+  font-size: 0.86rem;
+}
+.integrity-summary span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
 .inventory-table td strong {
   color: #294859;
 }
