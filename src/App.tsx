@@ -1,8 +1,5 @@
 import {
   Component,
-  lazy,
-  Suspense,
-  type ComponentType,
   type ReactNode,
   useEffect,
   useRef,
@@ -45,6 +42,28 @@ import { LoginPage } from "./components/LoginPage";
 import { NotificationsMenu } from "./components/NotificationsMenu";
 import { UserAvatar } from "./components/UserAvatar";
 import { ProviderPortal } from "./components/ProviderPortal";
+import { DashboardPage } from "./components/DashboardPage";
+import { CustomersPage } from "./components/CustomersPage";
+import { SuppliersPage } from "./components/SuppliersPage";
+import { ProductsPage } from "./components/ProductsPage";
+import { SalesPage } from "./components/SalesPage";
+import { QuotesPage } from "./components/QuotesPage";
+import { SalesOrdersPage } from "./components/SalesOrdersPage";
+import { PurchasesPage } from "./components/PurchasesPage";
+import { PurchaseOrdersPage } from "./components/PurchaseOrdersPage";
+import { InventoryPage } from "./components/InventoryPage";
+import { WarehousesPage } from "./components/WarehousesPage";
+import { InventoryHistoryPage } from "./components/InventoryHistoryPage";
+import { InventoryCountsPage } from "./components/InventoryCountsPage";
+import { FinancePage } from "./components/FinancePage";
+import { AccountsPage } from "./components/AccountsPage";
+import { ReconciliationPage } from "./components/ReconciliationPage";
+import { DocumentsPage } from "./components/DocumentsPage";
+import { ReportsPage } from "./components/ReportsPage";
+import { AdministrationPage } from "./components/AdministrationPage";
+import { ProfilePage } from "./components/ProfilePage";
+import { OperationsPage } from "./components/OperationsPage";
+import { ConfigurationPage } from "./components/ConfigurationPage";
 import { useAuth } from "./auth/AuthProvider";
 import { canAccessModule, defaultModuleFor } from "./lib/roleAccess";
 
@@ -56,120 +75,6 @@ function refreshApplication() {
   window.location.replace(url.toString());
 }
 
-function lazyWithRetry<T extends ComponentType<any>>(
-  factory: () => Promise<{ default: T }>,
-) {
-  // A lazy chunk can temporarily fail while the browser is in the background
-  // or while a deployment is propagating. Reloading here discarded any form
-  // being edited, so failures are deliberately delegated to the error boundary.
-  // The user can then explicitly choose "Actualizar aplicación" if necessary.
-  return lazy(factory);
-}
-
-const DashboardPage = lazyWithRetry(() =>
-  import("./components/DashboardPage").then((module) => ({
-    default: module.DashboardPage,
-  })),
-);
-const CustomersPage = lazyWithRetry(() =>
-  import("./components/CustomersPage").then((module) => ({
-    default: module.CustomersPage,
-  })),
-);
-const SuppliersPage = lazyWithRetry(() =>
-  import("./components/SuppliersPage").then((module) => ({
-    default: module.SuppliersPage,
-  })),
-);
-const ProductsPage = lazyWithRetry(() =>
-  import("./components/ProductsPage").then((module) => ({
-    default: module.ProductsPage,
-  })),
-);
-const SalesPage = lazyWithRetry(() =>
-  import("./components/SalesPage").then((module) => ({
-    default: module.SalesPage,
-  })),
-);
-const QuotesPage = lazyWithRetry(() =>
-  import("./components/QuotesPage").then((module) => ({
-    default: module.QuotesPage,
-  })),
-);
-const SalesOrdersPage = lazyWithRetry(() =>
-  import("./components/SalesOrdersPage").then((module) => ({
-    default: module.SalesOrdersPage,
-  })),
-);
-const PurchasesPage = lazyWithRetry(() =>
-  import("./components/PurchasesPage").then((module) => ({
-    default: module.PurchasesPage,
-  })),
-);
-const PurchaseOrdersPage = lazyWithRetry(() =>
-  import("./components/PurchaseOrdersPage").then((module) => ({
-    default: module.PurchaseOrdersPage,
-  })),
-);
-const InventoryPage = lazyWithRetry(() =>
-  import("./components/InventoryPage").then((module) => ({
-    default: module.InventoryPage,
-  })),
-);
-const WarehousesPage = lazyWithRetry(() =>
-  import("./components/WarehousesPage").then((module) => ({
-    default: module.WarehousesPage,
-  })),
-);
-const InventoryHistoryPage = lazyWithRetry(() =>
-  import("./components/InventoryHistoryPage").then((module) => ({
-    default: module.InventoryHistoryPage,
-  })),
-);
-const InventoryCountsPage = lazyWithRetry(() => import("./components/InventoryCountsPage").then((module) => ({ default: module.InventoryCountsPage })));
-const FinancePage = lazyWithRetry(() =>
-  import("./components/FinancePage").then((module) => ({
-    default: module.FinancePage,
-  })),
-);
-const AccountsPage = lazyWithRetry(() =>
-  import("./components/AccountsPage").then((module) => ({ default: module.AccountsPage })),
-);
-const ReconciliationPage = lazyWithRetry(() =>
-  import("./components/ReconciliationPage").then((module) => ({
-    default: module.ReconciliationPage,
-  })),
-);
-const DocumentsPage = lazyWithRetry(() =>
-  import("./components/DocumentsPage").then((module) => ({
-    default: module.DocumentsPage,
-  })),
-);
-const ReportsPage = lazyWithRetry(() =>
-  import("./components/ReportsPage").then((module) => ({
-    default: module.ReportsPage,
-  })),
-);
-const AdministrationPage = lazyWithRetry(() =>
-  import("./components/AdministrationPage").then((module) => ({
-    default: module.AdministrationPage,
-  })),
-);
-const ProfilePage = lazyWithRetry(() =>
-  import("./components/ProfilePage").then((module) => ({
-    default: module.ProfilePage,
-  })),
-);
-const OperationsPage = lazyWithRetry(() =>
-  import("./components/OperationsPage").then((module) => ({
-    default: module.OperationsPage,
-  })),
-);
-const ConfigurationPage = lazyWithRetry(() =>
-  import("./components/ConfigurationPage").then((module) => ({
-    default: module.ConfigurationPage,
-  })),
-);
 
 type NavItem = {
   label: string;
@@ -821,14 +726,7 @@ export default function App() {
         </header>
         <div className="content-wrap">
           <ModuleErrorBoundary view={view}>
-            <Suspense
-              fallback={
-                <div className="module-state dashboard-state">
-                  <LoaderCircle className="spin" size={24} /> Cargando módulo…
-                </div>
-              }
-            >
-              {view !== "#perfil" && (!canAccessModule(roleCode, view) || !isProfileModuleAvailable(activeTenant?.business_profile, view)) ? (
+            {view !== "#perfil" && (!canAccessModule(roleCode, view) || !isProfileModuleAvailable(activeTenant?.business_profile, view)) ? (
                 <section className="module-state dashboard-state">
                   <AlertTriangle size={27} />
                   <strong>No tienes acceso a este módulo</strong>
@@ -1204,8 +1102,7 @@ export default function App() {
                     </>
                   )}
                 </>
-              )}
-            </Suspense>
+            )}
           </ModuleErrorBoundary>
         </div>
       </main>
