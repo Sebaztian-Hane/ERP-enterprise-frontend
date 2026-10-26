@@ -192,6 +192,10 @@ export function FinancePage({ goBack }: { goBack: () => void }) {
         .reduce((sum, item) => sum + Number(item.balance_amount), 0),
     [payables],
   );
+  const posAccounts = useMemo(
+    () => accounts.filter((account) => account.is_active && account.currency === "PEN"),
+    [accounts],
+  );
   const customerName = (id: string) =>
     customers.find((item) => item.id === id)?.name ?? "Cliente";
   const supplierName = (id: string) =>
@@ -504,17 +508,17 @@ export function FinancePage({ goBack }: { goBack: () => void }) {
             <p>Asigna una caja o banco activo para cada medio que el cajero podrá usar.</p>
           </div>
         </div>
-        {accounts.filter((account) => account.is_active).length === 0 ? (
+        {posAccounts.length === 0 ? (
           <div className="module-state compact">
             <WalletCards size={26} />
-            <strong>Primero crea una caja o banco activo</strong>
-            <span>El POS solo puede registrar cobros en cuentas de tesorería de esta empresa.</span>
+            <strong>Primero crea una caja o banco activo en PEN</strong>
+            <span>El POS registra ventas en soles y solo puede cobrar en cuentas PEN de esta empresa.</span>
           </div>
         ) : (
           <div className="pos-method-config-list">
             {POS_PAYMENT_METHODS.map((definition) => {
               const config = posMethods.find((item) => item.method === definition.method);
-              const cashAccountId = config?.cash_account_id ?? accounts.find((account) => account.is_active)?.id ?? "";
+              const cashAccountId = config?.cash_account_id ?? posAccounts[0]?.id ?? "";
               const isActive = config?.is_active ?? false;
               const savingThisMethod = savingPosMethod === definition.method;
               return <div key={definition.method} className="pos-method-config-row">
@@ -522,7 +526,7 @@ export function FinancePage({ goBack }: { goBack: () => void }) {
                 <label>
                   <span>Cuenta de tesorería</span>
                   <select aria-label={`Cuenta para ${definition.label}`} value={cashAccountId} disabled={savingThisMethod} onChange={(event) => void savePosMethod(definition.method, event.target.value, isActive)}>
-                    {accounts.filter((account) => account.is_active).map((account) => <option key={account.id} value={account.id}>{account.name} · {account.currency}</option>)}
+                    {posAccounts.map((account) => <option key={account.id} value={account.id}>{account.name} · {account.currency}</option>)}
                   </select>
                 </label>
                 <button type="button" className={isActive ? "secondary-button" : "primary-button"} disabled={savingThisMethod} onClick={() => void savePosMethod(definition.method, cashAccountId, !isActive)}>
