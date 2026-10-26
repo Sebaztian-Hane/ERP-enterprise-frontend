@@ -25,6 +25,7 @@ type Warehouse = { id: string; code: string; name: string; is_active: boolean };
 type PriceList = { id: string; code: string; name: string; currency_code: string; currency_symbol?: string | null };
 type PaymentTerm = { id: string; code: string; name: string; days_due: number };
 type CostCenter = { id: string; code: string; name: string };
+type B2BPaymentMethod = "bank_transfer" | "bank_deposit" | "check" | "corporate_card" | "commercial_credit" | "cash";
 type PriceListQuote = { price_list_id: string; lines: { product_id: string; quantity: number; unit_price: string }[] };
 type Sale = {
   id: string;
@@ -40,7 +41,16 @@ type SalesDraft = {
   customerId: string; customerMode: "existing" | "lookup"; customerTaxId: string; customerName: string;
   customerEmail: string; customerPhone: string; warehouseId: string; priceListId: string;
   paymentTermId: string; costCenterId: string; note: string; lines: Line[];
+  paymentMethod: B2BPaymentMethod;
 };
+const paymentMethodOptions: { id: B2BPaymentMethod; name: string; detail: string }[] = [
+  { id: "bank_transfer", name: "Transferencia bancaria", detail: "Abono a cuenta de la empresa" },
+  { id: "bank_deposit", name: "Depósito bancario", detail: "Constancia por conciliar" },
+  { id: "check", name: "Cheque", detail: "Sujeto a validación bancaria" },
+  { id: "corporate_card", name: "Tarjeta corporativa", detail: "Pago con tarjeta empresarial" },
+  { id: "commercial_credit", name: "Crédito comercial", detail: "Cobro según condición pactada" },
+  { id: "cash", name: "Efectivo", detail: "Entrega física documentada" },
+];
 type ElectronicDocument = {
   id: string;
   document_type: "01" | "03";
@@ -117,9 +127,16 @@ function SalesAdministration({ goBack }: { goBack: () => void }) {
   const [customerPickerItems, setCustomerPickerItems] = useState<Customer[]>([]);
   const [customerPickerMeta, setCustomerPickerMeta] = useState<PageMeta>({ page: 1, page_size: 25, total: 0, total_pages: 0, has_previous: false, has_next: false });
   const [customerPickerLoading, setCustomerPickerLoading] = useState(false);
+  const [productPickerOpen, setProductPickerOpen] = useState(false);
+  const [productPickerQuery, setProductPickerQuery] = useState("");
+  const [productPickerPage, setProductPickerPage] = useState(1);
+  const [productPickerItems, setProductPickerItems] = useState<Product[]>([]);
+  const [productPickerMeta, setProductPickerMeta] = useState<PageMeta>({ page: 1, page_size: 25, total: 0, total_pages: 0, has_previous: false, has_next: false });
+  const [productPickerLoading, setProductPickerLoading] = useState(false);
   const [warehouseId, setWarehouseId] = useState("");
   const [priceListId, setPriceListId] = useState("");
   const [paymentTermId, setPaymentTermId] = useState("");
+  const [paymentMethod, setPaymentMethod] = useState<B2BPaymentMethod>("bank_transfer");
   const [costCenterId, setCostCenterId] = useState("");
   const [activePicker, setActivePicker] = useState<string | null>(null);
   const [quotingPrices, setQuotingPrices] = useState(false);
@@ -148,7 +165,7 @@ function SalesAdministration({ goBack }: { goBack: () => void }) {
       return {
         customerId: parsed.customerId ?? "", customerMode: parsed.customerMode === "lookup" ? "lookup" : "existing",
         customerTaxId: parsed.customerTaxId ?? "", customerName: parsed.customerName ?? "", customerEmail: parsed.customerEmail ?? "", customerPhone: parsed.customerPhone ?? "",
-        warehouseId: parsed.warehouseId ?? "", priceListId: parsed.priceListId ?? "", paymentTermId: parsed.paymentTermId ?? "", costCenterId: parsed.costCenterId ?? "", note: parsed.note ?? "",
+        warehouseId: parsed.warehouseId ?? "", priceListId: parsed.priceListId ?? "", paymentTermId: parsed.paymentTermId ?? "", paymentMethod: parsed.paymentMethod ?? "bank_transfer", costCenterId: parsed.costCenterId ?? "", note: parsed.note ?? "",
         lines: parsed.lines.filter((line): line is Line => Boolean(line && typeof line.product_id === "string" && Number.isFinite(Number(line.quantity)) && Number.isFinite(Number(line.unit_price)))),
       };
     } catch { return null; }
@@ -189,9 +206,9 @@ function SalesAdministration({ goBack }: { goBack: () => void }) {
   }, [session?.access_token, tenantId, page]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (!isOpen || !draftKey) return;
-    const draft: SalesDraft = { customerId, customerMode, customerTaxId, customerName, customerEmail, customerPhone, warehouseId, priceListId, paymentTermId, costCenterId, note, lines };
+    const draft: SalesDraft = { customerId, customerMode, customerTaxId, customerName, customerEmail, customerPhone, warehouseId, priceListId, paymentTermId, paymentMethod, costCenterId, note, lines };
     localStorage.setItem(draftKey, JSON.stringify(draft));
-  }, [isOpen, draftKey, customerId, customerMode, customerTaxId, customerName, customerEmail, customerPhone, warehouseId, priceListId, paymentTermId, costCenterId, note, lines]);
+  }, [isOpen, draftKey, customerId, customerMode, customerTaxId, customerName, customerEmail, customerPhone, warehouseId, priceListId, paymentTermId, paymentMethod, costCenterId, note, lines]);
   const total = useMemo(
     () => lines.reduce((sum, line) => sum + line.quantity * line.unit_price, 0),
     [lines],
@@ -201,7 +218,7 @@ function SalesAdministration({ goBack }: { goBack: () => void }) {
     const saved = restoreDraft();
     if (saved) {
       setCustomerId(saved.customerId); setCustomerMode(saved.customerMode); setCustomerTaxId(saved.customerTaxId); setCustomerName(saved.customerName); setCustomerEmail(saved.customerEmail); setCustomerPhone(saved.customerPhone);
-      setWarehouseId(saved.warehouseId); setPriceListId(saved.priceListId); setPaymentTermId(saved.paymentTermId); setCostCenterId(saved.costCenterId); setNote(saved.note); setLines(saved.lines);
+      setWarehouseId(saved.warehouseId); setPriceListId(saved.priceListId); setPaymentTermId(saved.paymentTermId); setPaymentMethod(saved.paymentMethod); setCostCenterId(saved.costCenterId); setNote(saved.note); setLines(saved.lines);
       setCustomerLookupHint("Se restauró tu borrador local. Verifica los datos antes de registrar la venta."); setActivePicker(null); setIsOpen(true); return;
     }
     // Transactional identities must always be deliberately selected.  Choosing
@@ -213,25 +230,30 @@ function SalesAdministration({ goBack }: { goBack: () => void }) {
     setWarehouseId("");
     setPriceListId("");
     setPaymentTermId("");
+    setPaymentMethod("bank_transfer");
     setCostCenterId(costCenters.find((center) => center.code === "GENERAL")?.id ?? costCenters[0]?.id ?? "");
     setNote("");
     setLines([]);
     setActivePicker(null);
     setIsOpen(true);
   };
-  const addLine = () => {
-    const available = products.find(
-      (product) => !lines.some((line) => line.product_id === product.id),
-    );
-    if (available)
-      setLines((current) => [
-        ...current,
-        {
-          product_id: available.id,
-          quantity: 1,
-          unit_price: Number(available.sale_price),
-        },
-      ]);
+  const loadProductPicker = async (targetPage = productPickerPage, query = productPickerQuery) => {
+    if (!session || !tenantId) return;
+    setProductPickerLoading(true);
+    try {
+      const normalizedQuery = query.trim();
+      const path = normalizedQuery ? `/products?q=${encodeURIComponent(normalizedQuery)}` : "/products";
+      const result = await fetchPage<Product, "products">(path, "products", targetPage, options);
+      setProductPickerItems(result.products); setProductPickerMeta(result.meta);
+    } catch (cause) { setError(cause instanceof Error ? cause.message : "No se pudieron buscar los productos."); }
+    finally { setProductPickerLoading(false); }
+  };
+  const openProductPicker = () => { setActivePicker(null); setProductPickerPage(1); setProductPickerOpen(true); void loadProductPicker(1); };
+  const selectProduct = (product: Product) => {
+    if (lines.some((line) => line.product_id === product.id)) return;
+    setProducts((current) => current.some((item) => item.id === product.id) ? current : [...current, product]);
+    setLines((current) => [...current, { product_id: product.id, quantity: 1, unit_price: Number(product.sale_price) }]);
+    setProductPickerOpen(false);
   };
   const updateLine = (index: number, patch: Partial<Line>) =>
     setLines((current) =>
@@ -289,6 +311,7 @@ function SalesAdministration({ goBack }: { goBack: () => void }) {
           warehouse_id: warehouseId,
           price_list_id: priceListId || null,
           payment_term_id: paymentTermId || null,
+          payment_method: paymentMethod,
           cost_center_id: costCenterId || null,
           lines: lines.map(({ serial_text, ...line }) => ({ ...line, serial_numbers: serial_text ? serial_text.split(/[\n,]+/).map((item) => item.trim()).filter(Boolean) : null })),
           note: note || null,
@@ -580,11 +603,13 @@ function SalesAdministration({ goBack }: { goBack: () => void }) {
                 <EntityPicker pickerId="sale-warehouse" label="Almacén" placeholder="Busca un almacén" required value={warehouseId} onChange={setWarehouseId} isOpen={activePicker === "warehouse"} onOpen={() => setActivePicker("warehouse")} onClose={() => setActivePicker(null)} options={warehouses.map((store) => ({ id: store.id, primary: store.name, secondary: store.code }))} />
                 {!isPos && <><div className="price-list-field"><EntityPicker pickerId="sale-price-list" label="Lista de precios (opcional)" placeholder="Precio estándar del producto" value={priceListId} onChange={setPriceListId} isOpen={activePicker === "price-list"} onOpen={() => setActivePicker("price-list")} onClose={() => setActivePicker(null)} options={priceLists.map((list) => ({ id: list.id, primary: list.name, secondary: list.code + " · " + list.currency_code }))} />{priceListId && <button type="button" className="secondary-button" onClick={() => void applyPriceList()} disabled={quotingPrices || lines.length === 0}>{quotingPrices ? "Actualizando…" : "Actualizar tarifas"}</button>}</div>
                 <EntityPicker pickerId="sale-payment-term" label="Condición de pago (opcional)" placeholder="Vencimiento al contado" value={paymentTermId} onChange={setPaymentTermId} isOpen={activePicker === "payment-term"} onOpen={() => setActivePicker("payment-term")} onClose={() => setActivePicker(null)} options={paymentTerms.map((term) => ({ id: term.id, primary: term.name, secondary: term.code + " · " + term.days_due + " día(s)" }))} />
+                <EntityPicker pickerId="sale-payment-method" label="Método de pago previsto" placeholder="Selecciona el canal de cobro" required value={paymentMethod} onChange={(value) => setPaymentMethod(value as B2BPaymentMethod)} isOpen={activePicker === "payment-method"} onOpen={() => setActivePicker("payment-method")} onClose={() => setActivePicker(null)} options={paymentMethodOptions.map((method) => ({ id: method.id, primary: method.name, secondary: method.detail }))} />
                 <EntityPicker pickerId="sale-cost-center" label="Centro de costo" placeholder="Operación general" required value={costCenterId} onChange={setCostCenterId} isOpen={activePicker === "cost-center"} onOpen={() => setActivePicker("cost-center")} onClose={() => setActivePicker(null)} options={costCenters.map((center) => ({ id: center.id, primary: center.name, secondary: center.code }))} /></>}
                 <p className="field-help sale-folio-help">{isPos ? "La venta se registra al contado con el centro de costo general. El comprobante se puede emitir desde el historial." : "El folio se asignará automáticamente según la entidad, sucursal y tipo de documento."}</p>
               </div>
               {!isPos && priceListId && <p className="field-help">La lista se valida nuevamente al registrar la venta. Si falta una tarifa vigente para un producto, la venta no se procesará.</p>}
               {!isPos && paymentTermId && <p className="field-help">El vencimiento se calculará y quedará registrado con la condición seleccionada.</p>}
+              {!isPos && <p className="field-help">El método previsto documenta el canal acordado; el pago real se registra y concilia desde Tesorería.</p>}
               <section className="sale-customer-card">
                 <div className="sale-customer-heading"><div><span>Cliente</span><small>Usa un cliente registrado o consulta DNI/RUC.</small></div><div className="segmented-control"><button type="button" className={customerMode === "existing" ? "is-active" : ""} onClick={() => selectCustomerMode("existing")}>Existente</button><button type="button" className={customerMode === "lookup" ? "is-active" : ""} onClick={() => selectCustomerMode("lookup")}>Nuevo DNI/RUC</button></div></div>
                 {customerMode === "existing" ? <label className="customer-picker-field">Cliente registrado<button type="button" className="customer-picker-trigger" onClick={openCustomerPicker}><Search size={17} /><span>{customers.find((customer) => customer.id === customerId)?.name ?? "Buscar y seleccionar cliente"}</span><small>{customers.find((customer) => customer.id === customerId)?.code ?? "Nombre, código o documento"}</small></button></label> : <div className="customer-lookup-fields"><label>Documento DNI o RUC<input inputMode="numeric" maxLength={11} value={customerTaxId} onChange={(event) => setCustomerTaxId(event.target.value.replace(/\D/g, ""))} placeholder="Ingresa DNI o RUC" /></label><button type="button" className="secondary-button" onClick={() => void lookupCustomer()} disabled={customerLookupBusy}>{customerLookupBusy ? "Consultando…" : "Consultar"}</button><label className="wide">Nombre o razón social<input required value={customerName} onChange={(event) => setCustomerName(event.target.value)} placeholder="Se completa al consultar" /></label><label>Correo (opcional)<input type="email" value={customerEmail} onChange={(event) => setCustomerEmail(event.target.value)} /></label><label>Teléfono (opcional)<input value={customerPhone} onChange={(event) => setCustomerPhone(event.target.value)} /></label>{customerLookupHint && <p className="customer-lookup-hint">{customerLookupHint}</p>}</div>}
@@ -594,12 +619,9 @@ function SalesAdministration({ goBack }: { goBack: () => void }) {
                 <button
                   type="button"
                   className="secondary-button"
-                  onClick={addLine}
-                  disabled={
-                    lines.length === products.length || products.length === 0
-                  }
+                  onClick={openProductPicker}
                 >
-                  <Plus size={15} /> Agregar línea
+                  <Search size={15} /> Buscar producto
                 </button>
               </div>
               <div className="sale-lines">
@@ -610,7 +632,7 @@ function SalesAdministration({ goBack }: { goBack: () => void }) {
                 ) : (
                   lines.map((line, index) => (
                     <div className="sale-line-wrap" key={line.product_id}><div className="sale-line">
-                      <EntityPicker pickerId={`sale-product-${line.product_id}`} label="Producto" placeholder="Busca por nombre o SKU" value={line.product_id} onChange={(productId) => { const item = products.find((product) => product.id === productId); updateLine(index, { product_id: productId, unit_price: Number(item?.sale_price ?? 0), serial_text: "" }); }} isOpen={activePicker === `product-${line.product_id}`} onOpen={() => setActivePicker(`product-${line.product_id}`)} onClose={() => setActivePicker(null)} options={products.filter((product) => product.id === line.product_id || !lines.some((other) => other.product_id === product.id)).map((product) => ({ id: product.id, primary: product.name, secondary: product.sku }))} />
+                      <div className="sale-line-product"><strong>{products.find((product) => product.id === line.product_id)?.name ?? "Producto seleccionado"}</strong><small>{products.find((product) => product.id === line.product_id)?.sku ?? "SKU no disponible"}</small></div>
                       <label>
                         Cant.
                         <input
@@ -684,7 +706,8 @@ function SalesAdministration({ goBack }: { goBack: () => void }) {
           </section>
         </div>
       )}
-      {customerPickerOpen && <div className="modal-layer customer-picker-layer" role="presentation"><section className="customer-modal customer-picker-modal" role="dialog" aria-modal="true" aria-labelledby="customer-picker-title"><div className="modal-header"><div><p className="eyebrow">CARTERA COMERCIAL</p><h2 id="customer-picker-title">Seleccionar cliente</h2></div><button type="button" className="icon-button" onClick={() => setCustomerPickerOpen(false)} aria-label="Cerrar"><X size={20} /></button></div><div className="customer-picker-toolbar"><label className="search customer-search"><Search size={18} /><input autoFocus value={customerPickerQuery} onChange={(event) => setCustomerPickerQuery(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); setCustomerPickerPage(1); void loadCustomerPicker(1); } }} placeholder="Buscar por razón social, código o DNI/RUC" /></label><button type="button" className="secondary-button" onClick={() => { setCustomerPickerPage(1); void loadCustomerPicker(1); }} disabled={customerPickerLoading}>{customerPickerLoading ? "Buscando…" : "Buscar"}</button></div><p className="customer-picker-help">Selecciona un cliente para asociarlo a la venta. La búsqueda se realiza en toda la cartera de la empresa activa.</p>{customerPickerLoading ? <div className="module-state"><LoaderCircle className="spin" size={22} /> Buscando clientes…</div> : customerPickerItems.length === 0 ? <div className="module-state"><Search size={24} /><strong>No se encontraron clientes</strong><span>Prueba con otro nombre, código o documento.</span></div> : <><div className="table-wrap customer-picker-table"><table className="customers-table"><thead><tr><th>CLIENTE</th><th>CÓDIGO</th><th>ACCIÓN</th></tr></thead><tbody>{customerPickerItems.map((customer) => <tr key={customer.id}><td><strong>{customer.name}</strong></td><td>{customer.code}</td><td><button type="button" className="table-action-button" onClick={() => selectCustomer(customer)}>Seleccionar</button></td></tr>)}</tbody></table></div><TablePagination meta={customerPickerMeta} label="clientes" onPageChange={(nextPage) => { setCustomerPickerPage(nextPage); void loadCustomerPicker(nextPage); }} /></>}</section></div>}
+      {customerPickerOpen && <div className="modal-layer customer-picker-layer" role="presentation"><section className="customer-modal customer-picker-modal commercial-picker-modal" role="dialog" aria-modal="true" aria-labelledby="customer-picker-title"><div className="modal-header"><div><p className="eyebrow">CARTERA COMERCIAL</p><h2 id="customer-picker-title">Seleccionar cliente</h2></div><button type="button" className="icon-button" onClick={() => setCustomerPickerOpen(false)} aria-label="Cerrar"><X size={20} /></button></div><div className="commercial-picker-content"><div className="customer-picker-toolbar"><label className="search customer-search"><Search size={18} /><input autoFocus value={customerPickerQuery} onChange={(event) => setCustomerPickerQuery(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); setCustomerPickerPage(1); void loadCustomerPicker(1); } }} placeholder="Buscar por razón social, código o DNI/RUC" /></label><button type="button" className="secondary-button" onClick={() => { setCustomerPickerPage(1); void loadCustomerPicker(1); }} disabled={customerPickerLoading}>{customerPickerLoading ? "Buscando…" : "Buscar"}</button></div><p className="customer-picker-help">Selecciona un cliente para asociarlo a la venta. La búsqueda se realiza en toda la cartera de la empresa activa.</p>{customerPickerLoading ? <div className="module-state"><LoaderCircle className="spin" size={22} /> Buscando clientes…</div> : customerPickerItems.length === 0 ? <div className="module-state"><Search size={24} /><strong>No se encontraron clientes</strong><span>Prueba con otro nombre, código o documento.</span></div> : <><div className="table-wrap customer-picker-table commercial-picker-table"><table className="customers-table"><thead><tr><th>CLIENTE</th><th>CÓDIGO</th><th>ACCIÓN</th></tr></thead><tbody>{customerPickerItems.map((customer) => <tr key={customer.id}><td><strong>{customer.name}</strong></td><td>{customer.code}</td><td><button type="button" className="table-action-button" onClick={() => selectCustomer(customer)}>Seleccionar</button></td></tr>)}</tbody></table></div><TablePagination meta={customerPickerMeta} label="clientes" onPageChange={(nextPage) => { setCustomerPickerPage(nextPage); void loadCustomerPicker(nextPage); }} /></>}</div></section></div>}
+      {productPickerOpen && <div className="modal-layer customer-picker-layer" role="presentation"><section className="customer-modal customer-picker-modal commercial-picker-modal" role="dialog" aria-modal="true" aria-labelledby="product-picker-title"><div className="modal-header"><div><p className="eyebrow">CATÁLOGO COMERCIAL</p><h2 id="product-picker-title">Buscar producto</h2></div><button type="button" className="icon-button" onClick={() => setProductPickerOpen(false)} aria-label="Cerrar"><X size={20} /></button></div><div className="commercial-picker-content"><div className="customer-picker-toolbar"><label className="search customer-search"><Search size={18} /><input autoFocus value={productPickerQuery} onChange={(event) => setProductPickerQuery(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); setProductPickerPage(1); void loadProductPicker(1); } }} placeholder="Buscar por nombre o SKU" /></label><button type="button" className="secondary-button" onClick={() => { setProductPickerPage(1); void loadProductPicker(1); }} disabled={productPickerLoading}>{productPickerLoading ? "Buscando…" : "Buscar"}</button></div><p className="customer-picker-help">Selecciona un producto activo. Cada producto se agrega una sola vez a la venta.</p>{productPickerLoading ? <div className="module-state"><LoaderCircle className="spin" size={22} /> Buscando productos…</div> : productPickerItems.length === 0 ? <div className="module-state"><Search size={24} /><strong>No se encontraron productos</strong><span>Prueba con otro nombre o SKU.</span></div> : <><div className="table-wrap customer-picker-table commercial-picker-table"><table className="products-picker-table"><thead><tr><th>PRODUCTO</th><th>SKU</th><th>PRECIO</th><th>ACCIÓN</th></tr></thead><tbody>{productPickerItems.map((product) => { const selected = lines.some((line) => line.product_id === product.id); return <tr key={product.id}><td><strong>{product.name}</strong></td><td>{product.sku}</td><td>{currency.format(Number(product.sale_price))}</td><td><button type="button" className="table-action-button" disabled={selected} onClick={() => selectProduct(product)}>{selected ? "Agregado" : "Seleccionar"}</button></td></tr>; })}</tbody></table></div><TablePagination meta={productPickerMeta} label="productos" onPageChange={(nextPage) => { setProductPickerPage(nextPage); void loadProductPicker(nextPage); }} /></>}</div></section></div>}
       {billingSale && (
         <div className="modal-layer">
           <section className="sale-modal billing-modal" role="dialog" aria-modal="true" aria-label="Facturación electrónica">
