@@ -2,6 +2,7 @@ import { ChangeEvent, useRef, useState } from "react";
 import { AlertTriangle, CheckCircle2, Download, FileSpreadsheet, FileUp, LoaderCircle, UploadCloud } from "lucide-react";
 import { useAuth } from "../auth/AuthProvider";
 import { apiFetch, postIdempotent } from "../lib/api";
+import { buildImportTemplateWorkbook } from "../lib/importTemplateWorkbook";
 
 export type ImportModule = "products" | "customers" | "suppliers" | "warehouses" | "inventory" | "sales" | "purchases";
 
@@ -47,6 +48,11 @@ export function DataMigrationPanel({ module, onImported }: { module: ImportModul
     const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
     const link = document.createElement("a"); link.href = url; link.download = `plantilla-${module}.csv`; link.click(); URL.revokeObjectURL(url);
   };
+  const downloadXlsxTemplate = () => {
+    const workbook = buildImportTemplateWorkbook(template.columns, template.example);
+    const url = URL.createObjectURL(workbook);
+    const link = document.createElement("a"); link.href = url; link.download = `plantilla-${module}.xlsx`; link.click(); URL.revokeObjectURL(url);
+  };
   const previewFile = async () => {
     try {
       setBusy("preview"); setError(null);
@@ -69,7 +75,7 @@ export function DataMigrationPanel({ module, onImported }: { module: ImportModul
     <button className="secondary-button" onClick={() => { setOpen((value) => !value); if (open) reset(); }}><FileUp size={16} /> Migrar {template.label.toLowerCase()}</button>
     {open && <article className="panel migration-panel">
       <div className="migration-header"><div><p className="card-label">CARGA CONTROLADA</p><h2>Migrar {template.label}</h2><p>Solo administradores y propietarios. Primero se valida la plantilla y después confirmas la migración.</p></div><FileSpreadsheet size={24} /></div>
-      <div className="migration-actions"><button type="button" className="secondary-button" onClick={downloadTemplate}><Download size={15} /> Descargar plantilla</button><label className="file-picker"><UploadCloud size={16} /><span>{file?.name ?? "Seleccionar CSV o XLSX"}</span><input ref={input} type="file" accept=".csv,.xlsx,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" onChange={chooseFile} /></label><button type="button" className="primary-button" disabled={!file || busy !== null} onClick={() => void previewFile()}>{busy === "preview" ? <><LoaderCircle className="spin" size={16} /> Validando…</> : "Validar plantilla"}</button></div>
+      <div className="migration-actions"><button type="button" className="secondary-button" onClick={downloadTemplate}><Download size={15} /> Descargar CSV</button><button type="button" className="secondary-button" onClick={downloadXlsxTemplate}><FileSpreadsheet size={15} /> Descargar XLSX</button><label className="file-picker"><UploadCloud size={16} /><span>{file?.name ?? "Seleccionar CSV o XLSX"}</span><input ref={input} type="file" accept=".csv,.xlsx,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" onChange={chooseFile} /></label><button type="button" className="primary-button" disabled={!file || busy !== null} onClick={() => void previewFile()}>{busy === "preview" ? <><LoaderCircle className="spin" size={16} /> Validando…</> : "Validar plantilla"}</button></div>
       <small className="migration-help">No se reemplazan datos existentes. Las ventas y compras validan productos y almacenes antes de afectar stock, cuentas y contabilidad.</small>
       {error && <p className="login-error">{error}</p>}
       {preview && <div className={`migration-preview ${preview.can_commit ? "valid" : "invalid"}`}><div><strong>{preview.can_commit ? <><CheckCircle2 size={17} /> Plantilla lista para migrar</> : <><AlertTriangle size={17} /> Corrige la plantilla antes de migrar</>}</strong><span>{preview.valid_rows} filas válidas</span></div>{preview.errors.length > 0 && <ul>{preview.errors.slice(0, 5).map((item) => <li key={`${item.row}-${item.message}`}>Fila {item.row}: {item.message}</li>)}</ul>}{preview.conflicts.length > 0 && <ul>{preview.conflicts.slice(0, 5).map((message) => <li key={message}>{message}</li>)}</ul>}{preview.can_commit && <button type="button" className="primary-button" disabled={busy !== null} onClick={() => void commit()}>{busy === "commit" ? <><LoaderCircle className="spin" size={16} /> Migrando…</> : "Confirmar migración"}</button>}</div>}
