@@ -148,3 +148,21 @@ venta ni emitir un comprobante.
 - No se pulsó **Cobrar**, pues esa acción crea una venta, movimientos de
   inventario y registros financieros. La prueba extremo a extremo del checkout
   queda pendiente de una ejecución controlada con datos de prueba.
+
+## Checkout POS extremo a extremo
+
+**Estado:** validado el 26 de octubre de 2026 con autorización explícita para
+una operación de desarrollo.
+
+- Antes de completar la venta, el flujo devolvía `409 Conflict`. La causa fue
+  el asiento del cobro POS sin `cost_center_id`, aun cuando `journal_lines` lo
+  requiere como dimensión no nula. Se agregó una regresión y se propagó el
+  centro de costo del documento a las dos líneas del asiento de cobro.
+- Tras desplegar la corrección, el POS registró la venta `V-00000002` y el
+  recibo interno `PV-00000001`: una unidad de Malla Soldada, S/ 45.00,
+  Consumidor final y efectivo, sin emitir CPE.
+- La verificación de persistencia confirmó venta `posted`, cuenta por cobrar
+  `paid` con saldo S/ 0.00, pago `PV-00000001-1` por efectivo, salida de
+  inventario de una unidad y asientos para venta (3 líneas) y cobro (2 líneas).
+- La consola del navegador no registró errores ni advertencias durante el
+  checkout exitoso.
