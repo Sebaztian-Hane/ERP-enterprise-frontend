@@ -1,0 +1,100 @@
+# Diseño: POS minorista y cobros de mostrador
+
+## Intención
+
+Separar claramente los dos canales comerciales de EnterpriseCloud:
+
+- **Ventas** conserva su función administrativa para la operación mayorista:
+  cliente, condiciones, precios, centro de costo, cotización/pedido y
+  facturación posterior.
+- **Punto de venta** será una estación de mostrador minorista: catálogo rápido,
+  carrito visible y cobro inmediato.
+
+Una empresa `retail` verá POS; una `wholesale` verá Ventas, Cotizaciones y
+Pedidos; una `hybrid` tendrá ambos. Esta regla ya existe tanto en el frontend
+como en la autorización de API, por lo que se conserva `tenant_id` como límite
+de aislamiento y no se crean datos compartidos entre empresas.
+
+## Enfoques considerados
+
+1. Retocar el modal actual de POS. Es barato, pero conserva el patrón de
+   formulario administrativo y no resuelve el uso rápido en mostrador.
+2. Crear una experiencia POS dedicada dentro de la ruta `#pos`, reutilizando
+   el dominio de ventas, clientes, productos, almacenes y permisos existentes.
+   **Elegido:** mantiene un único libro comercial sin sacrificar una interacción
+   apropiada para caja.
+3. Hacer una aplicación independiente. Aumenta el coste de operación,
+   autenticación y sincronización sin aportar una ventaja proporcional.
+
+## Experiencia POS propuesta
+
+En escritorio, el POS usará tres zonas persistentes:
+
+1. **Cabecera de operación:** almacén/caja, búsqueda por nombre o SKU y acceso
+   a cliente. No mostrará campos mayoristas como lista de precios, condición o
+   centro de costo; el backend usará el centro general configurado.
+2. **Catálogo central:** tarjetas de producto con nombre, SKU, precio y estado
+   de disponibilidad. Podrán agregarse con clic o arrastrarse al carrito.
+   Habrá búsqueda y filtros por categoría cuando estén disponibles. Las tarjetas
+   no usarán imágenes artificiales: se prioriza información real del catálogo.
+3. **Carrito fijo:** líneas con incremento/decremento rápido, retiro de línea,
+   subtotal, total, cliente y botón de cobro. En móvil se convertirá en panel
+   inferior/modal para evitar una superficie demasiado estrecha.
+
+El cobro abrirá un panel con efectivo, Visa, Mastercard, Yape y Plin. Se
+permitirán varios medios en una venta; la suma deberá ser igual al total antes
+de confirmar. Efectivo mostrará vuelto; tarjeta/billetera permitirán una
+referencia opcional u obligatoria según la política futura del tenant.
+
+## Persistencia y consistencia contable
+
+El pago no será un dato decorativo del frontend. El backend incorporará un
+checkout POS atómico e idempotente que, en una transacción:
+
+1. valida el perfil `retail` o `hybrid`, productos, almacén y stock;
+2. crea la venta y su cuenta por cobrar;
+3. crea uno o más cobros (`payments`) con los métodos indicados;
+4. aplica cada cobro a la cuenta por cobrar y deja el saldo en `paid` o
+   `partial`;
+5. registra caja/banco, auditoría y asientos contables mediante los servicios
+   existentes.
+
+Cada pago conservará su propio número, importe, método, cuenta de caja/banco y
+referencia. No se almacenará una lista JSON de cobros en `sales`; así se mantiene
+la conciliación, reversión, permisos y trazabilidad financiera existentes.
+
+Para evitar una ambigüedad operativa, la primera versión configurará una cuenta
+de cobro activa por método para cada tenant. Si falta una, el checkout fallará
+antes de crear la venta. El panel de administración podrá ampliar esta
+configuración después sin alterar las ventas ya registradas.
+
+## Alcance inicial
+
+- Ruta `#pos` dedicada y usable en escritorio/móvil.
+- Catálogo clic/arrastre, búsqueda, carrito, cantidades y eliminación.
+- Selección/búsqueda de cliente y opción de cliente de mostrador solo si la
+  política comercial existente lo permite.
+- Cobro con efectivo, Visa, Mastercard, Yape, Plin y pago combinado.
+- Persistencia atómica, permisos, auditoría, idempotencia y pruebas de
+  aislamiento por tenant.
+- Ventas administrativas no cambian visualmente ni pierden sus capacidades.
+
+## Fuera de alcance de esta entrega
+
+- Integración directa con terminales de tarjeta, Yape o Plin.
+- Impresión física de ticket, apertura de cajón o periféricos.
+- Facturación electrónica automática: se mantiene la emisión de CPE existente
+  desde el historial, con su flujo fiscal independiente.
+- Imágenes de producto generadas o copiadas desde las referencias.
+
+## Criterios de aceptación
+
+- El tipo de empresa controla la disponibilidad real de Ventas/POS, también en
+  API, no solo en el menú.
+- Una venta POS no se confirma si los cobros no igualan el total o una cuenta
+  de caja configurada no existe.
+- Reintentos no duplican venta ni cobros.
+- Un tenant no puede consultar ni cobrar con productos, clientes, cuentas o
+  métodos de otro tenant.
+- El flujo se verifica en navegador en escritorio y móvil, incluyendo arrastre,
+  clic, validación, pago combinado y una interacción repetida.
