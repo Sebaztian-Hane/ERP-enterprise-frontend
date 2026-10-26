@@ -38,6 +38,7 @@ export function QuotesPage({ goBack }: { goBack: () => void }) {
   const [loading, setLoading] = useState(true),
     [saving, setSaving] = useState<string | null>(null),
     [error, setError] = useState<string | null>(null),
+    [formError, setFormError] = useState<string | null>(null),
     [open, setOpen] = useState(false);
   const [number, setNumber] = useState(""),
     [customerId, setCustomerId] = useState(""),
@@ -86,6 +87,7 @@ export function QuotesPage({ goBack }: { goBack: () => void }) {
     customers.find((item) => item.id === id)?.name ?? "Cliente";
   const openNew = () => {
     setError(null);
+    setFormError(null);
     setNumber(
       `COT-${new Date().toISOString().slice(0, 10).replaceAll("-", "")}-${String(quotes.length + 1).padStart(3, "0")}`,
     );
@@ -106,15 +108,17 @@ export function QuotesPage({ goBack }: { goBack: () => void }) {
           unit_value: Number(item.sale_price),
         },
       ]);
+    setFormError(null);
   };
   const save = async (event: FormEvent) => {
     event.preventDefault();
     if (!customerId || !lines.length) {
-      setError("Selecciona un cliente y agrega al menos un producto.");
+      setFormError("Selecciona un cliente y agrega al menos un producto.");
       return;
     }
     setSaving("new");
     setError(null);
+    setFormError(null);
     try {
       const quote = await apiFetch<Quote>("/quotes", {
         ...options,
@@ -133,7 +137,7 @@ export function QuotesPage({ goBack }: { goBack: () => void }) {
       setOpen(false);
       await load();
     } catch (cause) {
-      setError(
+      setFormError(
         cause instanceof Error
           ? cause.message
           : "No se pudo guardar la cotización.",
@@ -369,7 +373,10 @@ export function QuotesPage({ goBack }: { goBack: () => void }) {
                   <select
                     required
                     value={customerId}
-                    onChange={(event) => setCustomerId(event.target.value)}
+                    onChange={(event) => {
+                      setCustomerId(event.target.value);
+                      setFormError(null);
+                    }}
                   >
                     <option value="">Selecciona un cliente</option>
                     {customers.map((item) => (
@@ -420,6 +427,7 @@ export function QuotesPage({ goBack }: { goBack: () => void }) {
                                 : item,
                             ),
                           );
+                          setFormError(null);
                         }}
                       >
                         <option value="">Producto</option>
@@ -445,16 +453,19 @@ export function QuotesPage({ goBack }: { goBack: () => void }) {
                           step="1"
                           value={line.quantity}
                           onChange={(event) =>
-                            setLines((current) =>
-                              current.map((item, i) =>
-                                i === index
-                                  ? {
-                                      ...item,
-                                      quantity: Number(event.target.value),
-                                    }
-                                  : item,
-                              ),
-                            )
+                            {
+                              setLines((current) =>
+                                current.map((item, i) =>
+                                  i === index
+                                    ? {
+                                        ...item,
+                                        quantity: Number(event.target.value),
+                                      }
+                                    : item,
+                                ),
+                              );
+                              setFormError(null);
+                            }
                           }
                         />
                       </label>
@@ -466,16 +477,19 @@ export function QuotesPage({ goBack }: { goBack: () => void }) {
                           step="0.01"
                           value={line.unit_value}
                           onChange={(event) =>
-                            setLines((current) =>
-                              current.map((item, i) =>
-                                i === index
-                                  ? {
-                                      ...item,
-                                      unit_value: Number(event.target.value),
-                                    }
-                                  : item,
-                              ),
-                            )
+                            {
+                              setLines((current) =>
+                                current.map((item, i) =>
+                                  i === index
+                                    ? {
+                                        ...item,
+                                        unit_value: Number(event.target.value),
+                                      }
+                                    : item,
+                                ),
+                              );
+                              setFormError(null);
+                            }
                           }
                         />
                       </label>
@@ -486,9 +500,12 @@ export function QuotesPage({ goBack }: { goBack: () => void }) {
                         type="button"
                         className="icon-button remove-line"
                         onClick={() =>
-                          setLines((current) =>
-                            current.filter((_, i) => i !== index),
-                          )
+                          {
+                            setLines((current) =>
+                              current.filter((_, i) => i !== index),
+                            );
+                            setFormError(null);
+                          }
                         }
                         aria-label="Eliminar línea"
                       >
@@ -498,7 +515,7 @@ export function QuotesPage({ goBack }: { goBack: () => void }) {
                   ))
                 )}
               </div>
-              {error && <p className="login-error">{error}</p>}
+              {formError && <p className="login-error">{formError}</p>}
               <div className="sale-total">
                 <span>Total cotizado</span>
                 <strong>{currency.format(total)}</strong>
