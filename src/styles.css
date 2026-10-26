@@ -3610,6 +3610,16 @@ html[data-theme="dark"] .login-card .field input { color: #eef8fb; background: t
 .billing-result > strong { color: #22485b; font-size: 16px; }
 .billing-links { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .billing-links a { padding: 7px 9px; color: #176f93; background: #edf9fc; border: 1px solid #bfdeeb; border-radius: 6px; font-size: 11px; font-weight: 750; text-decoration: none; }
+.billing-evidence { display: grid; gap: 9px; padding: 13px; background: #f5fafc; border: 1px solid #cfe2e9; border-radius: 8px; }
+.billing-evidence > strong { color: #21485c; font-size: 13px; }
+.billing-evidence-list { display: grid; gap: 7px; }
+.billing-evidence-item { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px; background: #fff; border: 1px solid #d9e8ee; border-radius: 6px; }
+.billing-evidence-item > div { display: grid; gap: 2px; min-width: 0; }
+.billing-evidence-item b { color: #21485c; font-size: 12px; }
+.billing-evidence-item small { overflow: hidden; color: #617d8b; text-overflow: ellipsis; white-space: nowrap; }
+.billing-trace-details { color: #496b79; font-size: 11px; }
+.billing-trace-details summary { cursor: pointer; font-weight: 750; }
+.billing-trace-details p { margin: 6px 0 0; }
 .billing-void { display: grid; gap: 8px; margin: 0 20px 20px; padding: 14px; background: #fff7f5; border: 1px solid #f0d3cb; border-radius: 8px; }
 .billing-void label { display: grid; gap: 6px; color: #6e463d; font-size: 12px; font-weight: 750; }
 .billing-void input { height: 38px; padding: 0 10px; color: #2b4652; background: #fff; border: 1px solid #d7b8b0; border-radius: 7px; font: inherit; }
@@ -3716,6 +3726,10 @@ html[data-theme="dark"] .billing-summary span, html[data-theme="dark"] .billing-
 html[data-theme="dark"] .billing-choice label { color: #d3e5eb; }
 html[data-theme="dark"] .billing-choice select { color: #e3f1f5; background: #10242e; border-color: #456a7b; }
 html[data-theme="dark"] .billing-links a { color: #a8e5f7; background: #193d4c; border-color: #47788c; }
+html[data-theme="dark"] .billing-evidence { background: #142f3b; border-color: #355f71; }
+html[data-theme="dark"] .billing-evidence > strong, html[data-theme="dark"] .billing-evidence-item b { color: #dcecf2; }
+html[data-theme="dark"] .billing-evidence-item { background: #10242e; border-color: #365d6d; }
+html[data-theme="dark"] .billing-evidence-item small, html[data-theme="dark"] .billing-trace-details { color: #abc5cf; }
 html[data-theme="dark"] .billing-void { background: #382529; border-color: #70494d; }
 html[data-theme="dark"] .billing-void label { color: #f0c6bd; }
 html[data-theme="dark"] .billing-void input { color: #f3dfda; background: #241a1d; border-color: #70494d; }

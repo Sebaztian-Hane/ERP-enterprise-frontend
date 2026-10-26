@@ -50,8 +50,13 @@ type ElectronicDocument = {
   provider_document_id: string | null;
   xml_url: string | null;
   cdr_url: string | null;
+  provider_response_hash: string | null;
+  provider_response_at: string | null;
   last_error: string | null;
 };
+type ElectronicArtifact = { id: string; artifact_type: "provider_response" | "xml" | "cdr" | "pdf"; capture_status: "stored" | "unavailable" | "failed"; content_type: string | null; size_bytes: number | null; content_hash: string | null; provider_document_id: string | null; error_message: string | null; captured_at: string };
+type ElectronicEvent = { id: string; event_type: string; document_status: string | null; provider_document_id: string | null; payload_hash: string | null; detail: string | null; created_at: string };
+type ElectronicTrace = { document_id: string; artifacts: ElectronicArtifact[]; events: ElectronicEvent[] };
 const currency = new Intl.NumberFormat("es-PE", {
   style: "currency",
   currency: "PEN",
@@ -116,6 +121,7 @@ export function SalesPage({ goBack, mode = "sales" }: { goBack: () => void; mode
   const [lines, setLines] = useState<Line[]>([]);
   const [billingSale, setBillingSale] = useState<Sale | null>(null);
   const [billingDocument, setBillingDocument] = useState<ElectronicDocument | null>(null);
+  const [billingTrace, setBillingTrace] = useState<ElectronicTrace | null>(null);
   const [billingType, setBillingType] = useState<"01" | "03">("03");
   const [billingBusy, setBillingBusy] = useState(false);
   const [voidReason, setVoidReason] = useState("Anulación solicitada desde EnterpriseCloud");
@@ -338,15 +344,35 @@ export function SalesPage({ goBack, mode = "sales" }: { goBack: () => void; mode
     setCustomerLookupHint(null);
     if (mode === "lookup") setCustomerId("");
   };
+  const loadBillingTrace = async (saleId: string) => {
+    try {
+      setBillingTrace(await apiFetch<ElectronicTrace>(`/sales/${saleId}/electronic-document/trace`, options));
+    } catch (cause) {
+      if (!(cause instanceof ApiError && cause.status === 404)) setError(cause instanceof Error ? cause.message : "No se pudo cargar la trazabilidad fiscal.");
+    }
+  };
+  const downloadBillingArtifact = async (artifact: ElectronicArtifact) => {
+    if (!billingSale || artifact.capture_status !== "stored") return;
+    setBillingBusy(true);
+    try {
+      const download = await apiFetch<{ url: string }>(`/sales/${billingSale.id}/electronic-document/artifacts/${artifact.id}/download`, options);
+      window.open(download.url, "_blank", "noopener,noreferrer");
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "No se pudo preparar la descarga segura.");
+    } finally { setBillingBusy(false); }
+  };
+  const artifactLabel = (type: ElectronicArtifact["artifact_type"]) => ({ provider_response: "Respuesta del proveedor", xml: "XML", cdr: "CDR", pdf: "PDF" }[type]);
   const openBilling = async (sale: Sale) => {
     setError(null);
     setBillingSale(sale);
     setBillingDocument(null);
+    setBillingTrace(null);
     setVoidReason("Anulación solicitada desde EnterpriseCloud");
     try {
       const document = await apiFetch<ElectronicDocument | null>(`/sales/${sale.id}/electronic-document`, options);
       setBillingDocument(document);
       setBillingType(document?.document_type ?? "03");
+      if (document) void loadBillingTrace(sale.id);
     } catch (cause) {
       if (!(cause instanceof ApiError && cause.status === 404)) {
         setError(cause instanceof Error ? cause.message : "No se pudo consultar el comprobante.");
@@ -362,6 +388,7 @@ export function SalesPage({ goBack, mode = "sales" }: { goBack: () => void; mode
         ...options, body: JSON.stringify({ document_type: billingType }),
       });
       setBillingDocument(document);
+      await loadBillingTrace(billingSale.id);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "No se pudo emitir el comprobante.");
     } finally { setBillingBusy(false); }
@@ -372,6 +399,7 @@ export function SalesPage({ goBack, mode = "sales" }: { goBack: () => void; mode
     try {
       const document = await apiFetch<ElectronicDocument>(`/sales/${billingSale.id}/electronic-document/refresh`, { ...options, method: "POST" });
       setBillingDocument(document);
+      await loadBillingTrace(billingSale.id);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "No se pudo actualizar el estado.");
     } finally { setBillingBusy(false); }
@@ -385,6 +413,7 @@ export function SalesPage({ goBack, mode = "sales" }: { goBack: () => void; mode
         ...options, method: "POST", body: JSON.stringify({ reason: voidReason.trim() }),
       });
       setBillingDocument(document);
+      await loadBillingTrace(billingSale.id);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "No se pudo solicitar la anulación.");
     } finally { setBillingBusy(false); }
@@ -655,7 +684,7 @@ export function SalesPage({ goBack, mode = "sales" }: { goBack: () => void; mode
           <section className="sale-modal billing-modal" role="dialog" aria-modal="true" aria-label="Facturación electrónica">
             <div className="modal-header"><div><p className="eyebrow">FACTURACIÓN ELECTRÓNICA · DESARROLLO</p><h2>Comprobante de venta</h2></div><button className="icon-button" onClick={() => setBillingSale(null)} aria-label="Cerrar"><X size={20} /></button></div>
             <div className="billing-summary"><span>{billingSale.number}</span><strong>{nameFor(billingSale.customer_id)}</strong><b>{currency.format(Number(billingSale.total))}</b></div>
-            {billingDocument ? <div className="billing-result"><span className={`status-pill ${billingDocument.status === "accepted" ? "active" : "inactive"}`}>{billingStatus(billingDocument.status)}</span><strong>{billingDocument.document_type === "01" ? "Factura" : "Boleta"} {billingDocument.series}-{billingDocument.correlative}</strong><small>Documento de prueba APISUNAT · {billingDocument.file_name}</small>{billingDocument.status === "reserved" && <p>El comprobante quedó reservado y será enviado en segundo plano.</p>}{billingDocument.status === "submitted" && <p>El proveedor recibió el envío; actualiza el estado para consultar su respuesta.</p>}{billingDocument.status === "unknown" && <p className="login-error">La respuesta del proveedor es incierta. No emitas otro comprobante: concilia primero este correlativo.</p>}{billingDocument.last_error && <p className="login-error">{billingDocument.last_error}</p>}<div className="billing-links">{billingDocument.xml_url && <a href={billingDocument.xml_url} target="_blank" rel="noreferrer">XML</a>}{billingDocument.cdr_url && <a href={billingDocument.cdr_url} target="_blank" rel="noreferrer">CDR</a>}<button className="secondary-button" onClick={() => void refreshDocument()} disabled={billingBusy || !billingDocument.provider_document_id}><RefreshCw size={15} className={billingBusy ? "spin" : ""} /> Actualizar estado</button></div>{billingDocument.provider_document_id && !['voided', 'void_pending', 'unknown'].includes(billingDocument.status) && <div className="billing-void"><label>Motivo de anulación<input value={voidReason} maxLength={250} onChange={(event) => setVoidReason(event.target.value)} /></label><button className="secondary-button danger-button" onClick={() => void voidDocument()} disabled={billingBusy || !voidReason.trim()}>Solicitar anulación</button></div>}</div> : <div className="billing-choice"><p>Elige el tipo de comprobante. Se emitirá únicamente en el ambiente de pruebas.</p><label>Tipo de comprobante<select value={billingType} onChange={(event) => setBillingType(event.target.value as "01" | "03")}><option value="03">Boleta de venta</option><option value="01">Factura</option></select></label><small>Factura requiere RUC de 11 dígitos; Boleta requiere DNI o RUC registrado en el cliente.</small><button className="primary-button" onClick={() => void issueDocument()} disabled={billingBusy}>{billingBusy ? "Reservando…" : "Emitir comprobante de prueba"}</button></div>}
+            {billingDocument ? <div className="billing-result"><span className={`status-pill ${billingDocument.status === "accepted" ? "active" : "inactive"}`}>{billingStatus(billingDocument.status)}</span><strong>{billingDocument.document_type === "01" ? "Factura" : "Boleta"} {billingDocument.series}-{billingDocument.correlative}</strong><small>Documento de prueba APISUNAT · {billingDocument.file_name}</small>{billingDocument.status === "reserved" && <p>El comprobante quedó reservado y será enviado en segundo plano.</p>}{billingDocument.status === "submitted" && <p>El proveedor recibió el envío; actualiza el estado para consultar su respuesta.</p>}{billingDocument.status === "unknown" && <p className="login-error">La respuesta del proveedor es incierta. No emitas otro comprobante: concilia primero este correlativo.</p>}{billingDocument.last_error && <p className="login-error">{billingDocument.last_error}</p>}<div className="billing-links"><button className="secondary-button" onClick={() => void refreshDocument()} disabled={billingBusy || !billingDocument.provider_document_id}><RefreshCw size={15} className={billingBusy ? "spin" : ""} /> Actualizar estado</button></div>{billingTrace && <section className="billing-evidence" aria-label="Expediente fiscal"><strong>Expediente fiscal</strong><small>Archivos privados y trazabilidad con huella SHA-256.</small><div className="billing-evidence-list">{billingTrace.artifacts.map((artifact) => <div key={artifact.id} className="billing-evidence-item"><div><b>{artifactLabel(artifact.artifact_type)}</b><small>{artifact.capture_status === "stored" ? artifact.content_hash ? `SHA-256 ${artifact.content_hash.slice(0, 16)}…` : "Guardado" : artifact.error_message ?? "No disponible"}</small></div>{artifact.capture_status === "stored" ? <button type="button" className="table-action-button" onClick={() => void downloadBillingArtifact(artifact)} disabled={billingBusy}>Descargar</button> : <span className="status-pill inactive">{artifact.capture_status === "failed" ? "Falló captura" : "No disponible"}</span>}</div>)}</div><details className="billing-trace-details"><summary>Trazabilidad ({billingTrace.events.length} eventos)</summary>{billingTrace.events.map((event) => <p key={event.id}><b>{event.event_type}</b> · {event.document_status ?? "sin estado"}{event.payload_hash ? ` · ${event.payload_hash.slice(0, 12)}…` : ""}</p>)}</details></section>}{billingDocument.provider_document_id && !['voided', 'void_pending', 'unknown'].includes(billingDocument.status) && <div className="billing-void"><label>Motivo de anulación<input value={voidReason} maxLength={250} onChange={(event) => setVoidReason(event.target.value)} /></label><button className="secondary-button danger-button" onClick={() => void voidDocument()} disabled={billingBusy || !voidReason.trim()}>Solicitar anulación</button></div>}</div> : <div className="billing-choice"><p>Elige el tipo de comprobante. Se emitirá únicamente en el ambiente de pruebas.</p><label>Tipo de comprobante<select value={billingType} onChange={(event) => setBillingType(event.target.value as "01" | "03")}><option value="03">Boleta de venta</option><option value="01">Factura</option></select></label><small>Factura requiere RUC de 11 dígitos; Boleta requiere DNI o RUC registrado en el cliente.</small><button className="primary-button" onClick={() => void issueDocument()} disabled={billingBusy}>{billingBusy ? "Reservando…" : "Emitir comprobante de prueba"}</button></div>}
           </section>
         </div>
       )}
