@@ -55,7 +55,7 @@ Use inline-string cells, XML escaping, and the five required package entries. Re
 Run: `npm test -- src/lib/importTemplateWorkbook.test.ts`
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/lib/importTemplateWorkbook.ts src/lib/importTemplateWorkbook.test.ts package.json package-lock.json
@@ -94,7 +94,7 @@ Expected: PASS and a completed Vite build.
 
 Open a migration panel as owner/admin, download the Productos and Inventario XLSX templates, inspect the archive contents locally, and ensure the panel remains usable after each download.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add src/components/DataMigrationPanel.tsx src/lib/importTemplateWorkbook.test.ts
