@@ -17,7 +17,10 @@
 - Persist every tender as an existing `payments` receipt with allocation; never serialize tender data into `sales`.
 - Support only `cash`, `visa`, `mastercard`, `yape` and `plin` in this delivery.
 - Require idempotency for checkout and reject tenders that do not total the sale.
-- Do not automatically issue electronic invoices; retain the existing fiscal workflow.
+- POS must always create a non-fiscal internal ticket; it is not a guía de remisión.
+- POS administrative sales require DNI/RUC; POS consumer-final boletas follow the S/5 and S/700 thresholds in the approved spec.
+- Factura requires an 11-digit RUC; never enable it from DNI alone.
+- Reuse the asynchronous CPE workflow; anonymous boletas must omit buyer identification rather than use a fabricated document.
 - Use actual catalog data; do not add generated product imagery.
 
 ## Review Focus
@@ -27,6 +30,7 @@
 - Partial/split tender totals, including cent rounding, must not overpay a receivable — Task 2 validation tests.
 - Retail/wholesale profile changes must deny the inappropriate channel at API and UI layers — Task 2 and 4 tests.
 - Drag interactions and mobile layout must not be required to add an item or obscure the checkout action — Task 4 browser checks.
+- An anonymous POS transaction must never fabricate a DNI, and a boleta over S/700 or a factura without RUC must be refused — Task 2 and 5 tests.
 
 ---
 
@@ -77,12 +81,13 @@ git commit -m "feat: configure POS payment methods per tenant"
 **Files:**
 - Modify: `ERP ENTERPRISECLOUD BACKEND/app/schemas/transactions.py`
 - Modify: `ERP ENTERPRISECLOUD BACKEND/app/api/routes/sales.py`
+- Modify: `ERP ENTERPRISECLOUD BACKEND/app/services/apisunat.py`
 - Create: `ERP ENTERPRISECLOUD BACKEND/tests/test_pos_checkout.py`
 
 **Interfaces:**
 - Consumes `PosPaymentMethodConfig` from Task 1.
-- Produces `POST /sales/pos-checkout` accepting `warehouse_id`, customer input, lines and `tenders[{method, amount, reference?}]`.
-- Returns `SaleOut` plus posted receipt identifiers.
+- Produces `POST /sales/pos-checkout` accepting `warehouse_id`, POS customer/comprobante selection, lines and `tenders[{method, amount, reference?}]`.
+- Returns the sale, internal ticket metadata, posted receipt identifiers and CPE reservation metadata where requested/applicable.
 
 - [ ] **Step 1: Write failing checkout tests**
 
@@ -94,6 +99,11 @@ def test_pos_checkout_creates_sale_and_split_receipts_atomically():
 
 def test_pos_checkout_rejects_unbalanced_or_unconfigured_tenders():
     assert response.status_code == 422
+
+def test_pos_checkout_enforces_anonymous_boleta_and_factura_rules():
+    assert anonymous_over_700.status_code == 422
+    assert factura_with_dni.status_code == 422
+    assert anonymous_boleta_under_700.status_code == 201
 ```
 
 - [ ] **Step 2: Run checkout tests to verify they fail**
@@ -103,7 +113,7 @@ Expected: FAIL because the checkout endpoint does not exist.
 
 - [ ] **Step 3: Implement an idempotent, profile-gated checkout transaction**
 
-Create the sale/receivable using the current sales invariants, create one `Payment` and `PaymentAllocation` per tender, call the current accounting/cash hooks, and commit only after all validations succeed.
+Create/resolve a tenant-scoped `Consumidor final` only for POS, create the sale/receivable using the current sales invariants, create one `Payment` and `PaymentAllocation` per tender, persist ticket metadata, and commit only after all validations succeed. Reserve a CPE through the existing asynchronous flow only when the selected fiscal document is valid.
 
 - [ ] **Step 4: Run checkout tests to verify they pass**
 
@@ -175,7 +185,7 @@ Expected: the old POS has no tender state or checkout validation.
 
 - [ ] **Step 3: Implement tender selection, split-payment editing and responsive styles**
 
-Show cash change only when applicable; retain card/wallet references; use drag-and-drop as an enhancement while click remains the reliable primary control.
+Show cash change only when applicable; retain card/wallet references; offer *Consumidor final*, customer search and DNI/RUC lookup; select ticket, boleta or factura based on valid fiscal rules. Use drag-and-drop as an enhancement while click remains the reliable primary control.
 
 - [ ] **Step 4: Validate the deployed frontend with real development data**
 
@@ -188,9 +198,52 @@ git add src/components/pos/PosCheckout.tsx src/styles.css docs/qa/QA_RESULTS.md
 git commit -m "feat: complete POS payment experience"
 ```
 
+### Task 5: POS fiscal/ticket regression and administrative sales identity rule
+
+**Files:**
+- Modify: `ERP ENTERPRISECLOUD BACKEND/app/api/routes/sales.py`
+- Modify: `ERP ENTERPRISECLOUD BACKEND/app/services/apisunat.py`
+- Modify: `ERP ENTERPRISECLOUD FRONTEND/src/components/SalesPage.tsx`
+- Test: `ERP ENTERPRISECLOUD BACKEND/tests/test_pos_fiscal_rules.py`
+
+**Interfaces:**
+- Consumes checkout/ticket data from Task 2.
+- Produces anonymous-boleta UBL payloads and validation of administrative sales identity.
+
+- [ ] **Step 1: Write failing fiscal rule tests**
+
+```python
+def test_anonymous_boleta_payload_omits_customer_identification():
+    assert "cac:AccountingCustomerParty" not in body
+
+def test_administrative_sale_requires_identified_customer():
+    assert response.status_code == 422
+```
+
+- [ ] **Step 2: Run tests to verify failure**
+
+Run: `pytest tests/test_pos_fiscal_rules.py -q`
+Expected: FAIL because the current builder requires a tax ID for every CPE and the administrative endpoint allows an unidentified customer record.
+
+- [ ] **Step 3: Implement anonymous boleta UBL and channel-specific validation**
+
+Do not alter invoice validation. Preserve the existing CPE evidence/outbox flow and make the anonymous branch available only to POS boletas within the stated threshold.
+
+- [ ] **Step 4: Run fiscal tests and the full backend suite**
+
+Run: `pytest tests/test_pos_fiscal_rules.py -q && pytest -q`
+Expected: PASS.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add app/api/routes/sales.py app/services/apisunat.py src/components/SalesPage.tsx tests/test_pos_fiscal_rules.py
+git commit -m "feat: enforce POS fiscal customer rules"
+```
+
 ## Self-review
 
-- Spec coverage: Tasks 1–2 implement persistence, payments, isolation and API gating; Tasks 3–4 implement catalog/cart, payment interaction, business-profile visibility and responsive validation. Fiscal issuance and hardware integrations are deliberately excluded by spec.
+- Spec coverage: Tasks 1–2 implement persistence, payments, isolation, ticketing and API gating; Tasks 3–4 implement catalog/cart, payment interaction, business-profile visibility and responsive validation; Task 5 implements the POS/customer fiscal split. Hardware integrations remain excluded by spec.
 - Shared interfaces: Task 1 produces payment configuration consumed by Task 2; Task 2 produces the checkout contract consumed by Task 3; Task 3 provides the POS surface exercised by Task 4.
 - Review-focus coverage: each stated risk is assigned to Tasks 1, 2 or 4.
 - Ruling: checkout will create separate receipt records rather than a new tender JSON table, because the existing financial model already supplies reconciliation, allocation and accounting semantics. Cost if wrong: payment-detail reporting could need a purpose-built read model later, but financial correctness remains intact.

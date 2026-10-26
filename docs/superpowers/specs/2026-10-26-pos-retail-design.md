@@ -46,6 +46,36 @@ permitirán varios medios en una venta; la suma deberá ser igual al total antes
 de confirmar. Efectivo mostrará vuelto; tarjeta/billetera permitirán una
 referencia opcional u obligatoria según la política futura del tenant.
 
+## Cliente, ticket y comprobante POS
+
+El cliente seguirá siendo una parte explícita del POS, pero con una diferencia
+operativa frente al módulo **Ventas**:
+
+- **Ventas administrativas:** siempre exigirán un cliente identificado con DNI
+  o RUC antes de registrar la venta, como corresponde al canal mayorista.
+- **POS:** mostrará primero las alternativas *Consumidor final*, *Buscar
+  cliente* y *DNI/RUC*. Para consumidor final se usará un cliente interno
+  por tenant con `tax_id` nulo; no se inventará ni reutilizará un DNI.
+
+Toda venta POS generará un **ticket interno de venta** con detalle de líneas,
+precios, total, medios de pago y folio. El ticket no se llamará “guía”, porque
+la guía de remisión tiene un uso tributario/logístico distinto.
+
+La emisión fiscal será una elección visible durante el cobro:
+
+| Situación | Comportamiento POS |
+|---|---|
+| Total hasta S/ 5 y cliente no solicita comprobante | Registrar venta y ticket interno. Marcarla para consolidación diaria; no simular un CPE. |
+| Boleta hasta S/ 700 | Permitir boleta con consumidor final sin DNI, o identificar al cliente si lo solicita. |
+| Boleta mayor a S/ 700 | Bloquear el cierre sin DNI y nombres completos (o RUC/razón social cuando corresponda). |
+| Factura | Requerir RUC de 11 dígitos y razón social; un DNI nunca habilita factura. |
+
+Estas reglas se implementarán en backend y frontend. El constructor UBL y el
+adaptador APISUNAT deberán admitir una boleta anónima válida omitiendo la
+identificación del adquirente; nunca se enviará un DNI ficticio. El CPE se
+creará como reserva/asíncrono siguiendo el flujo fiscal existente. El ticket
+siempre estará disponible aunque el CPE esté pendiente, rechazado o no aplique.
+
 ## Persistencia y consistencia contable
 
 El pago no será un dato decorativo del frontend. El backend incorporará un
@@ -73,7 +103,7 @@ configuración después sin alterar las ventas ya registradas.
 - Ruta `#pos` dedicada y usable en escritorio/móvil.
 - Catálogo clic/arrastre, búsqueda, carrito, cantidades y eliminación.
 - Selección/búsqueda de cliente y opción de cliente de mostrador solo si la
-  política comercial existente lo permite.
+  política tributaria POS permite según el importe y tipo de comprobante.
 - Cobro con efectivo, Visa, Mastercard, Yape, Plin y pago combinado.
 - Persistencia atómica, permisos, auditoría, idempotencia y pruebas de
   aislamiento por tenant.
@@ -83,8 +113,6 @@ configuración después sin alterar las ventas ya registradas.
 
 - Integración directa con terminales de tarjeta, Yape o Plin.
 - Impresión física de ticket, apertura de cajón o periféricos.
-- Facturación electrónica automática: se mantiene la emisión de CPE existente
-  desde el historial, con su flujo fiscal independiente.
 - Imágenes de producto generadas o copiadas desde las referencias.
 
 ## Criterios de aceptación
