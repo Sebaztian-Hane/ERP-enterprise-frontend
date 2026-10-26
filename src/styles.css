@@ -3859,7 +3859,7 @@ html[data-theme="dark"] .customer-lookup-hint { color: #bce9f7; background: #173
 .commercial-picker-table table { width:100%; min-width:0; table-layout:fixed; }
 .commercial-picker-table th,.commercial-picker-table td { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .commercial-picker-table th:first-child,.commercial-picker-table td:first-child { width:auto; }
-.commercial-picker-table th:last-child,.commercial-picker-table td:last-child { width:106px; text-align:right; }
+.commercial-picker-table th:last-child,.commercial-picker-table td:last-child { width:122px; text-align:right; overflow:visible; text-overflow:clip; }
 .products-picker-table th:nth-child(1),.products-picker-table td:nth-child(1) { width:40%; }
 .products-picker-table th:nth-child(2),.products-picker-table td:nth-child(2) { width:22%; }
 .products-picker-table th:nth-child(3),.products-picker-table td:nth-child(3) { width:20%; text-align:right; }
