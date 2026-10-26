@@ -130,5 +130,21 @@ sin ejecutar operaciones fiscales ni contables reales.
 **Limitación conocida:** las cuatro advertencias de consola observadas en el
 servidor local corresponden al menú global de notificaciones intentando llamar
 al API remoto desde `127.0.0.1`; no las origina el POS ni son una regresión del
-flujo de caja. La integración real de `POST /sales/pos-checkout` requiere que
-el backend con esa ruta sea desplegado antes de la prueba extremo a extremo.
+flujo de caja.
+
+## Verificación desplegada — cobros POS
+
+**Estado:** validada en producción el 26 de octubre de 2026, sin registrar una
+venta ni emitir un comprobante.
+
+- Tesorería permitió asignar una cuenta activa en PEN y activar **Efectivo**;
+  al recargar, el control quedó como **Desactivar**, confirmando persistencia.
+- Tras recargar `#pos`, el medio **Efectivo** apareció en el panel de cobro.
+  Agregar un producto y aplicar dicho medio cuadró el total de S/ 45.00 y
+  habilitó el botón de cobro.
+- El preflight `PUT` del frontend fue comprobado contra el backend desplegado
+  con `GET, POST, PUT, PATCH, OPTIONS`; no se detectaron errores de consola en
+  esta validación.
+- No se pulsó **Cobrar**, pues esa acción crea una venta, movimientos de
+  inventario y registros financieros. La prueba extremo a extremo del checkout
+  queda pendiente de una ejecución controlada con datos de prueba.
