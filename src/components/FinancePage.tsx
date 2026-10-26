@@ -65,6 +65,20 @@ type Payment = {
   approval_request_id: string | null;
 };
 type PaymentKind = "receipt" | "payment";
+type PosPaymentMethod = "cash" | "visa" | "mastercard" | "yape" | "plin";
+type PosPaymentMethodConfig = {
+  id: string;
+  method: PosPaymentMethod;
+  cash_account_id: string;
+  is_active: boolean;
+};
+const POS_PAYMENT_METHODS: readonly { method: PosPaymentMethod; label: string; detail: string }[] = [
+  { method: "cash", label: "Efectivo", detail: "Caja de mostrador" },
+  { method: "visa", label: "Visa", detail: "Tarjeta" },
+  { method: "mastercard", label: "Mastercard", detail: "Tarjeta" },
+  { method: "yape", label: "Yape", detail: "Billetera digital" },
+  { method: "plin", label: "Plin", detail: "Billetera digital" },
+];
 const money = new Intl.NumberFormat("es-PE", {
   style: "currency",
   currency: "PEN",
@@ -82,6 +96,7 @@ export function FinancePage({ goBack }: { goBack: () => void }) {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [accounts, setAccounts] = useState<CashAccount[]>([]);
+  const [posMethods, setPosMethods] = useState<PosPaymentMethodConfig[]>([]);
   const [payments, setPayments] = useState<Payment[]>([]);
   const [pettyCashFunds, setPettyCashFunds] = useState<PettyCashFund[]>([]);
   const [approvedReplenishments, setApprovedReplenishments] = useState<PettyCashReplenishment[]>([]);
@@ -92,6 +107,7 @@ export function FinancePage({ goBack }: { goBack: () => void }) {
   const [expenseFund, setExpenseFund] = useState<PettyCashFund | null>(null);
   const [paymentOpen, setPaymentOpen] = useState<PaymentKind | null>(null);
   const [saving, setSaving] = useState(false);
+  const [savingPosMethod, setSavingPosMethod] = useState<PosPaymentMethod | null>(null);
   const [accountForm, setAccountForm] = useState({
     code: "",
     name: "",
@@ -124,7 +140,7 @@ export function FinancePage({ goBack }: { goBack: () => void }) {
     setLoading(true);
     setError(null);
     try {
-      const [ar, ap, customersData, suppliersData, accountsData, paymentsData] =
+      const [ar, ap, customersData, suppliersData, accountsData, paymentsData, posMethodData] =
         await Promise.all([
           apiFetch<Receivable[]>("/accounts/receivable", options),
           apiFetch<Payable[]>("/accounts/payable", options),
@@ -132,6 +148,7 @@ export function FinancePage({ goBack }: { goBack: () => void }) {
           apiFetch<Supplier[]>("/suppliers", options),
           apiFetch<CashAccount[]>("/treasury/accounts", options),
           apiFetch<Payment[]>("/payments", options),
+          apiFetch<PosPaymentMethodConfig[]>("/payments/pos-methods", options),
         ]);
       // Caja chica es una extensión de tesorería. Su indisponibilidad no debe
       // ocultar saldos, cuentas ni cobros de toda la pantalla financiera.
@@ -145,6 +162,7 @@ export function FinancePage({ goBack }: { goBack: () => void }) {
       setSuppliers(suppliersData);
       setAccounts(accountsData);
       setPayments(paymentsData);
+      setPosMethods(posMethodData);
       setPettyCashFunds(fundsResult.status === "fulfilled" ? fundsResult.value : []);
       setApprovedReplenishments(replenishmentsResult.status === "fulfilled" ? replenishmentsResult.value : []);
     } catch (cause) {
@@ -220,6 +238,29 @@ export function FinancePage({ goBack }: { goBack: () => void }) {
       );
     } finally {
       setSaving(false);
+    }
+  };
+  const savePosMethod = async (method: PosPaymentMethod, cashAccountId: string, isActive: boolean) => {
+    if (!cashAccountId) {
+      setError("Selecciona una caja o banco activo antes de habilitar el medio POS.");
+      return;
+    }
+    setSavingPosMethod(method);
+    setError(null);
+    try {
+      const configured = await apiFetch<PosPaymentMethodConfig>("/payments/pos-methods", {
+        ...options,
+        method: "PUT",
+        body: JSON.stringify({ method, cash_account_id: cashAccountId, is_active: isActive }),
+      });
+      setPosMethods((current) => [
+        ...current.filter((item) => item.method !== method),
+        configured,
+      ]);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "No se pudo configurar el medio de cobro POS.");
+    } finally {
+      setSavingPosMethod(null);
     }
   };
   const savePettyCashFund = async (event: FormEvent) => {
@@ -452,6 +493,43 @@ export function FinancePage({ goBack }: { goBack: () => void }) {
                 </span>
               </div>
             ))}
+          </div>
+        )}
+      </article>
+      <article className="panel treasury-panel pos-methods-panel">
+        <div className="panel-header">
+          <div>
+            <p className="card-label">PUNTO DE VENTA</p>
+            <h2>Medios de cobro de mostrador</h2>
+            <p>Asigna una caja o banco activo para cada medio que el cajero podrá usar.</p>
+          </div>
+        </div>
+        {accounts.filter((account) => account.is_active).length === 0 ? (
+          <div className="module-state compact">
+            <WalletCards size={26} />
+            <strong>Primero crea una caja o banco activo</strong>
+            <span>El POS solo puede registrar cobros en cuentas de tesorería de esta empresa.</span>
+          </div>
+        ) : (
+          <div className="pos-method-config-list">
+            {POS_PAYMENT_METHODS.map((definition) => {
+              const config = posMethods.find((item) => item.method === definition.method);
+              const cashAccountId = config?.cash_account_id ?? accounts.find((account) => account.is_active)?.id ?? "";
+              const isActive = config?.is_active ?? false;
+              const savingThisMethod = savingPosMethod === definition.method;
+              return <div key={definition.method} className="pos-method-config-row">
+                <div><strong>{definition.label}</strong><small>{definition.detail}</small></div>
+                <label>
+                  <span>Cuenta de tesorería</span>
+                  <select aria-label={`Cuenta para ${definition.label}`} value={cashAccountId} disabled={savingThisMethod} onChange={(event) => void savePosMethod(definition.method, event.target.value, isActive)}>
+                    {accounts.filter((account) => account.is_active).map((account) => <option key={account.id} value={account.id}>{account.name} · {account.currency}</option>)}
+                  </select>
+                </label>
+                <button type="button" className={isActive ? "secondary-button" : "primary-button"} disabled={savingThisMethod} onClick={() => void savePosMethod(definition.method, cashAccountId, !isActive)}>
+                  {savingThisMethod ? "Guardando…" : isActive ? "Desactivar" : "Activar"}
+                </button>
+              </div>;
+            })}
           </div>
         )}
       </article>
