@@ -16,6 +16,7 @@ import { useAuth } from "../auth/AuthProvider";
 import { ApiError, apiFetch, postIdempotent } from "../lib/api";
 import { fetchPage, PageMeta, TablePagination } from "../lib/pagination";
 import { DataMigrationPanel } from "./DataMigrationPanel";
+import { PosCheckout } from "./pos/PosCheckout";
 
 type Customer = { id: string; code: string; name: string };
 type CustomerLookup = { existing_customer_id: string | null; tax_id: string; name: string; address: string; document_type: "DNI" | "RUC" };
@@ -82,7 +83,12 @@ function EntityPicker({ pickerId, label, placeholder, value, options, onChange, 
 }
 
 export function SalesPage({ goBack, mode = "sales" }: { goBack: () => void; mode?: "sales" | "pos" }) {
-  const isPos = mode === "pos";
+  if (mode === "pos") return <PosCheckout goBack={goBack} />;
+  return <SalesAdministration goBack={goBack} />;
+}
+
+function SalesAdministration({ goBack }: { goBack: () => void }) {
+  const isPos = false;
   const { session, tenantId } = useAuth();
   const [sales, setSales] = useState<Sale[]>([]);
   const [page, setPage] = useState(1);
@@ -132,7 +138,7 @@ export function SalesPage({ goBack, mode = "sales" }: { goBack: () => void; mode
     accessToken: session?.access_token,
     tenantId: tenantId ?? undefined,
   };
-  const draftKey = tenantId && session?.user.id ? `enterprisecloud.draft.sale.${mode}.${tenantId}.${session.user.id}` : null;
+  const draftKey = tenantId && session?.user.id ? `enterprisecloud.draft.sale.sales.${tenantId}.${session.user.id}` : null;
   const clearDraft = () => { if (draftKey) localStorage.removeItem(draftKey); };
   const restoreDraft = (): SalesDraft | null => {
     if (!draftKey) return null;

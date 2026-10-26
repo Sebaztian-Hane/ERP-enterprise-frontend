@@ -111,3 +111,24 @@ corrección de QA-004, se aprobó. Se confirmó también el pedido de prueba
 |---|---|---|
 | 01 | Ventas, Punto de venta | cerrado |
 | 02 | Cotizaciones, Pedidos de venta | cerrado y revalidado |
+
+## Verificación de implementación — Punto de venta minorista
+
+**Estado:** verificado localmente el 26 de octubre de 2026 con API simulada,
+sin ejecutar operaciones fiscales ni contables reales.
+
+- El catálogo cargó productos, filtró por búsqueda y agregó líneas tanto por
+  clic como por arrastrar al carrito. El arrastre conserva un valor de texto de
+  respaldo para navegadores que no trasladan MIME personalizados.
+- Se validaron cantidades, control de serie, cliente consumidor final,
+  selección de recibo interno/boleta/factura y medios de pago configurados.
+- Un cobro de prueba devolvió confirmación, número de venta y recibo; el
+  carrito se limpió correctamente después de completar la operación.
+- La presentación se revisó en escritorio y móvil, en tema claro y oscuro. Se
+  corrigió el contraste de las secciones internas del carrito en modo oscuro.
+
+**Limitación conocida:** las cuatro advertencias de consola observadas en el
+servidor local corresponden al menú global de notificaciones intentando llamar
+al API remoto desde `127.0.0.1`; no las origina el POS ni son una regresión del
+flujo de caja. La integración real de `POST /sales/pos-checkout` requiere que
+el backend con esa ruta sea desplegado antes de la prueba extremo a extremo.
