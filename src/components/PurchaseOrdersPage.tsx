@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "../auth/AuthProvider";
 import { apiFetch } from "../lib/api";
+import { fetchPage, PageMeta, TablePagination } from "../lib/pagination";
 
 type Order = {
   id: string;
@@ -35,6 +36,8 @@ export function PurchaseOrdersPage({ goBack }: { goBack: () => void }) {
     [suppliers, setSuppliers] = useState<Supplier[]>([]),
     [products, setProducts] = useState<Product[]>([]),
     [warehouses, setWarehouses] = useState<Warehouse[]>([]);
+  const [page, setPage] = useState(1);
+  const [meta, setMeta] = useState<PageMeta>({ page: 1, page_size: 25, total: 0, total_pages: 0, has_previous: false, has_next: false });
   const [loading, setLoading] = useState(true),
     [saving, setSaving] = useState<string | null>(null),
     [error, setError] = useState<string | null>(null),
@@ -47,18 +50,19 @@ export function PurchaseOrdersPage({ goBack }: { goBack: () => void }) {
     accessToken: session?.access_token,
     tenantId: tenantId ?? undefined,
   };
-  const load = async () => {
+  const load = async (targetPage = page) => {
     if (!session || !tenantId) return;
     setLoading(true);
     setError(null);
     try {
       const [o, s, p, w] = await Promise.all([
-        apiFetch<Order[]>("/purchase-orders", options),
+        fetchPage<Order, "orders">("/purchase-orders", "orders", targetPage, options),
         apiFetch<Supplier[]>("/suppliers", options),
         apiFetch<Product[]>("/products", options),
         apiFetch<Warehouse[]>("/inventory/warehouses", options),
       ]);
-      setOrders(o);
+      setOrders(o.orders);
+      setMeta(o.meta);
       setSuppliers(s);
       setProducts(p);
       const active = w.filter((item) => item.is_active);
@@ -75,8 +79,8 @@ export function PurchaseOrdersPage({ goBack }: { goBack: () => void }) {
     }
   };
   useEffect(() => {
-    void load();
-  }, [session?.access_token, tenantId]); // eslint-disable-line react-hooks/exhaustive-deps
+    void load(page);
+  }, [session?.access_token, tenantId, page]); // eslint-disable-line react-hooks/exhaustive-deps
   const total = useMemo(
     () => lines.reduce((sum, line) => sum + line.quantity * line.unit_value, 0),
     [lines],
@@ -131,7 +135,8 @@ export function PurchaseOrdersPage({ goBack }: { goBack: () => void }) {
         ),
       );
       setOpen(false);
-      await load();
+      setPage(1);
+      await load(1);
     } catch (cause) {
       setError(
         cause instanceof Error ? cause.message : "No se pudo guardar la orden.",
@@ -149,7 +154,7 @@ export function PurchaseOrdersPage({ goBack }: { goBack: () => void }) {
         method: "POST",
         body: JSON.stringify({ status: "submitted" }),
       });
-      await load();
+      await load(page);
     } catch (cause) {
       setError(
         cause instanceof Error ? cause.message : "No se pudo enviar la orden a aprobación.",
@@ -167,7 +172,7 @@ export function PurchaseOrdersPage({ goBack }: { goBack: () => void }) {
         `/purchase-orders/${order.id}/to-purchase?number=${encodeURIComponent(purchaseNumber)}`,
         { ...options, method: "POST" },
       );
-      await load();
+      await load(page);
     } catch (cause) {
       setError(
         cause instanceof Error
@@ -203,7 +208,7 @@ export function PurchaseOrdersPage({ goBack }: { goBack: () => void }) {
           </span>
           <div>
             <small>ÓRDENES CREADAS</small>
-            <strong>{orders.length}</strong>
+            <strong>{meta.total}</strong>
           </div>
         </article>
         <article>
@@ -254,6 +259,7 @@ export function PurchaseOrdersPage({ goBack }: { goBack: () => void }) {
             </button>
           </div>
         ) : (
+          <>
           <div className="table-wrap">
             <table className="sales-table">
               <thead>
@@ -319,6 +325,8 @@ export function PurchaseOrdersPage({ goBack }: { goBack: () => void }) {
               </tbody>
             </table>
           </div>
+          <TablePagination meta={meta} label="órdenes de compra" onPageChange={setPage} />
+          </>
         )}
       </article>
       {open && (

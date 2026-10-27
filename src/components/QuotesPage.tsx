@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "../auth/AuthProvider";
 import { apiFetch } from "../lib/api";
+import { fetchPage, PageMeta, TablePagination } from "../lib/pagination";
 
 type Quote = {
   id: string;
@@ -35,6 +36,8 @@ export function QuotesPage({ goBack }: { goBack: () => void }) {
     [customers, setCustomers] = useState<Customer[]>([]),
     [products, setProducts] = useState<Product[]>([]),
     [warehouses, setWarehouses] = useState<Warehouse[]>([]);
+  const [page, setPage] = useState(1);
+  const [meta, setMeta] = useState<PageMeta>({ page: 1, page_size: 25, total: 0, total_pages: 0, has_previous: false, has_next: false });
   const [loading, setLoading] = useState(true),
     [saving, setSaving] = useState<string | null>(null),
     [error, setError] = useState<string | null>(null),
@@ -48,18 +51,19 @@ export function QuotesPage({ goBack }: { goBack: () => void }) {
     accessToken: session?.access_token,
     tenantId: tenantId ?? undefined,
   };
-  const load = async () => {
+  const load = async (targetPage = page) => {
     if (!session || !tenantId) return;
     setLoading(true);
     setError(null);
     try {
       const [q, c, p, w] = await Promise.all([
-        apiFetch<Quote[]>("/quotes", options),
+        fetchPage<Quote, "quotes">("/quotes", "quotes", targetPage, options),
         apiFetch<Customer[]>("/customers", options),
         apiFetch<Product[]>("/products", options),
         apiFetch<Warehouse[]>("/inventory/warehouses", options),
       ]);
-      setQuotes(q);
+      setQuotes(q.quotes);
+      setMeta(q.meta);
       setCustomers(c);
       setProducts(p);
       setWarehouses(w.filter((item) => item.is_active));
@@ -77,8 +81,8 @@ export function QuotesPage({ goBack }: { goBack: () => void }) {
     }
   };
   useEffect(() => {
-    void load();
-  }, [session?.access_token, tenantId]); // eslint-disable-line react-hooks/exhaustive-deps
+    void load(page);
+  }, [session?.access_token, tenantId, page]); // eslint-disable-line react-hooks/exhaustive-deps
   const total = useMemo(
     () => lines.reduce((sum, line) => sum + line.quantity * line.unit_value, 0),
     [lines],
@@ -135,7 +139,8 @@ export function QuotesPage({ goBack }: { goBack: () => void }) {
         ),
       );
       setOpen(false);
-      await load();
+      setPage(1);
+      await load(1);
     } catch (cause) {
       setFormError(
         cause instanceof Error
@@ -155,7 +160,7 @@ export function QuotesPage({ goBack }: { goBack: () => void }) {
         method: "POST",
         body: JSON.stringify({ status: "approved" }),
       });
-      await load();
+      await load(page);
     } catch (cause) {
       setError(
         cause instanceof Error
@@ -179,7 +184,7 @@ export function QuotesPage({ goBack }: { goBack: () => void }) {
         `/quotes/${quote.id}/to-sales-order?number=${encodeURIComponent(orderNumber)}&warehouse_id=${encodeURIComponent(warehouseId)}`,
         { ...options, method: "POST" },
       );
-      await load();
+      await load(page);
     } catch (cause) {
       setError(
         cause instanceof Error
@@ -215,7 +220,7 @@ export function QuotesPage({ goBack }: { goBack: () => void }) {
           </span>
           <div>
             <small>COTIZACIONES</small>
-            <strong>{quotes.length}</strong>
+            <strong>{meta.total}</strong>
           </div>
         </article>
         <article>
@@ -273,6 +278,7 @@ export function QuotesPage({ goBack }: { goBack: () => void }) {
             </button>
           </div>
         ) : (
+          <>
           <div className="table-wrap">
             <table className="sales-table">
               <thead>
@@ -334,6 +340,8 @@ export function QuotesPage({ goBack }: { goBack: () => void }) {
               </tbody>
             </table>
           </div>
+          <TablePagination meta={meta} label="cotizaciones" onPageChange={setPage} />
+          </>
         )}
       </article>
       {open && (

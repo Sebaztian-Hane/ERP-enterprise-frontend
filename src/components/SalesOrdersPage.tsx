@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { ArrowRight, ChevronLeft, ClipboardCheck, LoaderCircle, PackageCheck, ShoppingCart } from "lucide-react";
 import { useAuth } from "../auth/AuthProvider";
 import { apiFetch, postIdempotent } from "../lib/api";
+import { fetchPage, PageMeta, TablePagination } from "../lib/pagination";
 
 type Order = { id: string; number: string; customer_id: string; warehouse_id: string; status: string; total: string };
 type Customer = { id: string; code: string; name: string };
@@ -13,28 +14,30 @@ const statusLabel: Record<string, string> = { draft: "Borrador", confirmed: "Con
 export function SalesOrdersPage({ goBack }: { goBack: () => void }) {
   const { session, tenantId, roleCode } = useAuth();
   const [orders, setOrders] = useState<Order[]>([]);
+  const [page, setPage] = useState(1);
+  const [meta, setMeta] = useState<PageMeta>({ page: 1, page_size: 25, total: 0, total_pages: 0, has_previous: false, has_next: false });
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const options = { accessToken: session?.access_token, tenantId: tenantId ?? undefined };
 
-  const load = async () => {
+  const load = async (targetPage = page) => {
     if (!session || !tenantId) return;
     setLoading(true); setError(null);
     try {
-      const [orderData, customerData] = await Promise.all([apiFetch<Order[]>("/sales-orders", options), apiFetch<Customer[]>("/customers", options)]);
-      setOrders(orderData); setCustomers(customerData);
+      const [orderData, customerData] = await Promise.all([fetchPage<Order, "orders">("/sales-orders", "orders", targetPage, options), apiFetch<Customer[]>("/customers", options)]);
+      setOrders(orderData.orders); setMeta(orderData.meta); setCustomers(customerData);
     } catch (cause) { setError(cause instanceof Error ? cause.message : "No se pudieron cargar los pedidos."); }
     finally { setLoading(false); }
   };
-  useEffect(() => { void load(); }, [session?.access_token, tenantId]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { void load(page); }, [session?.access_token, tenantId, page]); // eslint-disable-line react-hooks/exhaustive-deps
   const customerName = (id: string) => customers.find((customer) => customer.id === id)?.name ?? "Cliente";
   const canDispatch = roleCode === "owner" || roleCode === "admin" || roleCode === "inventory";
 
   const confirm = async (order: Order) => {
     setSaving(order.id); setError(null);
-    try { await postIdempotent(`/sales-orders/${order.id}/status`, { ...options, body: JSON.stringify({ status: "confirmed" }) }); await load(); }
+    try { await postIdempotent(`/sales-orders/${order.id}/status`, { ...options, body: JSON.stringify({ status: "confirmed" }) }); await load(page); }
     catch (cause) { setError(cause instanceof Error ? cause.message : "No se pudo confirmar el pedido."); }
     finally { setSaving(null); }
   };
@@ -52,13 +55,13 @@ export function SalesOrdersPage({ goBack }: { goBack: () => void }) {
       await postIdempotent(`/sales-deliveries/${delivery.id}/dispatch`, { ...options, body: JSON.stringify({ lines: [] }) });
       await postIdempotent(`/sales-deliveries/${delivery.id}/deliver`, { ...options, body: JSON.stringify({}) });
       await post(order);
-      await load();
+      await load(page);
     } catch (cause) { setError(cause instanceof Error ? cause.message : "No se pudo completar el despacho del pedido."); }
     finally { setSaving(null); }
   };
   const postDelivered = async (order: Order) => {
     setSaving(order.id); setError(null);
-    try { await post(order); await load(); }
+    try { await post(order); await load(page); }
     catch (cause) { setError(cause instanceof Error ? cause.message : "No se pudo registrar la venta."); }
     finally { setSaving(null); }
   };
@@ -69,6 +72,7 @@ export function SalesOrdersPage({ goBack }: { goBack: () => void }) {
     {error && <div className="module-error">{error}<button onClick={() => void load()}>Reintentar</button></div>}
     <article className="panel customers-panel"><div className="panel-header"><div><p className="card-label">CUMPLIMIENTO COMERCIAL</p><h2>Pedidos por procesar</h2></div></div>
       {loading ? <div className="module-state"><LoaderCircle className="spin" size={22} /> Cargando pedidos…</div> : orders.length === 0 ? <div className="module-state"><ClipboardCheck size={28} /><strong>No hay pedidos de venta</strong><span>Convierte una cotización aprobada para crear el primer pedido.</span><a href="#cotizaciones" className="text-button">Ir a cotizaciones</a></div> : <div className="table-wrap"><table className="sales-table"><thead><tr><th>FOLIO</th><th>CLIENTE</th><th>ESTADO</th><th>TOTAL</th><th>ACCIÓN</th></tr></thead><tbody>{orders.map((order) => <tr key={order.id}><td><strong>{order.number}</strong></td><td>{customerName(order.customer_id)}</td><td><span className={`status-pill ${["confirmed", "fulfilled"].includes(order.status) ? "active" : "inactive"}`}>{statusLabel[order.status] ?? order.status}</span></td><td><strong>{currency.format(Number(order.total))}</strong></td><td>{order.status === "draft" ? <button className="text-button" disabled={saving === order.id} onClick={() => void confirm(order)}>{saving === order.id ? "Confirmando…" : "Confirmar"}</button> : order.status === "confirmed" && canDispatch ? <button className="text-button workflow-action" disabled={saving === order.id} onClick={() => void dispatchAndPost(order)}><PackageCheck size={14} /> {saving === order.id ? "Procesando…" : "Despachar y registrar"}</button> : order.status === "confirmed" ? <span className="table-secondary">Pendiente de despacho</span> : order.status === "fulfilled" ? <button className="text-button workflow-action" disabled={saving === order.id} onClick={() => void postDelivered(order)}><ArrowRight size={14} /> {saving === order.id ? "Registrando…" : "Registrar venta"}</button> : "—"}</td></tr>)}</tbody></table></div>}
+      {!loading && orders.length > 0 && <TablePagination meta={meta} label="pedidos" onPageChange={setPage} />}
     </article>
   </section>;
 }

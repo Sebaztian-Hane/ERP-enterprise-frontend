@@ -15,6 +15,7 @@ import {
 import { useAuth } from "../auth/AuthProvider";
 import { ApiError, apiFetch, postIdempotent } from "../lib/api";
 import { fetchPage, PageMeta, TablePagination } from "../lib/pagination";
+import { canCreateAdministrativeSale, canImportAdministrativeSales } from "../lib/businessProfile";
 import { DataMigrationPanel } from "./DataMigrationPanel";
 import { PosCheckout } from "./pos/PosCheckout";
 
@@ -99,7 +100,9 @@ export function SalesPage({ goBack, mode = "sales" }: { goBack: () => void; mode
 
 function SalesAdministration({ goBack }: { goBack: () => void }) {
   const isPos = false;
-  const { session, tenantId } = useAuth();
+  const { session, tenantId, tenants } = useAuth();
+  const businessProfile = tenants.find((tenant) => tenant.id === tenantId)?.business_profile;
+  const canCreateSale = canCreateAdministrativeSale(businessProfile);
   const [sales, setSales] = useState<Sale[]>([]);
   const [page, setPage] = useState(1);
   const [meta, setMeta] = useState<PageMeta>({ page: 1, page_size: 25, total: 0, total_pages: 0, has_previous: false, has_next: false });
@@ -214,6 +217,10 @@ function SalesAdministration({ goBack }: { goBack: () => void }) {
     [lines],
   );
   const openNew = () => {
+    if (!canCreateSale) {
+      setError("Las empresas minoristas registran ventas exclusivamente desde Punto de venta.");
+      return;
+    }
     setError(null);
     const saved = restoreDraft();
     if (saved) {
@@ -479,9 +486,9 @@ function SalesAdministration({ goBack }: { goBack: () => void }) {
             {isPos ? "Registra cobros de mostrador con el mismo stock, clientes y comprobantes de la empresa." : "Registra operaciones y consulta las ventas procesadas de la empresa."}
           </p>
         </div>
-        <button className="primary-button" onClick={openNew}>
+        {canCreateSale && <button className="primary-button" onClick={openNew}>
           <Plus size={18} /> {isPos ? "Abrir venta rápida" : "Nueva venta"}
-        </button>
+        </button>}
       </div>
       <section className="customer-summary">
         <article>
@@ -507,7 +514,9 @@ function SalesAdministration({ goBack }: { goBack: () => void }) {
           </div>
         </article>
       </section>
-      <DataMigrationPanel module="sales" onImported={() => { setPage(1); return load(1); }} />
+      {canImportAdministrativeSales(businessProfile) && (
+        <DataMigrationPanel module="sales" onImported={() => { setPage(1); return load(1); }} />
+      )}
       <article className="panel customers-panel">
         <div className="panel-header">
           <div>
