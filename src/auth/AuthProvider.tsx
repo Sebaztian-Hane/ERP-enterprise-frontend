@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
 import { apiFetch } from "../lib/api";
+import { requiresMfaVerification } from "../lib/mfaLogin";
 import type { RoleCode } from "../lib/roleAccess";
 import { supabase } from "../lib/supabase";
 
@@ -14,6 +15,7 @@ type AuthContextValue = {
   roleError: string | null;
   isLoading: boolean;
   error: string | null;
+  mfaRequired: boolean;
   signIn: (email: string, password: string) => Promise<string | null>;
   signOut: () => Promise<void>;
   selectTenant: (tenantId: string) => void;
@@ -42,6 +44,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [roleError, setRoleError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [mfaRequired, setMfaRequired] = useState(false);
+
+  const checkMfaRequirement = useCallback(async () => {
+    const { data, error: assuranceError } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+    if (assuranceError) throw assuranceError;
+    return requiresMfaVerification(data);
+  }, []);
 
   const loadTenants = useCallback(async (accessToken: string, blockApplication = false) => {
     // The full-page loader is exclusively for the first session bootstrap.
@@ -116,28 +125,36 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     let active = true;
-    supabase.auth.getSession().then(({ data: { session: initialSession } }) => {
+    supabase.auth.getSession().then(async ({ data: { session: initialSession } }) => {
       if (!active) return;
+      const requiresMfa = initialSession ? await checkMfaRequirement().catch(() => false) : false;
+      if (!active) return;
+      setMfaRequired(requiresMfa);
       setSession(initialSession);
-      if (initialSession && !isProviderPortal) void loadTenants(initialSession.access_token, true);
+      if (initialSession && !requiresMfa && !isProviderPortal) void loadTenants(initialSession.access_token, true);
       else setIsLoading(false);
     });
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, nextSession) => {
-      setSession(nextSession);
-      if (!nextSession) {
-        roleCodeRef.current = null;
-        tenantIdRef.current = null;
-        setTenants([]); setTenantId(null); setError(null); setIsLoading(false);
-        return;
-      }
-      // This must never trigger the full-page loader. Apart from token refresh,
-      // Supabase may emit SIGNED_IN while restoring a persisted tab session.
-      // Tenant data can refresh in the background without unmounting a form.
-      if (event === "SIGNED_IN" && !isProviderPortal) {
-        // A new login must show the session loader until a company is known.
-        // A restored/focused tab already has a tenant and refreshes silently.
-        void loadTenants(nextSession.access_token, tenantIdRef.current === null);
-      }
+      void (async () => {
+        const requiresMfa = nextSession ? await checkMfaRequirement().catch(() => false) : false;
+        if (!active) return;
+        setMfaRequired(requiresMfa);
+        setSession(nextSession);
+        if (!nextSession) {
+          roleCodeRef.current = null;
+          tenantIdRef.current = null;
+          setTenants([]); setTenantId(null); setError(null); setIsLoading(false);
+          return;
+        }
+        // This must never trigger the full-page loader. Apart from token refresh,
+        // Supabase may emit SIGNED_IN while restoring a persisted tab session.
+        // Tenant data can refresh in the background without unmounting a form.
+        if (event === "SIGNED_IN" && !requiresMfa && !isProviderPortal) {
+          // A new login must show the session loader until a company is known.
+          // A restored/focused tab already has a tenant and refreshes silently.
+          void loadTenants(nextSession.access_token, tenantIdRef.current === null);
+        }
+      })();
     });
     return () => { active = false; subscription.unsubscribe(); };
   }, [isProviderPortal, loadTenants]);
@@ -148,11 +165,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
   const signOut = async () => { await supabase.auth.signOut(); };
   const refreshSession = async () => {
-    const { data: { session: refreshed } } = await supabase.auth.getSession();
+    const { data, error: refreshError } = await supabase.auth.refreshSession();
+    if (refreshError) throw refreshError;
+    const refreshed = data.session;
+    const requiresMfa = refreshed ? await checkMfaRequirement() : false;
+    setMfaRequired(requiresMfa);
     setSession(refreshed);
+    if (refreshed && !requiresMfa && !isProviderPortal) {
+      void loadTenants(refreshed.access_token, tenantIdRef.current === null);
+    }
   };
   const selectTenant = (nextId: string) => { roleCodeRef.current = null; tenantIdRef.current = nextId; setRoleCode(null); setTenantId(nextId); localStorage.setItem(storedTenantKey, nextId); };
-  const value = useMemo(() => ({ session, tenants, tenantId, roleCode, isRoleLoading, roleError, isLoading, error, signIn, signOut, selectTenant, refreshSession }), [session, tenants, tenantId, roleCode, isRoleLoading, roleError, isLoading, error]);
+  const value = useMemo(() => ({ session, tenants, tenantId, roleCode, isRoleLoading, roleError, isLoading, error, mfaRequired, signIn, signOut, selectTenant, refreshSession }), [session, tenants, tenantId, roleCode, isRoleLoading, roleError, isLoading, error, mfaRequired]);
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 

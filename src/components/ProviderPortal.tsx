@@ -41,7 +41,7 @@ const roleLabel = (role: string) => ({
 }[role] ?? "Usuario");
 
 export function ProviderPortal() {
-  const { session, signOut } = useAuth();
+  const { session, mfaRequired, signOut } = useAuth();
   const [tenants, setTenants] = useState<PlatformTenant[]>([]);
   const [loading, setLoading] = useState(Boolean(session));
   const [error, setError] = useState<string | null>(null);
@@ -119,7 +119,7 @@ export function ProviderPortal() {
   const createTenant = async (event: React.FormEvent) => { event.preventDefault(); if (!session) return; setUpdating("create"); try { const created = await apiFetch<PlatformTenant>("/platform/tenants", { accessToken: session.access_token, method: "POST", body: JSON.stringify(newTenant) }); setTenants((current) => [created, ...current]); setSelectedTenant(created.id); setNewTenantOpen(false); setNewTenant({ name: "", timezone: "America/Mexico_City", business_profile: "hybrid", owner_email: "", temporary_password: "", issuer_ruc: "", fiscal_address: "", apisunat_persona_id: "", apisunat_persona_token: "", apisunat_invoice_series: "F001", apisunat_receipt_series: "B001" }); } catch (cause) { setError(cause instanceof Error ? cause.message : "No se pudo crear la empresa."); } finally { setUpdating(null); } };
   const saveCpeCredentials = async (event: React.FormEvent) => { event.preventDefault(); if (!session || !selectedTenant) return; setUpdating("cpe"); setError(null); try { const saved = await apiFetch<APISunatCredentialStatus>(`/platform/tenants/${selectedTenant}/apisunat`, { accessToken: session.access_token, method: "PUT", body: JSON.stringify(credentialForm) }); setCpeCredentials((current) => current.map((item) => item.legal_entity_id === saved.legal_entity_id ? saved : item)); setCredentialForm((form) => ({ ...form, persona_token: "" })); } catch (cause) { setError(cause instanceof Error ? cause.message : "No se pudo guardar la credencial fiscal."); } finally { setUpdating(null); } };
 
-  if (!session) return <LoginPage providerAccess />;
+  if (!session || mfaRequired) return <LoginPage providerAccess />;
   const isUnauthorized = Boolean(error) && tenants.length === 0;
   return (
     <main className="provider-page">

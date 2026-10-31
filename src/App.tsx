@@ -526,6 +526,7 @@ export default function App() {
     roleError,
     isLoading,
     error,
+    mfaRequired,
     selectTenant,
     signOut,
   } = useAuth();
@@ -587,7 +588,7 @@ export default function App() {
         <p>Preparando EnterpriseCloud…</p>
       </main>
     );
-  if (!session) return <LoginPage />;
+  if (!session || mfaRequired) return <LoginPage />;
   if (!tenantId)
     return (
       <main className="session-loading">
