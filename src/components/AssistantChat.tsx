@@ -9,7 +9,7 @@ type ChatResponse = { answer?: string; output?: string; message?: string };
 type Conversation = { id: string; title: string; preview?: string | null; created_at: string; updated_at: string };
 type ConversationDetail = Conversation & { messages: Message[] };
 
-const suggestionsByRole: Record<RoleCode, readonly string[]> = {
+const suggestionsByRole: Partial<Record<RoleCode, readonly string[]>> = {
   owner: ["Resume las ventas recientes", "Explícame el inventario", "¿Qué reportes puedo consultar?"],
   admin: ["Resume las ventas recientes", "Explícame el inventario", "¿Qué reportes puedo consultar?"],
   sales: ["¿Qué puedo hacer en Ventas?", "¿Qué productos y precios están disponibles?", "Explícame cómo emitir un comprobante"],
@@ -179,7 +179,7 @@ export function AssistantChat({ isOpen, onClose, tenantName, roleCode }: { isOpe
           {messages.map((message) => <div className={`assistant-message ${message.role}`} key={message.id}>{message.role === "assistant" && <Bot size={16} aria-hidden="true" />}<p>{message.content}</p></div>)}
           {isSending && <div className="assistant-message assistant is-thinking"><LoaderCircle size={17} className="spin" /><p>Analizando tu consulta…</p></div>}
         </div>
-        {messages.length === 1 && !isSending && roleCode && <div className="assistant-suggestions" aria-label="Consultas sugeridas">{suggestionsByRole[roleCode].map((suggestion) => <button key={suggestion} type="button" onClick={() => void send(suggestion)}>{suggestion}</button>)}</div>}
+        {messages.length === 1 && !isSending && roleCode && <div className="assistant-suggestions" aria-label="Consultas sugeridas">{(suggestionsByRole[roleCode] ?? ["Explícame cómo usar mi módulo", "¿Dónde encuentro la guía de uso?"]).map((suggestion) => <button key={suggestion} type="button" onClick={() => void send(suggestion)}>{suggestion}</button>)}</div>}
         <form className="assistant-composer" onSubmit={submit}><label className="sr-only" htmlFor="assistant-message">Escribe tu consulta</label><input ref={inputRef} id="assistant-message" value={draft} onChange={(event) => setDraft(event.target.value)} placeholder="Escribe una consulta…" maxLength={2000} disabled={isSending} /><button type="submit" disabled={!draft.trim() || isSending} aria-label="Enviar consulta" title="Enviar consulta">{isSending ? <LoaderCircle size={18} className="spin" /> : <SendHorizontal size={18} />}</button></form>
         <p className="assistant-footnote"><CircleAlert size={13} /> No reemplaza las validaciones contables ni ejecuta cambios.</p>
       </>}

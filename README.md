@@ -51,6 +51,22 @@ las capacidades que anuncie la API conectada y admite el contrato anterior.
 
 ## Módulos y roles
 
+El panel incorpora 14 áreas adicionales: HCM, SD, MM, PP, PM, QM, WM, TM,
+PS, CO, AA, CRM, EHS y CS. Incluyen 24 tipos de documento con formularios
+tipados, búsqueda de referencias por empresa, versiones, estados e historial.
+FI y DMS conservan sus pantallas existentes. La guía `#guia` explica su uso.
+Para registrar documentos nuevos hay que activar la migración backend
+`0065_enterprise_modules.sql`; la pantalla indica expresamente si falta.
+Se suman 11 especialidades sin reemplazar los siete códigos de rol anteriores.
+
+Los cierres documentales no generan nómina, depreciación fiscal, consumos de
+producción ni movimientos WM/TM automáticos. El alcance se indica en cada
+transacción; stock, pagos y contabilidad conservan sus procesos actuales.
+
+`npm run build` y `npm test` revisan también UTF-8 y tildes dañadas. Los
+archivos se editan como UTF-8 según `.editorconfig`; al enviar datos desde
+Windows usar archivos UTF-8, evitando conversiones de la consola.
+
 Contabilidad financiera, Aprobaciones, Flujo de caja, Disponibilidad/reservas y
 Valoración de referencia son accesos propios a funciones del backend existente.
 La guía explica los recorridos de compra, venta, inventario y carga de datos.

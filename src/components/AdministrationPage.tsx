@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "../auth/AuthProvider";
 import { apiFetch } from "../lib/api";
+import { SPECIALIZED_ROLE_LABELS } from "../lib/enterprise";
 type Membership = {
   id: string;
   user_id: string;
@@ -32,6 +33,7 @@ const roles = [
   "viewer",
 ];
 const labels: Record<string, string> = {
+  ...SPECIALIZED_ROLE_LABELS,
   owner: "Propietario",
   admin: "Administrador",
   sales: "Ventas",
@@ -46,6 +48,7 @@ const date = new Intl.DateTimeFormat("es-MX", {
 });
 export function AdministrationPage({ goBack }: { goBack: () => void }) {
   const { session, tenantId } = useAuth();
+  const [availableRoles, setAvailableRoles] = useState(roles);
   const [memberships, setMemberships] = useState<Membership[]>([]),
     [logs, setLogs] = useState<AuditLog[]>([]),
     [loading, setLoading] = useState(true),
@@ -64,12 +67,14 @@ export function AdministrationPage({ goBack }: { goBack: () => void }) {
     setLoading(true);
     setError(null);
     try {
-      const [members, activity] = await Promise.all([
+      const [members, activity, configuredRoles] = await Promise.all([
         apiFetch<Membership[]>("/tenants/memberships", options),
         apiFetch<AuditLog[]>("/tenants/audit-logs", options),
+        apiFetch<{ code: string; label: string }[]>("/tenants/roles", options).catch(() => roles.map((code) => ({ code, label: labels[code] }))),
       ]);
       setMemberships(members);
       setLogs(activity);
+      setAvailableRoles(configuredRoles.map((item) => item.code));
     } catch (cause) {
       setError(
         cause instanceof Error
@@ -219,7 +224,7 @@ export function AdministrationPage({ goBack }: { goBack: () => void }) {
                             })
                           }
                         >
-                          {roles.map((role) => (
+                          {availableRoles.map((role) => (
                             <option value={role} key={role}>
                               {labels[role]}
                             </option>
@@ -286,7 +291,7 @@ export function AdministrationPage({ goBack }: { goBack: () => void }) {
                 value={newRole}
                 onChange={(event) => setNewRole(event.target.value)}
               >
-                {roles.map((role) => (
+                {availableRoles.map((role) => (
                   <option value={role} key={role}>
                     {labels[role]}
                   </option>

@@ -68,6 +68,8 @@ import { DataCenterPage } from "./components/DataCenterPage";
 import { CashFlowPage } from "./components/CashFlowPage";
 import { InventoryPlanningPage } from "./components/InventoryPlanningPage";
 import { HelpPage } from "./components/HelpPage";
+import { EnterprisePage } from "./components/EnterprisePage";
+import { ENTERPRISE_AREAS, ENTERPRISE_SUMMARIES } from "./lib/enterprise";
 import { useAuth } from "./auth/AuthProvider";
 import { canAccessModule, defaultModuleFor, isProfileModuleAvailable } from "./lib/roleAccess";
 
@@ -109,8 +111,8 @@ const moduleCategories: Array<{
   },
   {
     id: "abastecimiento",
-    label: "Abastecimiento e inventario",
-    description: "Compras, proveedores, stock y productos",
+    label: "Operaciones y cadena de suministro",
+    description: "Compras, inventario, producción, mantenimiento y transporte",
     icon: Box,
   },
   {
@@ -121,8 +123,8 @@ const moduleCategories: Array<{
   },
   {
     id: "administracion",
-    label: "Administración",
-    description: "Documentos, permisos y configuración",
+    label: "Personas, proyectos y administración",
+    description: "Personas, proyectos, documentos, permisos y configuración",
     icon: SlidersHorizontal,
   },
 ];
@@ -155,6 +157,7 @@ const navigation: NavItem[] = [
   { label: "Disponibilidad y reservas", icon: PackageSearch, href: "#disponibilidad", category: "abastecimiento" },
   { label: "Valoración de inventario", icon: BarChart3, href: "#valoracion", category: "abastecimiento" },
   { label: "Guía de uso", icon: CircleHelp, href: "#guia", category: "administracion" },
+  ...ENTERPRISE_AREAS.map((area) => ({ label: `${area.short} · ${area.label}`, icon: area.code === "hcm" ? UsersRound : area.category === "finanzas" ? BriefcaseBusiness : area.category === "comercial" ? ShoppingCart : Factory, href: area.href, category: area.category })),
 ];
 const appModules: AppModule[] = [
   { label: "Panel ejecutivo", icon: Gauge, href: "#dashboard", category: "administracion", description: "Indicadores de tu operación", tone: "sky" },
@@ -186,6 +189,7 @@ const appModules: AppModule[] = [
   { label: "Disponibilidad y reservas", icon: PackageSearch, href: "#disponibilidad", category: "abastecimiento", description: "Existencias, compromisos y reserva manual", tone: "teal" },
   { label: "Valoración de inventario", icon: BarChart3, href: "#valoracion", category: "abastecimiento", description: "Valor de referencia al costo promedio", tone: "amber" },
   { label: "Guía de uso", icon: CircleHelp, href: "#guia", category: "administracion", description: "Recorridos de trabajo y responsabilidades por rol", tone: "sky" },
+  ...ENTERPRISE_AREAS.map((area) => ({ label: `${area.short} · ${area.label}`, icon: area.code === "hcm" ? UsersRound : area.category === "finanzas" ? BriefcaseBusiness : area.category === "comercial" ? ShoppingCart : Factory, href: area.href, category: area.category, description: ENTERPRISE_SUMMARIES[area.code], tone: area.category === "finanzas" ? "navy" : area.category === "comercial" ? "blue" : area.code === "hcm" ? "purple" : "teal" })),
 ];
 type BusinessProfile = "retail" | "wholesale" | "hybrid";
 const supportedViews = new Set([
@@ -747,6 +751,8 @@ export default function App() {
                 </section>
               ) : view === "#perfil" ? (
                 <ProfilePage goBack={() => { window.location.hash = "#dashboard"; }} />
+              ) : ENTERPRISE_AREAS.some((area) => area.href === view) ? (
+                <EnterprisePage key={`${tenantId}:${view}`} view={view} goBack={() => setLauncherOpen(true)} />
               ) : view === "#guia" ? (
                 <HelpPage goBack={() => { window.location.hash = defaultModuleFor(roleCode, access, activeTenant?.business_profile) ?? "#dashboard"; }} />
               ) : view === "#contabilidad" ? (

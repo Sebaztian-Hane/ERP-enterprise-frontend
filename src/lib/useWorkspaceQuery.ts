@@ -11,10 +11,14 @@ export function useWorkspaceQuery<T>(queryKey: string, load: (options: ApiOption
   const [data, setData] = useState<T | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const scope = useRef("");
   const refresh = useCallback(() => setRevision((value) => value + 1), []);
   useEffect(() => {
     const controller = new AbortController();
-    setData(null); setError(null);
+    const nextScope = `${session?.user.id}\u0000${tenantId}\u0000${queryKey}`;
+    if (scope.current !== nextScope) setData(null);
+    scope.current = nextScope;
+    setError(null);
     if (!session?.access_token || !tenantId) { setLoading(false); return; }
     setLoading(true);
     loader.current({ accessToken: session.access_token, tenantId, signal: controller.signal })
@@ -22,6 +26,6 @@ export function useWorkspaceQuery<T>(queryKey: string, load: (options: ApiOption
       .catch((cause) => { if (!controller.signal.aborted) setError(cause instanceof Error ? cause.message : "No se pudo consultar la información."); })
       .finally(() => { if (!controller.signal.aborted) setLoading(false); });
     return () => controller.abort();
-  }, [queryKey, revision, session?.access_token, tenantId]);
+  }, [queryKey, revision, session?.access_token, session?.user.id, tenantId]);
   return { data, loading, error, refresh };
 }

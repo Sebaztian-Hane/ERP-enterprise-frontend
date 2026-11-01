@@ -3,6 +3,7 @@ import { Building2, CircleAlert, Power, RefreshCw, ShieldCheck, UsersRound } fro
 import { useAuth } from "../auth/AuthProvider";
 import { apiFetch } from "../lib/api";
 import { LoginPage } from "./LoginPage";
+import { SPECIALIZED_ROLE_LABELS } from "../lib/enterprise";
 
 type BusinessProfile = "retail" | "wholesale" | "hybrid";
 
@@ -31,6 +32,7 @@ const timezoneLabel = (timezone: string) => ({
   "America/Lima": "Lima, Perú",
 }[timezone] ?? "Zona horaria personalizada");
 const roleLabel = (role: string) => ({
+  ...SPECIALIZED_ROLE_LABELS,
   owner: "Propietario",
   admin: "Administrador",
   sales: "Ventas",

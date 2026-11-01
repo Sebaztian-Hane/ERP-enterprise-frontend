@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { canAccessModule, defaultModuleFor, isProfileModuleAvailable, type RoleCode, type WorkspaceAccess } from "./roleAccess";
+import { ENTERPRISE_AREAS, SPECIALIZED_ROLE_MODULE, type SpecializedRole } from "./enterprise";
 
 describe("new modules preserve the seven existing roles", () => {
   it.each(["sales", "purchases", "inventory", "viewer"])("does not expose treasury or approvals to %s", (role) => {
@@ -32,5 +33,26 @@ describe("new modules preserve the seven existing roles", () => {
     expect(isProfileModuleAvailable("retail", "#pedidos-de-venta")).toBe(false);
     expect(isProfileModuleAvailable("wholesale", "#pos")).toBe(false);
     expect(isProfileModuleAvailable("hybrid", "#pos")).toBe(true);
+  });
+});
+
+describe("business areas and specialized responsibilities", () => {
+  it.each(Object.entries(SPECIALIZED_ROLE_MODULE))("limits %s to its area without a server snapshot", (role, module) => {
+    for (const area of ENTERPRISE_AREAS) expect(canAccessModule(role, area.href)).toBe(area.code === module);
+    expect(canAccessModule(role, "#administracion")).toBe(false);
+    expect(defaultModuleFor(role)).toBe(ENTERPRISE_AREAS.find((area) => area.code === module)?.href);
+  });
+  it.each(["viewer", "inventory", "sales", "finance", "purchases"])("protects HCM and EHS from %s", (role) => {
+    expect(canAccessModule(role, "#hcm")).toBe(false);
+    expect(canAccessModule(role, "#ehs")).toBe(false);
+  });
+  it("enforces both the server grant and module activation for every specialized role", () => {
+    for (const [role, module] of Object.entries(SPECIALIZED_ROLE_MODULE)) {
+      const area = ENTERPRISE_AREAS.find((item) => item.code === module)!;
+      const access: WorkspaceAccess = { role_code: role as SpecializedRole, permissions: [`${module}:read`], modules: { [module]: true } };
+      expect(canAccessModule(role, area.href, access)).toBe(true);
+      expect(canAccessModule(role, area.href, { ...access, modules: {} })).toBe(false);
+      expect(canAccessModule(role, area.href, { ...access, permissions: [] })).toBe(false);
+    }
   });
 });

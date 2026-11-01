@@ -1,3 +1,5 @@
+import { ENTERPRISE_AREAS, SPECIALIZED_ROLE_MODULE, type SpecializedRole } from "./enterprise";
+
 export type RoleCode =
   | "owner"
   | "admin"
@@ -5,7 +7,7 @@ export type RoleCode =
   | "purchases"
   | "finance"
   | "inventory"
-  | "viewer";
+  | "viewer" | SpecializedRole;
 
 export type WorkspaceAccess = { role_code: RoleCode; permissions: string[]; modules: Record<string, boolean> };
 export type BusinessProfile = "retail" | "wholesale" | "hybrid";
@@ -31,6 +33,8 @@ export function isProfileModuleAvailable(profile: BusinessProfile | undefined, h
 const modulesByRole: Record<RoleCode, readonly string[]> = {
   owner: ["*"],
   admin: ["*"],
+  hr: ["#hcm"], maintenance: ["#pm"], transport: ["#tm"], production: ["#pp"], quality: ["#qm"], projects: ["#ps"],
+  controller: ["#co"], assets: ["#aa"], crm: ["#crm"], safety: ["#ehs"], service: ["#cs"],
   sales: [
     "#ventas",
     "#pos",
@@ -73,6 +77,14 @@ export function isKnownRole(value: string | null): value is RoleCode {
 export function canAccessModule(role: string | null, href: string, access?: WorkspaceAccess | null) {
   if (!isKnownRole(role)) return false;
   if (href === "#guia") return true;
+  const area = ENTERPRISE_AREAS.find((item) => item.href === href);
+  if (area) {
+    if (access) return access.role_code === role && access.modules[area.code] === true && (access.permissions.includes("*") || access.permissions.includes(`${area.code}:read`));
+    if (role === "owner" || role === "admin") return true;
+    if (role in SPECIALIZED_ROLE_MODULE) return SPECIALIZED_ROLE_MODULE[role as SpecializedRole] === area.code;
+    const fallback: Record<string, string[]> = { sales: ["sales", "crm", "service"], purchases: ["purchases"], inventory: ["inventory", "maintenance", "transport", "production", "quality"], finance: ["sales", "purchases", "assets", "controlling"], viewer: ENTERPRISE_AREAS.filter((item) => !["hcm", "safety"].includes(item.code)).map((item) => item.code) };
+    return fallback[role]?.includes(area.code) ?? false;
+  }
   const modules = modulesByRole[role];
   if (!(modules.includes("*") || modules.includes(href))) return false;
   if (!access) return true; // Compatibility with servers before /auth/access.

@@ -1,14 +1,23 @@
 import { expect, test, type Page } from "@playwright/test";
+import { ENTERPRISE_AREAS, SPECIALIZED_ROLE_MODULE, type BusinessRecord, type BusinessResource } from "../src/lib/enterprise";
+import type { RoleCode } from "../src/lib/roleAccess";
 
-type Role = "owner" | "admin" | "sales" | "purchases" | "finance" | "inventory" | "viewer";
-const tenant = { id: "00000000-0000-0000-0000-000000000002", name: "Empresa de pruebas", timezone: "America/Lima", business_profile: "hybrid" };
+type Role = RoleCode;
+const tenant = { id: "00000000-0000-0000-0000-000000000002", name: "DUNS - Evaluación ERP", timezone: "America/Lima", business_profile: "hybrid" };
 const user = { id: "00000000-0000-0000-0000-000000000001", email: "operator@example.test", aud: "authenticated", role: "authenticated", app_metadata: { provider: "email", providers: ["email"] }, user_metadata: { full_name: "Operador de pruebas" }, created_at: "2026-01-01T00:00:00Z", factors: [] };
 const product = { id: "00000000-0000-0000-0000-000000000003", sku: "MAT-001", name: "Material de pruebas", unit_code: "NIU", unit_id: "00000000-0000-0000-0000-000000000005", unit_name: "Unidad", unit: "NIU", category_id: null, sale_price: "100.00", average_cost: "80.00", tracking_mode: "none", cost_method: "weighted_average", is_active: true };
 const warehouse = { id: "00000000-0000-0000-0000-000000000004", code: "ALM-01", name: "Almacén de pruebas" };
 const columns = ["sku", "name", "category", "unit", "sale_price", "average_cost", "tracking_mode", "cost_method", "is_active", "description", "material_type", "barcode", "brand", "manufacturer", "manufacturer_part_number", "net_weight", "gross_weight", "weight_unit", "country_of_origin", "hs_code", "lead_time_days", "minimum_order_quantity", "reorder_point", "safety_stock", "storage_conditions"];
 
-async function bootstrap(page: Page, role: Role, disabled: string[] = []) {
+const equipment: BusinessResource = {
+  code: "equipment", module: "maintenance", label: "Equipos técnicos", origin: "Equipo y ubicación", outcome: "Equipo habilitado para mantenimiento", initial: "draft", editable: ["draft"], approvals: [], completion: {}, limitation: "Documento operativo con historial.", access: { read: true, write: true, approve: true },
+  transitions: { draft: ["active", "cancelled"], active: ["inactive"], inactive: ["active"] },
+  fields: [{ key: "location", label: "Ubicación", kind: "text", required: true, choices: [], reference: null, minimum: null, maximum: null }, { key: "criticality", label: "Criticidad", kind: "select", required: true, choices: ["low", "medium", "high"], reference: null, minimum: null, maximum: null }],
+};
+
+async function bootstrap(page: Page, role: Role, disabled: string[] = [], enterpriseReady = true) {
   const requests: { path: string; method: string; idempotency?: string; body: string | null }[] = [];
+  const documents: BusinessRecord[] = [];
   await page.addInitScript(({ tenant, user }) => {
     const encode = (value: unknown) => btoa(JSON.stringify(value)).replaceAll("+", "-").replaceAll("/", "_").replaceAll("=", "");
     const exp = Math.floor(Date.now() / 1000) + 3600;
@@ -16,8 +25,9 @@ async function bootstrap(page: Page, role: Role, disabled: string[] = []) {
     localStorage.setItem("sb-tufvaozdbbhdiiyrxtlh-auth-token", JSON.stringify({ access_token, refresh_token: "test-only-refresh", token_type: "bearer", expires_in: 3600, expires_at: exp, user }));
     localStorage.setItem("enterprisecloud.activeTenantId", tenant.id);
   }, { tenant, user });
-  const modules = Object.fromEntries(["sales", "pos", "customers", "quotes", "sales_orders", "purchases", "suppliers", "purchase_orders", "inventory", "products", "finance", "reconciliation", "documents", "reports", "operations", "administration"].map((code) => [code, !disabled.includes(code)]));
-  const permissions = role === "owner" || role === "admin" ? ["*"] : role === "inventory" ? ["inventory:read", "inventory:write", "products:read", "products:write"] : role === "viewer" ? ["inventory:read", "products:read", "accounting:read"] : role === "finance" ? ["treasury:read", "accounting:read", "approvals:read"] : ["products:read"];
+  const modules = Object.fromEntries(["sales", "pos", "customers", "quotes", "sales_orders", "purchases", "suppliers", "purchase_orders", "inventory", "products", "finance", "reconciliation", "documents", "reports", "operations", "administration", ...ENTERPRISE_AREAS.map((area) => area.code)].map((code) => [code, !disabled.includes(code)]));
+  const specialized = SPECIALIZED_ROLE_MODULE[role as keyof typeof SPECIALIZED_ROLE_MODULE];
+  const permissions = specialized ? ["read", "write", "approve"].map((action) => `${specialized}:${action}`) : role === "owner" || role === "admin" ? ["*"] : role === "inventory" ? ["inventory:read", "inventory:write", "products:read", "products:write"] : role === "viewer" ? ["inventory:read", "products:read", "accounting:read"] : role === "finance" ? ["treasury:read", "accounting:read", "approvals:read"] : ["products:read"];
   await page.route("**/*", async (route) => {
     const url = new URL(route.request().url());
     if (["localhost", "127.0.0.1"].includes(url.hostname)) return route.continue();
@@ -29,6 +39,23 @@ async function bootstrap(page: Page, role: Role, disabled: string[] = []) {
     if (path === "/auth/tenants") payload = [tenant];
     else if (path === "/auth/access") payload = { role_code: role, permissions, modules };
     else if (path === "/auth/me") payload = { role_code: role };
+    else if (path === "/enterprise/catalog") payload = { ready: enterpriseReady, migration: "0065_enterprise_modules.sql", areas: [], resources: [equipment] };
+    else if (path === "/enterprise/equipment/records") {
+      if (route.request().method() === "POST") {
+        const body = route.request().postDataJSON();
+        const row: BusinessRecord = { ...body, id: `equipment-${documents.length + 1}`, resource_code: "equipment", module_code: "maintenance", status: "draft", version: 1, derived: {}, created_by: user.id, updated_at: new Date().toISOString(), history: [{ version: 1, action: "create", from_state: null, to_state: "draft", note: "Alta del documento", created_at: new Date().toISOString(), content_hash: "a".repeat(64) }] };
+        documents.push(row); payload = row;
+      } else payload = { records: documents, meta: { page: 1, page_size: 25, total: documents.length, total_pages: 1, has_previous: false, has_next: false } };
+    }
+    else if (path.startsWith("/enterprise/records/")) {
+      const row = documents.find((item) => path.includes(item.id))!;
+      if (path.endsWith("/transition")) {
+        const body = route.request().postDataJSON();
+        const previous = row.status; row.status = body.to_state; row.version += 1;
+        row.history?.push({ version: row.version, action: "transition", from_state: previous, to_state: row.status, note: body.note, created_at: new Date().toISOString(), content_hash: "b".repeat(64) });
+      }
+      payload = row;
+    }
     else if (path === "/products") payload = url.searchParams.has("page") ? { products: [product], meta: { page: 1, page_size: 25, total: 1, total_pages: 1, has_previous: false, has_next: false } } : [product];
     else if (path === "/products/units") payload = [{ id: product.unit_id, code: "NIU", name: "Unidad", is_active: true }];
     else if (path.endsWith("/material-profile")) payload = { attributes: {}, fields: [{ key: "barcode", group: "Identificación", description: "Código de barras como texto." }] };
@@ -140,4 +167,77 @@ test("data center remains usable in dark mode on mobile", async ({ page }) => {
   expect(picker?.height).toBeLessThan(80);
   await page.screenshot({ path: "test-results/data-center-mobile-dark.png", fullPage: true });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+});
+
+test("owner sees all fourteen new business areas with intact accents", async ({ page }) => {
+  await bootstrap(page, "owner");
+  await page.goto("/#guia");
+  await page.getByRole("button", { name: "Aplicaciones", exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: "Aplicaciones de EnterpriseCloud" });
+  for (const area of ENTERPRISE_AREAS) await expect(dialog.getByRole("button", { name: new RegExp(`${area.short} · ${area.label}`) })).toBeVisible();
+  expect(await page.locator("body").innerText()).toContain("Evaluación ERP");
+  expect(await page.locator("body").innerText()).not.toMatch(/Evaluaci\?n|\ufffd|\u00c3\u00b3/);
+});
+
+for (const role of Object.keys(SPECIALIZED_ROLE_MODULE) as Role[]) {
+  test(`business panel limits ${role} to its assigned specialty`, async ({ page }) => {
+    await bootstrap(page, role);
+    await page.goto("/#guia");
+    await page.getByRole("button", { name: "Aplicaciones", exact: true }).click();
+    const dialog = page.getByRole("dialog", { name: "Aplicaciones de EnterpriseCloud" });
+    for (const area of ENTERPRISE_AREAS) {
+      await expect(dialog.getByRole("button", { name: new RegExp(`${area.short} · ${area.label}`) })).toHaveCount(area.code === SPECIALIZED_ROLE_MODULE[role as keyof typeof SPECIALIZED_ROLE_MODULE] ? 1 : 0);
+    }
+  });
+}
+
+test("PM creates a document, transitions it and displays the persisted accented history", async ({ page }) => {
+  const requests = await bootstrap(page, "maintenance");
+  await page.goto("/#pm");
+  await page.getByRole("button", { name: "Nuevo registro" }).click();
+  let dialog = page.getByRole("dialog", { name: "Equipos técnicos: Registro" });
+  await dialog.getByLabel("Código / número").fill("EQ-001");
+  await dialog.getByLabel("Nombre o descripción").fill("Evaluación de estación ñ");
+  await dialog.getByLabel("Ubicación").fill("Área de producción");
+  await dialog.getByLabel("Criticidad").selectOption("high");
+  await dialog.getByRole("button", { name: "Guardar documento" }).click();
+  await expect(page.getByRole("cell", { name: "Evaluación de estación ñ", exact: true })).toBeVisible();
+  const command = requests.find((item) => item.method === "POST" && item.path === "/enterprise/equipment/records");
+  expect(command?.idempotency).toBeTruthy();
+  expect(JSON.parse(command?.body ?? "{}").data.location).toBe("Área de producción");
+  await page.getByRole("button", { name: "Activo", exact: true }).click();
+  dialog = page.getByRole("dialog", { name: "Equipos técnicos: Activo" });
+  await dialog.getByLabel("Motivo / evidencia de la operación").fill("Revisión técnica y habilitación");
+  await dialog.getByRole("button", { name: "Confirmar operación" }).click();
+  await expect(page.getByRole("cell", { name: "Activo", exact: true })).toBeVisible();
+  const transition = requests.find((item) => item.path.endsWith("/transition"));
+  expect(JSON.parse(transition?.body ?? "{}").version).toBe(1);
+  expect(transition?.idempotency).toBeTruthy();
+  await page.getByRole("button", { name: "Ver / historial" }).click();
+  await expect(page.getByText("Revisión técnica y habilitación", { exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Historial verificable" })).toBeVisible();
+  await page.screenshot({ path: "test-results/pm-document-history.png", fullPage: true });
+});
+
+test("pending schema gives an actionable activation message and disables mutations", async ({ page }) => {
+  const requests = await bootstrap(page, "owner", [], false);
+  await page.goto("/#pm");
+  await expect(page.getByText("Activación de tablas pendiente", { exact: true })).toBeVisible();
+  await expect(page.getByText("0065_enterprise_modules.sql", { exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Nuevo registro" })).toHaveCount(0);
+  expect(requests.some((item) => item.path === "/enterprise/equipment/records")).toBe(false);
+});
+
+test("enterprise screens keep readable controls and fit a mobile viewport", async ({ page }) => {
+  await bootstrap(page, "maintenance");
+  await page.addInitScript(() => localStorage.setItem("enterprisecloud.theme", "dark"));
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/#pm");
+  await expect(page.getByRole("heading", { name: "Mantenimiento", exact: true })).toBeVisible();
+  const add = page.getByRole("button", { name: "Nuevo registro" });
+  expect(await add.evaluate((element) => Number.parseFloat(getComputedStyle(element).fontSize))).toBeGreaterThanOrEqual(12);
+  await add.click();
+  await expect(page.getByRole("dialog").getByLabel("Ubicación")).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  await page.screenshot({ path: "test-results/pm-mobile-dark.png", fullPage: true });
 });
