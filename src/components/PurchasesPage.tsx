@@ -10,7 +10,6 @@ import {
 import { useAuth } from "../auth/AuthProvider";
 import { apiFetch, postIdempotent } from "../lib/api";
 import { fetchPage, PageMeta, TablePagination } from "../lib/pagination";
-import { DataMigrationPanel } from "./DataMigrationPanel";
 import { EntityPicker } from "./EntityPicker";
 
 type Supplier = { id: string; name: string; is_active: boolean };
@@ -270,7 +269,7 @@ export function PurchasesPage({ goBack }: { goBack: () => void }) {
           </div>
         </article>
       </section>
-      <DataMigrationPanel module="purchases" onImported={() => { setPage(1); return load(1); }} />
+
       <article className="panel customers-panel">
         <div className="panel-header">
           <div>

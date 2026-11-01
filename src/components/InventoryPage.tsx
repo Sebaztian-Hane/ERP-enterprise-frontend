@@ -12,7 +12,6 @@ import {
 } from "lucide-react";
 import { useAuth } from "../auth/AuthProvider";
 import { apiFetch, postIdempotent } from "../lib/api";
-import { DataMigrationPanel } from "./DataMigrationPanel";
 import { EntityPicker } from "./EntityPicker";
 
 type Warehouse = {
@@ -305,7 +304,7 @@ export function InventoryPage({ goBack }: { goBack: () => void }) {
           </div>
         </article>
       </section>
-      <DataMigrationPanel module="inventory" onImported={load} />
+
       <article className="panel customers-panel">
         <div className="panel-header">
           <div>
@@ -439,6 +438,7 @@ export function InventoryPage({ goBack }: { goBack: () => void }) {
             className="customer-modal inventory-modal"
             role="dialog"
             aria-modal="true"
+            aria-label={mode === "adjustment" ? "Ajustar existencia" : mode === "transfer" ? "Transferir inventario" : mode === "lot" ? "Recepcionar lote" : "Registrar series"}
           >
             <div className="modal-header">
               <div>

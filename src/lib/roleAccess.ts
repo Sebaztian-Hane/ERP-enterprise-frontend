@@ -89,7 +89,7 @@ export function canAccessModule(role: string | null, href: string, access?: Work
   if (!(modules.includes("*") || modules.includes(href))) return false;
   if (!access) return true; // Compatibility with servers before /auth/access.
   if (access.role_code !== role) return false;
-  if (href === "#centro-de-datos") return ["products", "customers", "suppliers", "inventory", "purchases", "sales"].some((code) => access.modules[code] === true);
+  if (href === "#centro-de-datos") return ["products", "customers", "suppliers", "operations", ...ENTERPRISE_AREAS.map((item) => item.code)].some((code) => access.modules[code] === true);
   return moduleCodes[href] ? access.modules[moduleCodes[href]] === true : false;
 }
 

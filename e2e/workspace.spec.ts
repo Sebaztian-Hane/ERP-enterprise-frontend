@@ -1,6 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import { ENTERPRISE_AREAS, SPECIALIZED_ROLE_MODULE, type BusinessRecord, type BusinessResource } from "../src/lib/enterprise";
 import type { RoleCode } from "../src/lib/roleAccess";
+import type { MigrationProject } from "../src/lib/migrationProjects";
 
 type Role = RoleCode;
 const tenant = { id: "00000000-0000-0000-0000-000000000002", name: "DUNS - Evaluación ERP", timezone: "America/Lima", business_profile: "hybrid" };
@@ -18,6 +19,13 @@ const equipment: BusinessResource = {
 async function bootstrap(page: Page, role: Role, disabled: string[] = [], enterpriseReady = true) {
   const requests: { path: string; method: string; idempotency?: string; body: string | null }[] = [];
   const documents: BusinessRecord[] = [];
+  let migration: MigrationProject | null = null;
+  const migrationObjects = [
+    { code: "units", module: "products", label: "Unidades de medida", columns: ["code", "name"], dependencies: [] },
+    { code: "products", module: "products", label: "Materiales y productos", columns, dependencies: ["units"] },
+    { code: "employees", module: "hcm", label: "Empleados", columns: ["number", "title"], dependencies: [] },
+  ].filter((item) => !disabled.includes(item.module)).map((item) => ({ ...item, effect: "Crea registros maestros", schema_ready: true, blocked_dependencies: [] }));
+  const migrationGroups = [{ code: "base", label: "Maestros comunes", objects: ["products"] }, ...(!disabled.includes("hcm") ? [{ code: "hcm", label: "HCM · Personas y organización", objects: ["employees"] }] : [])];
   await page.addInitScript(({ tenant, user }) => {
     const encode = (value: unknown) => btoa(JSON.stringify(value)).replaceAll("+", "-").replaceAll("/", "_").replaceAll("=", "");
     const exp = Math.floor(Date.now() / 1000) + 3600;
@@ -39,6 +47,28 @@ async function bootstrap(page: Page, role: Role, disabled: string[] = [], enterp
     if (path === "/auth/tenants") payload = [tenant];
     else if (path === "/auth/access") payload = { role_code: role, permissions, modules };
     else if (path === "/auth/me") payload = { role_code: role };
+    else if (path === "/migration-projects/catalog") payload = { ready: true, migration: "0066_migration_projects.sql", objects: migrationObjects, groups: migrationGroups };
+    else if (path === "/migration-projects") {
+      if (route.request().method() === "POST") {
+        const body = route.request().postDataJSON();
+        migration = { id: body.request_id, name: body.name, groups: body.groups, status: "draft", version: 1, created_by: user.id, created_at: new Date().toISOString(), simulation: {}, receipt: {}, objects: migrationObjects.filter((item) => body.groups.includes(item.module === "hcm" ? "hcm" : "base")).map((item) => ({ code: item.code, filename: null, rows: 0, file_sha256: null, status: "empty" })) };
+        payload = migration;
+      } else payload = { ready: true, projects: migration ? [{ ...migration, object_count: migration.objects.length }] : [] };
+    }
+    else if (path.startsWith("/migration-projects/") && migration) {
+      if (path.endsWith("/file")) {
+        const code = path.split("/").at(-2);
+        const item = migration.objects.find((item) => item.code === code)!;
+        item.filename = `${code}.csv`; item.rows = 1; item.status = "uploaded"; item.file_sha256 = "a".repeat(64);
+        migration.version++; migration.simulation = {}; migration.status = "uploaded";
+      } else if (path.endsWith("/simulate")) {
+        for (const item of migration.objects.filter((item) => item.filename)) { item.status = "ready"; item.report = { rows: 1, created: 1, reused: 0, status: "ready", errors: [] }; }
+        migration.version++; migration.status = "ready"; migration.simulation = { can_commit: true, digest: "a".repeat(64), total_created: 1, total_rows: 1, objects: Object.fromEntries(migration.objects.filter((item) => item.report).map((item) => [item.code, item.report!])) };
+      } else if (path.endsWith("/commit")) {
+        migration.status = "migrated"; migration.version++; migration.receipt = { digest: "a".repeat(64), total_created: 1 }; migration.objects.forEach((item) => { if (item.filename) item.status = "migrated"; });
+      }
+      payload = migration;
+    }
     else if (path === "/enterprise/catalog") payload = { ready: enterpriseReady, migration: "0065_enterprise_modules.sql", areas: [], resources: [equipment] };
     else if (path === "/enterprise/equipment/records") {
       if (route.request().method() === "POST") {
@@ -94,20 +124,35 @@ test("company restrictions remove inventory modules even for an owner", async ({
   await expect(page.getByRole("dialog").getByRole("button", { name: /Disponibilidad y reservas/ })).toHaveCount(0);
 });
 
-test("data center validates then commits the same file with digest and replay protection", async ({ page }) => {
-  const requests = await bootstrap(page, "owner");
+async function createMigration(page: Page) {
   await page.goto("/#centro-de-datos");
+  await page.getByRole("button", { name: "Crear grupo", exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: "Crear grupo de migraci\u00f3n" });
+  await dialog.getByLabel("Nombre del grupo").fill("Evaluaci\u00f3n de materiales");
+  await dialog.getByLabel(/Maestros comunes/).check();
+  await expect(dialog.getByText(/2 plantillas asignadas/)).toBeVisible();
+  await dialog.getByRole("button", { name: "Crear grupo", exact: true }).click();
   await expect(page.getByText(/25 columnas/)).toBeVisible();
-  await page.getByLabel("Archivo para importar").setInputFiles({ name: "materials.csv", mimeType: "text/csv", buffer: Buffer.from("sku,name,category,unit,sale_price,average_cost\nMAT-001,Material,General,NIU,100,80") });
-  await page.getByRole("button", { name: "Validar sin guardar" }).click();
-  await expect(page.getByText("Archivo listo para confirmar")).toBeVisible();
-  await expect(page.getByRole("cell", { name: "000123", exact: true })).toBeVisible();
-  await page.getByRole("button", { name: "Confirmar carga de 1 filas" }).click();
-  await expect(page.getByText("1 registro(s) cargados correctamente")).toBeVisible();
+}
+
+test("migration group stages, simulates and requires the final checkbox", async ({ page }) => {
+  const requests = await bootstrap(page, "owner");
+  await createMigration(page);
+  await page.getByRole("button", { name: "Acciones \u00b7 Materiales y productos" }).click();
+  await page.getByRole("menuitem", { name: "Cargar archivo", exact: true }).click();
+  await page.getByLabel("Archivo de migraci\u00f3n").setInputFiles({ name: "products.csv", mimeType: "text/csv", buffer: Buffer.from("sku,name,unit,sale_price,average_cost\nMAT-001,Material,NIU,100,80") });
+  await expect(page.getByText("products.csv", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Simular grupo", exact: true }).click();
+  await page.getByRole("button", { name: "Revisar y confirmar grupo" }).click();
+  const dialog = page.getByRole("dialog", { name: "Confirmaci\u00f3n final de migraci\u00f3n" });
+  await expect(dialog.getByRole("button", { name: "Confirmar carga completa" })).toBeDisabled();
+  await dialog.getByRole("checkbox").check();
+  await dialog.getByRole("button", { name: "Confirmar carga completa" }).click();
+  await expect(page.getByText(/Migraci\u00f3n completada: 1/)).toBeVisible();
   const commit = requests.find((request) => request.path.endsWith("/commit"));
   expect(commit?.idempotency).toBeTruthy();
-  expect(commit?.body).toContain("preview_digest");
-  expect(commit?.body).toContain("a".repeat(64));
+  expect(JSON.parse(commit?.body ?? "{}")).toMatchObject({ confirmed: true, digest: "a".repeat(64) });
+  await page.screenshot({ path: "test-results/migration-group-desktop.png", fullPage: true });
 });
 
 test("inventory can reserve while viewers only consult", async ({ page }) => {
@@ -159,14 +204,44 @@ test("data center remains usable in dark mode on mobile", async ({ page }) => {
   await page.addInitScript(() => localStorage.setItem("enterprisecloud.theme", "dark"));
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/#centro-de-datos");
-  await expect(page.getByText(/25 columnas/)).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Centro de migraciones" })).toBeVisible();
   await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
-  const validate = page.getByRole("button", { name: "Validar sin guardar" });
-  expect(await validate.evaluate((element) => Number.parseFloat(getComputedStyle(element).fontSize))).toBeGreaterThanOrEqual(12);
-  const picker = await page.getByText("Seleccionar CSV o XLSX", { exact: true }).boundingBox();
-  expect(picker?.height).toBeLessThan(80);
+  await createMigration(page);
+  await page.getByRole("button", { name: "Acciones \u00b7 Materiales y productos" }).click();
+  await expect(page.getByRole("menuitem", { name: "Descargar plantilla Excel" })).toBeVisible();
   await page.screenshot({ path: "test-results/data-center-mobile-dark.png", fullPage: true });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+});
+
+test("value help opens over a transaction and preserves values on cancellation", async ({ page }) => {
+  await bootstrap(page, "owner");
+  await page.goto("/#inventario");
+  await page.getByRole("button", { name: "Ajustar stock" }).click();
+  const transaction = page.getByRole("dialog", { name: "Ajustar existencia" });
+  await transaction.getByRole("button", { name: "Entradas posibles: Producto", exact: true }).click();
+  const help = page.getByRole("dialog", { name: "Entradas posibles: Producto", exact: true });
+  await expect(help.getByRole("cell", { name: "MAT-001", exact: true })).toBeVisible();
+  await help.getByRole("radio").check();
+  await page.screenshot({ path: "test-results/value-help-dialog.png", fullPage: true });
+  await help.getByRole("button", { name: "Seleccionar", exact: true }).click();
+  await expect(transaction.getByRole("combobox", { name: "Producto", exact: true })).toHaveValue("Material de pruebas");
+  await transaction.getByRole("button", { name: "Entradas posibles: Producto", exact: true }).click();
+  await help.getByRole("searchbox").fill("no coincide");
+  await help.getByRole("button", { name: "Cancelar" }).click();
+  await expect(transaction.getByRole("combobox", { name: "Producto", exact: true })).toHaveValue("Material de pruebas");
+  await expect(transaction).toBeVisible();
+});
+
+test("migration creation uses only assigned modules and business pages have no import button", async ({ page }) => {
+  await bootstrap(page, "owner", ["hcm"]);
+  await page.goto("/#centro-de-datos");
+  await page.getByRole("button", { name: "Crear grupo", exact: true }).click();
+  await expect(page.getByRole("dialog").getByRole("checkbox", { name: /HCM/ })).toHaveCount(0);
+  await page.getByRole("button", { name: "Cerrar", exact: true }).click();
+  for (const route of ["productos", "clientes", "proveedores", "inventario", "almacenes", "compras", "ventas"]) {
+    await page.goto(`/#${route}`);
+    await expect(page.getByRole("button", { name: /^Migrar/ })).toHaveCount(0);
+  }
 });
 
 test("owner sees all fourteen new business areas with intact accents", async ({ page }) => {

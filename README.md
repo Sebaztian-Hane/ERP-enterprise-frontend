@@ -29,25 +29,24 @@ npm run build
 
 La pantalla inicial incluye una capa de Canvas exclusivamente decorativa en el indicador de rendimiento. No oculta datos, no recibe interacciones y se desactiva automáticamente cuando el sistema solicita movimiento reducido.
 
-## Centro de datos
+## Centro de migraciones
 
-Web pública: https://erp-enterprise-frontend.vercel.app/.
-La guía de uso está en **Aplicaciones → Guía de uso** (`#guia`).
+Web: https://erp-enterprise-frontend.vercel.app/#centro-de-datos
 
-Propietarios y administradores disponen de **Aplicaciones → Centro de datos**.
-El botón **Migrar** de cada módulo usa el mismo componente y las mismas rutas.
-La definición de columnas viene de `GET /imports/templates`, con compatibilidad
-con la API anterior; no existe una segunda lista de columnas en el navegador.
+Un panel exclusivo para propietarios y administradores, con grupos derivados
+ de los módulos habilitados, 33 objetos de carga, acciones desplegables,
+simulación de dependencias y confirmación final atómica. Los módulos de
+negocio ya no contienen botones Migrar. Las referencias de transacciones
+comparten ventanas de búsqueda por código/descripción y selección con F4.
 
-El backend actualizado ofrece 25 columnas para materiales, plantillas Excel con
-diccionario/catálogos/ejemplo separado, exportación CSV/XLSX, incidencias por
-fila y un comprobante de carga. Los atributos industriales se consultan y editan
-desde **Productos → Editar → Ficha industrial y planificación**.
+[Guía paso a paso y orden de plantillas](https://github.com/Sebaztian-Hane/ERP-enterprise-cloud/blob/main/docs/README-MIGRACIONES.md)
 
-Para habilitar los 25 campos en el servidor, aplica la migración
-`0064_material_master_profiles.sql` del repositorio backend. La API actualizada
-ofrece nueve campos base mientras falta esa tabla adicional. La interfaz utiliza
-las capacidades que anuncie la API conectada y admite el contrato anterior.
+[Paquete de 33 Excel de prueba](https://github.com/Sebaztian-Hane/ERP-enterprise-cloud/raw/refs/heads/main/examples/migrations/ejemplos-migracion-DUNSDEMO.zip)
+
+El catálogo de grupos y campos proviene de `/migration-projects/catalog`.
+Los grupos requieren `0066_migration_projects.sql`, los documentos empresariales
+`0065_enterprise_modules.sql` y los 25 campos de materiales
+`0064_material_master_profiles.sql`. La interfaz respeta las capacidades de la API.
 
 ## Módulos y roles
 

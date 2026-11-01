@@ -3,7 +3,6 @@ import { ChevronLeft, GitBranch, LoaderCircle, MapPin, Pencil, Plus, Power, Ware
 import { useAuth } from "../auth/AuthProvider";
 import { apiFetch } from "../lib/api";
 import { fetchPage, PageMeta, TablePagination } from "../lib/pagination";
-import { DataMigrationPanel } from "./DataMigrationPanel";
 
 type Warehouse = { id: string; code: string; name: string; address: string | null; branch_id: string | null; is_active: boolean };
 type Stock = { warehouse_id: string; quantity: string };
@@ -89,7 +88,7 @@ export function WarehousesPage({ goBack }: { goBack: () => void }) {
       <article><span className="summary-icon green"><MapPin size={19} /></span><div><small>UBICACIONES REGISTRADAS</small><strong>{meta.total}</strong></div></article>
       <article><span className="summary-icon"><WarehouseIcon size={19} /></span><div><small>UNIDADES ASIGNADAS</small><strong>{assignedUnits.toLocaleString("es-MX")}</strong></div></article>
     </section>
-    <DataMigrationPanel module="warehouses" onImported={load} />
+
     {error && !mode && <div className="module-error">{error}<button onClick={() => void load()}>Reintentar</button></div>}
     <article className="panel customers-panel warehouse-directory">
       <div className="panel-header"><div><p className="card-label">RED DE ALMACENES</p><h2>Ubicaciones operativas</h2></div><span className="table-count">{meta.total} registros</span></div>

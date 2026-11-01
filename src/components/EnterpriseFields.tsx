@@ -1,9 +1,11 @@
 import { useEffect, useState } from "react";
-import { LoaderCircle, Plus, Search, X } from "lucide-react";
+import { Copy, Plus, Search, X } from "lucide-react";
 import { apiFetch } from "../lib/api";
 import type { BusinessField } from "../lib/enterprise";
 import { optionLabels } from "../lib/enterprise";
 import { useWorkspaceQuery } from "../lib/useWorkspaceQuery";
+import { ValueHelpDialog } from "./ValueHelpDialog";
+import { stateLabels } from "../lib/enterprise";
 
 type Option = { id: string; code: string; label: string; status?: string };
 
@@ -22,7 +24,7 @@ export function EnterpriseReference({ resource, fieldKey, label, value, onChange
   });
   useEffect(() => { const choice = data?.find((item) => item.id === value); if (choice) setPicked(choice); }, [data, value]);
   const selected = data?.find((item) => item.id === value) ?? (picked?.id === value ? picked : null);
-  return <label className="enterprise-reference"><span>{label}{required ? " *" : ""}</span><div className="enterprise-reference-control"><Search size={16} /><input role="combobox" aria-label={label} aria-expanded={open} required={required} disabled={disabled} value={open ? query : selected ? `${selected.code} · ${selected.label}` : ""} placeholder={disabled ? "Consultando referencia…" : "Buscar por código o nombre"} onFocus={() => setOpen(true)} onBlur={() => window.setTimeout(() => setOpen(false), 150)} onChange={(event) => { setQuery(event.target.value); setOpen(true); if (value) onChange(""); }} onKeyDown={(event) => { if (event.key === "Escape") setOpen(false); if (event.key === "Enter" && open) event.preventDefault(); }} />{!disabled && value && <button type="button" className="icon-button" aria-label={`Limpiar ${label}`} onClick={() => { onChange(""); setQuery(""); setPicked(null); }}><X size={14} /></button>}{open && !disabled && <div className="enterprise-reference-menu" role="listbox">{loading && <small><LoaderCircle size={14} className="spin" /> Buscando…</small>}{(data ?? []).map((item) => <button role="option" aria-selected={item.id === value} type="button" key={item.id} onMouseDown={(event) => event.preventDefault()} onClick={() => { setPicked(item); onChange(item.id); setQuery(""); setOpen(false); }}><strong>{item.code}</strong><span>{item.label}</span></button>)}{!loading && !data?.length && <small>Sin coincidencias. Registra primero el documento de origen.</small>}</div>}</div>{error && <small role="alert">{error}</small>}</label>;
+  return <><label className="enterprise-reference"><span>{label}{required ? " *" : ""}</span><div className="enterprise-reference-control"><Search size={16} /><input aria-label={label} required={required} readOnly disabled={disabled} value={selected ? `${selected.code} · ${selected.label}` : ""} placeholder={disabled ? "Consultando referencia..." : "Seleccionar valor (F4)"} onClick={() => !disabled && setOpen(true)} onKeyDown={(event) => { if (event.key === "F4" || event.key === "Enter") { event.preventDefault(); setOpen(true); } }} />{!disabled && <button type="button" className="value-help-trigger" aria-label={`Entradas posibles: ${label}`} onClick={() => setOpen(true)}><Copy size={16} /></button>}{!disabled && value && <button type="button" className="icon-button" aria-label={`Limpiar ${label}`} onClick={() => { onChange(""); setQuery(""); setPicked(null); }}><X size={14} /></button>}</div>{error && <small role="alert">{error}</small>}</label>{open && !disabled && <ValueHelpDialog title={label} value={value} query={query} onQuery={setQuery} loading={loading} error={error} options={(data ?? []).map((item) => ({ id: item.id, primary: item.code, secondary: item.label, status: stateLabels[item.status ?? ""] }))} onClose={() => { setOpen(false); setQuery(""); }} onSelect={(id) => { setPicked(data?.find((item) => item.id === id) ?? null); onChange(id); setOpen(false); setQuery(""); }} />}</>;
 }
 
 export function EnterpriseFields({ resource, fields, values, onChange, disabled = false }: { resource: string; fields: BusinessField[]; values: Record<string, unknown>; onChange: (values: Record<string, unknown>) => void; disabled?: boolean }) {

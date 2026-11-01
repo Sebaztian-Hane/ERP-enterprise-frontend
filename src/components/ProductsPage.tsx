@@ -14,7 +14,6 @@ import {
 import { useAuth } from "../auth/AuthProvider";
 import { apiFetch } from "../lib/api";
 import { fetchPage, PageMeta, TablePagination } from "../lib/pagination";
-import { DataMigrationPanel } from "./DataMigrationPanel";
 import { EntityPicker } from "./EntityPicker";
 import { MaterialProfileEditor } from "./MaterialProfileEditor";
 
@@ -244,7 +243,6 @@ export function ProductsPage({ goBack }: { goBack: () => void }) {
           </p>
         </div>
         <div className="heading-actions">
-          {(roleCode === "owner" || roleCode === "admin") && <a className="secondary-button" href="#centro-de-datos">Centro de datos</a>}
           {canWrite && <><button
             className="secondary-button"
             onClick={() => {
@@ -287,7 +285,7 @@ export function ProductsPage({ goBack }: { goBack: () => void }) {
           </div>
         </article>
       </section>
-      <DataMigrationPanel module="products" onImported={() => { setPage(1); return load(1); }} />
+
       <article className="panel customers-panel">
         <div className="customers-toolbar">
           <label className="search customer-search">

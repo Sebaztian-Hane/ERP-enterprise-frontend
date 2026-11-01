@@ -15,8 +15,7 @@ import {
 import { useAuth } from "../auth/AuthProvider";
 import { ApiError, apiFetch, postIdempotent } from "../lib/api";
 import { fetchPage, PageMeta, TablePagination } from "../lib/pagination";
-import { canCreateAdministrativeSale, canImportAdministrativeSales } from "../lib/businessProfile";
-import { DataMigrationPanel } from "./DataMigrationPanel";
+import { canCreateAdministrativeSale } from "../lib/businessProfile";
 import { PosCheckout } from "./pos/PosCheckout";
 
 type Customer = { id: string; code: string; name: string };
@@ -514,9 +513,6 @@ function SalesAdministration({ goBack }: { goBack: () => void }) {
           </div>
         </article>
       </section>
-      {canImportAdministrativeSales(businessProfile) && (
-        <DataMigrationPanel module="sales" onImported={() => { setPage(1); return load(1); }} />
-      )}
       <article className="panel customers-panel">
         <div className="panel-header">
           <div>
