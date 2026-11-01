@@ -19,6 +19,7 @@ const equipment: BusinessResource = {
 async function bootstrap(page: Page, role: Role, disabled: string[] = [], enterpriseReady = true) {
   const requests: { path: string; method: string; idempotency?: string; body: string | null }[] = [];
   const documents: BusinessRecord[] = [];
+  let memberOverrides: Record<string, boolean> = {};
   let migration: MigrationProject | null = null;
   const migrationObjects = [
     { code: "units", module: "products", label: "Unidades de medida", columns: ["code", "name"], dependencies: [] },
@@ -35,7 +36,7 @@ async function bootstrap(page: Page, role: Role, disabled: string[] = [], enterp
   }, { tenant, user });
   const modules = Object.fromEntries(["sales", "pos", "customers", "quotes", "sales_orders", "purchases", "suppliers", "purchase_orders", "inventory", "products", "finance", "reconciliation", "documents", "reports", "operations", "administration", ...ENTERPRISE_AREAS.map((area) => area.code)].map((code) => [code, !disabled.includes(code)]));
   const specialized = SPECIALIZED_ROLE_MODULE[role as keyof typeof SPECIALIZED_ROLE_MODULE];
-  const permissions = specialized ? ["read", "write", "approve"].map((action) => `${specialized}:${action}`) : role === "owner" || role === "admin" ? ["*"] : role === "inventory" ? ["inventory:read", "inventory:write", "products:read", "products:write"] : role === "viewer" ? ["inventory:read", "products:read", "accounting:read"] : role === "finance" ? ["treasury:read", "accounting:read", "approvals:read"] : ["products:read"];
+  const permissions = specialized ? ["read", "write", "approve"].map((action) => `${specialized}:${action}`) : role === "owner" || role === "admin" ? ["*"] : role === "inventory" ? ["inventory:read", "inventory:write", "products:read", "products:write"] : role === "viewer" ? ["inventory:read", "products:read", "accounting:read"] : role === "finance" ? ["treasury:read", "accounting:read", "approvals:read"] : role === "sales" ? ["sales:read", "sales:write", "customers:read", "customers:write", "products:read"] : ["products:read"];
   await page.route("**/*", async (route) => {
     const url = new URL(route.request().url());
     if (["localhost", "127.0.0.1"].includes(url.hostname)) return route.continue();
@@ -47,6 +48,10 @@ async function bootstrap(page: Page, role: Role, disabled: string[] = [], enterp
     if (path === "/auth/tenants") payload = [tenant];
     else if (path === "/auth/access") payload = { role_code: role, permissions, modules };
     else if (path === "/auth/me") payload = { role_code: role };
+    else if (path === "/tenants/memberships") payload = [{ id: "member-sales", user_id: "user-sales", role_code: "sales", is_active: true }];
+    else if (path === "/tenants/roles") payload = ["owner", "admin", "sales"].map(code => ({ code, label: code }));
+    else if (path === "/tenants/module-access") payload = { groups: [{ code: "sd", label: "SD · Ventas y distribución", modules: ["sales", "customers", "quotes", "sales_orders"] }], modules: [{ code: "sales", label: "Ventas" }, { code: "customers", label: "Clientes" }, { code: "quotes", label: "Cotizaciones" }, { code: "sales_orders", label: "Pedidos de venta" }].map(item => ({ ...item, is_available: true, is_enabled: true })), members: [{ id: "member-sales", role_code: "sales", overrides: memberOverrides }] };
+    else if (path === "/tenants/memberships/member-sales/module-access") { memberOverrides = { ...memberOverrides, ...route.request().postDataJSON().modules }; payload = { id: "member-sales", modules: memberOverrides }; }
     else if (path === "/migration-projects/catalog") payload = { ready: true, migration: "0066_migration_projects.sql", objects: migrationObjects, groups: migrationGroups };
     else if (path === "/migration-projects") {
       if (route.request().method() === "POST") {
@@ -87,6 +92,7 @@ async function bootstrap(page: Page, role: Role, disabled: string[] = [], enterp
       payload = row;
     }
     else if (path === "/products") payload = url.searchParams.has("page") ? { products: [product], meta: { page: 1, page_size: 25, total: 1, total_pages: 1, has_previous: false, has_next: false } } : [product];
+    else if (path === "/customers") payload = url.searchParams.has("page") ? { customers: [], meta: { page: 1, page_size: 25, total: 0, total_pages: 1, has_previous: false, has_next: false } } : [];
     else if (path === "/products/units") payload = [{ id: product.unit_id, code: "NIU", name: "Unidad", is_active: true }];
     else if (path.endsWith("/material-profile")) payload = { attributes: {}, fields: [{ key: "barcode", group: "Identificación", description: "Código de barras como texto." }] };
     else if (path === "/inventory/warehouses") payload = [warehouse];
@@ -110,10 +116,11 @@ for (const role of ["owner", "admin", "sales", "purchases", "finance", "inventor
     await page.getByRole("button", { name: "Aplicaciones", exact: true }).click();
     const dialog = page.getByRole("dialog", { name: "Aplicaciones de EnterpriseCloud" });
     await expect(dialog.getByRole("button", { name: /Guía de uso/ })).toBeVisible();
-    const hasCash = ["owner", "admin", "finance"].includes(role);
-    await expect(dialog.getByRole("button", { name: /Flujo de caja/ })).toHaveCount(hasCash ? 1 : 0);
+    const hasCash = ["owner", "admin", "finance", "viewer"].includes(role);
+    await expect(dialog.getByRole("button", { name: /^FI ·/ })).toHaveCount(hasCash ? 1 : 0);
     const hasStock = ["owner", "admin", "inventory", "viewer"].includes(role);
-    await expect(dialog.getByRole("button", { name: /Disponibilidad y reservas/ })).toHaveCount(hasStock ? 1 : 0);
+    await expect(dialog.getByRole("button", { name: /^WM ·/ })).toHaveCount(hasStock ? 1 : 0);
+    await expect(dialog.getByRole("button", { name: /^ADM ·/ })).toHaveCount(role === "owner" ? 1 : 0);
   });
 }
 
@@ -121,7 +128,7 @@ test("company restrictions remove inventory modules even for an owner", async ({
   await bootstrap(page, "owner", ["inventory"]);
   await page.goto("/#guia");
   await page.getByRole("button", { name: "Aplicaciones", exact: true }).click();
-  await expect(page.getByRole("dialog").getByRole("button", { name: /Disponibilidad y reservas/ })).toHaveCount(0);
+  await expect(page.getByRole("dialog").getByRole("button", { name: /^WM ·/ })).toHaveCount(0);
 });
 
 async function createMigration(page: Page) {
@@ -251,7 +258,7 @@ test("owner sees all fourteen new business areas with intact accents", async ({ 
   await page.goto("/#guia");
   await page.getByRole("button", { name: "Aplicaciones", exact: true }).click();
   const dialog = page.getByRole("dialog", { name: "Aplicaciones de EnterpriseCloud" });
-  for (const area of ENTERPRISE_AREAS) await expect(dialog.getByRole("button", { name: new RegExp(`${area.short} · ${area.label}`) })).toBeVisible();
+  for (const area of ENTERPRISE_AREAS) await expect(dialog.getByRole("button", { name: new RegExp(`^${area.short} ·`) })).toBeVisible();
   expect(await page.locator("body").innerText()).toContain("Evaluación ERP");
   expect(await page.locator("body").innerText()).not.toMatch(/Evaluaci\?n|\ufffd|\u00c3\u00b3/);
 });
@@ -263,7 +270,7 @@ for (const role of Object.keys(SPECIALIZED_ROLE_MODULE) as Role[]) {
     await page.getByRole("button", { name: "Aplicaciones", exact: true }).click();
     const dialog = page.getByRole("dialog", { name: "Aplicaciones de EnterpriseCloud" });
     for (const area of ENTERPRISE_AREAS) {
-      await expect(dialog.getByRole("button", { name: new RegExp(`${area.short} · ${area.label}`) })).toHaveCount(area.code === SPECIALIZED_ROLE_MODULE[role as keyof typeof SPECIALIZED_ROLE_MODULE] ? 1 : 0);
+      await expect(dialog.getByRole("button", { name: new RegExp(`^${area.short} ·`) })).toHaveCount(area.code === SPECIALIZED_ROLE_MODULE[role as keyof typeof SPECIALIZED_ROLE_MODULE] ? 1 : 0);
     }
   });
 }
@@ -271,6 +278,7 @@ for (const role of Object.keys(SPECIALIZED_ROLE_MODULE) as Role[]) {
 test("PM creates a document, transitions it and displays the persisted accented history", async ({ page }) => {
   const requests = await bootstrap(page, "maintenance");
   await page.goto("/#pm");
+  await page.getByRole("link", { name: /Equipos técnicos/ }).click();
   await page.getByRole("button", { name: "Nuevo registro" }).click();
   let dialog = page.getByRole("dialog", { name: "Equipos técnicos: Registro" });
   await dialog.getByLabel("Código / número").fill("EQ-001");
@@ -298,7 +306,7 @@ test("PM creates a document, transitions it and displays the persisted accented 
 
 test("pending schema gives an actionable activation message and disables mutations", async ({ page }) => {
   const requests = await bootstrap(page, "owner", [], false);
-  await page.goto("/#pm");
+  await page.goto("/#pm/equipos");
   await expect(page.getByText("Activación de tablas pendiente", { exact: true })).toBeVisible();
   await expect(page.getByText("0065_enterprise_modules.sql", { exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "Nuevo registro" })).toHaveCount(0);
@@ -311,10 +319,65 @@ test("enterprise screens keep readable controls and fit a mobile viewport", asyn
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/#pm");
   await expect(page.getByRole("heading", { name: "Mantenimiento", exact: true })).toBeVisible();
+  await page.screenshot({ path: "test-results/pm-module-mobile-dark.png", fullPage: true });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  await page.getByRole("link", { name: /Equipos técnicos/ }).click();
   const add = page.getByRole("button", { name: "Nuevo registro" });
   expect(await add.evaluate((element) => Number.parseFloat(getComputedStyle(element).fontSize))).toBeGreaterThanOrEqual(12);
   await add.click();
   await expect(page.getByRole("dialog").getByLabel("Ubicación")).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   await page.screenshot({ path: "test-results/pm-mobile-dark.png", fullPage: true });
+});
+
+test("SD owns its transactions and returns from a master to its module", async ({ page }) => {
+  await bootstrap(page, "sales");
+  await page.goto("/#sd");
+  await expect(page.getByRole("heading", { name: "Ventas y distribución", exact: true })).toBeVisible();
+  await expect(page.getByRole("link", { name: /^Clientes/ })).toBeVisible();
+  await expect(page.getByRole("link", { name: /^Cotizaciones/ })).toBeVisible();
+  await expect(page.getByRole("link", { name: /^Pedidos y entregas/ })).toBeVisible();
+  await page.screenshot({ path: "test-results/sd-module-desktop.png", fullPage: true });
+  await page.getByRole("link", { name: /^Clientes/ }).click();
+  await expect(page).toHaveURL(/#sd\/clientes$/);
+  await expect(page.getByRole("heading", { name: "Clientes", exact: true })).toBeVisible();
+  await page.locator(".back-link").click();
+  await expect(page).toHaveURL(/#sd$/);
+  await page.getByRole("button", { name: "Aplicaciones", exact: true }).click();
+  const launcher = page.getByRole("dialog");
+  await expect(launcher.locator(".app-module-card")).toHaveCount(1);
+  await expect(launcher.getByRole("button", { name: /^SD ·/ })).toBeVisible();
+  await expect(launcher.getByRole("button", { name: /^Clientes/ })).toHaveCount(0);
+});
+
+test("owner launches modules without flattening transactions and SD fits mobile", async ({ page }) => {
+  await bootstrap(page, "owner");
+  await page.goto("/#sd");
+  await page.getByRole("button", { name: "Aplicaciones", exact: true }).click();
+  await expect(page.getByRole("dialog").locator(".app-module-card")).toHaveCount(18);
+  await page.screenshot({ path: "test-results/module-hierarchy-desktop.png", fullPage: true });
+  await page.getByRole("dialog").getByRole("button", { name: /^SD ·/ }).click();
+  await page.setViewportSize({ width: 390, height: 844 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  await page.screenshot({ path: "test-results/sd-module-mobile.png", fullPage: true });
+});
+
+test("owner limits a member's transactions from the grouped module editor", async ({ page }) => {
+  const requests = await bootstrap(page, "owner");
+  await page.goto("/#gobierno/accesos");
+  await page.getByRole("button", { name: "Módulos y transacciones" }).click();
+  await expect(page.getByRole("group", { name: "SD · Ventas y distribución" })).toBeVisible();
+  await page.getByLabel("Cotizaciones", { exact: true }).uncheck();
+  await expect(page.getByLabel("Cotizaciones", { exact: true })).not.toBeChecked();
+  await expect.poll(() => requests.some(item => item.path.endsWith("/member-sales/module-access") && item.method === "PATCH")).toBe(true);
+  const command = requests.find(item => item.path.endsWith("/member-sales/module-access") && item.method === "PATCH");
+  expect(JSON.parse(command?.body ?? "{}")).toEqual({ modules: { quotes: false } });
+  await page.screenshot({ path: "test-results/owner-module-assignment.png", fullPage: true });
+});
+
+test("admin cannot navigate directly to owner governance", async ({ page }) => {
+  const requests = await bootstrap(page, "admin");
+  await page.goto("/#gobierno/accesos");
+  await expect(page).not.toHaveURL(/#gobierno/);
+  expect(requests.some(item => item.path === "/tenants/memberships")).toBe(false);
 });

@@ -178,7 +178,7 @@ export function ProfilePage({ goBack }: { goBack: () => void }) {
 
   const displayName = fullName.trim() || session?.user.email?.split("@")[0] || "Usuario";
   return <section className="module-page profile-page">
-    <div className="module-heading"><div><button className="back-link" onClick={goBack}><ChevronLeft size={16} /> Panel general</button><p className="eyebrow">CUENTA PERSONAL</p><h1>Mi perfil</h1><p className="subtitle">Administra cómo te identificas dentro de EnterpriseCloud.</p></div></div>
+    <div className="module-heading"><div><button className="back-link" onClick={goBack}><ChevronLeft size={16} /> Volver</button><p className="eyebrow">CUENTA PERSONAL</p><h1>Mi perfil</h1><p className="subtitle">Administra cómo te identificas dentro de EnterpriseCloud.</p></div></div>
     <div className="profile-layout">
       <article className="panel profile-card">
         <div className="profile-avatar-stage"><UserAvatar name={displayName} avatarPath={avatarPath} className="profile-avatar" /><label className="profile-camera" title="Cambiar foto"><Camera size={18} /><input ref={inputRef} type="file" accept="image/jpeg,image/png,image/webp" onChange={upload} disabled={isUploading || isSaving} /></label></div>

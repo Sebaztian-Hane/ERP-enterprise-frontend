@@ -9,7 +9,7 @@ export function CashFlowPage({ goBack }: { goBack: () => void }) {
     return { accounts, aging };
   });
   return <section className="module-page cash-flow-page">
-    <div className="module-heading"><div><button className="back-link" onClick={goBack}><ChevronLeft size={16} /> Panel general</button><p className="eyebrow">TESORERÍA Y VENCIMIENTOS</p><h1>Flujo de caja</h1><p className="subtitle">Consulta saldos, entradas y salidas del mes, y antigüedad de la cartera.</p></div><button className="secondary-button" disabled={loading} onClick={refresh}><RefreshCw size={16} /> Actualizar</button></div>
+    <div className="module-heading"><div><button className="back-link" onClick={goBack}><ChevronLeft size={16} /> Volver al módulo</button><p className="eyebrow">TESORERÍA Y VENCIMIENTOS</p><h1>Flujo de caja</h1><p className="subtitle">Consulta saldos, entradas y salidas del mes, y antigüedad de la cartera.</p></div><button className="secondary-button" disabled={loading} onClick={refresh}><RefreshCw size={16} /> Actualizar</button></div>
     <div className="process-strip"><span>Cuentas y movimientos</span><span>→</span><span>Saldo por moneda</span><span>→</span><span>Vencimientos</span><a href="#finanzas">Gestionar cobros y pagos</a></div>
     {error && <div role="alert" className="module-error">{error}<button onClick={refresh}>Reintentar</button></div>}
     {loading ? <div className="module-state"><LoaderCircle className="spin" /> Consultando tesorería…</div> : data && <>

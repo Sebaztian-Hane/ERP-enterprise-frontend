@@ -477,7 +477,7 @@ function SalesAdministration({ goBack }: { goBack: () => void }) {
       <div className="module-heading">
         <div>
           <button className="back-link" onClick={goBack}>
-            <ChevronLeft size={16} /> Panel general
+            <ChevronLeft size={16} /> Volver al módulo
           </button>
           <p className="eyebrow">OPERACIÓN COMERCIAL</p>
           <h1>{isPos ? "Punto de venta" : "Ventas"}</h1>

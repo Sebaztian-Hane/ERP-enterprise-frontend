@@ -144,8 +144,8 @@ export function FinancePage({ goBack }: { goBack: () => void }) {
         await Promise.all([
           apiFetch<Receivable[]>("/accounts/receivable", options),
           apiFetch<Payable[]>("/accounts/payable", options),
-          apiFetch<Customer[]>("/customers", options),
-          apiFetch<Supplier[]>("/suppliers", options),
+          apiFetch<Customer[]>("/accounts/counterparts/customers", options),
+          apiFetch<Supplier[]>("/accounts/counterparts/suppliers", options),
           apiFetch<CashAccount[]>("/treasury/accounts", options),
           apiFetch<Payment[]>("/payments", options),
           apiFetch<PosPaymentMethodConfig[]>("/payments/pos-methods", options),
@@ -381,7 +381,7 @@ export function FinancePage({ goBack }: { goBack: () => void }) {
       <div className="module-heading">
         <div>
           <button className="back-link" onClick={goBack}>
-            <ChevronLeft size={16} /> Panel general
+            <ChevronLeft size={16} /> Volver al módulo
           </button>
           <p className="eyebrow">CONTROL FINANCIERO</p>
           <h1>Finanzas</h1>

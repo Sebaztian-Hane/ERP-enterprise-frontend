@@ -67,7 +67,7 @@ export function SalesOrdersPage({ goBack }: { goBack: () => void }) {
   };
 
   return <section className="module-page">
-    <div className="module-heading"><div><button className="back-link" onClick={goBack}><ChevronLeft size={16} /> Panel general</button><p className="eyebrow">CICLO COMERCIAL</p><h1>Pedidos de venta</h1><p className="subtitle">Confirma, despacha y registra las ventas conservando la trazabilidad del pedido.</p></div></div>
+    <div className="module-heading"><div><button className="back-link" onClick={goBack}><ChevronLeft size={16} /> Volver al módulo</button><p className="eyebrow">CICLO COMERCIAL</p><h1>Pedidos de venta</h1><p className="subtitle">Confirma, despacha y registra las ventas conservando la trazabilidad del pedido.</p></div></div>
     <section className="customer-summary"><article><span className="summary-icon"><ClipboardCheck size={19} /></span><div><small>PEDIDOS ACTIVOS</small><strong>{orders.filter((order) => order.status !== "cancelled").length}</strong></div></article><article><span className="summary-icon green"><ShoppingCart size={19} /></span><div><small>IMPORTE EN PEDIDOS</small><strong>{currency.format(orders.reduce((total, order) => total + Number(order.total), 0))}</strong></div></article></section>
     {error && <div className="module-error">{error}<button onClick={() => void load()}>Reintentar</button></div>}
     <article className="panel customers-panel"><div className="panel-header"><div><p className="card-label">CUMPLIMIENTO COMERCIAL</p><h2>Pedidos por procesar</h2></div></div>

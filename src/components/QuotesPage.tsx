@@ -200,7 +200,7 @@ export function QuotesPage({ goBack }: { goBack: () => void }) {
       <div className="module-heading">
         <div>
           <button className="back-link" onClick={goBack}>
-            <ChevronLeft size={16} /> Panel general
+            <ChevronLeft size={16} /> Volver al módulo
           </button>
           <p className="eyebrow">CICLO COMERCIAL</p>
           <h1>Cotizaciones</h1>

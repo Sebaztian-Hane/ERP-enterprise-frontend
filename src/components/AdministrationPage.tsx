@@ -10,6 +10,8 @@ import {
 import { useAuth } from "../auth/AuthProvider";
 import { apiFetch } from "../lib/api";
 import { SPECIALIZED_ROLE_LABELS } from "../lib/enterprise";
+import { ModuleAssignments, type AssignmentAccess } from "./ModuleAssignments";
+import { visibleWorkspaces } from "../lib/workspaceNavigation";
 type Membership = {
   id: string;
   user_id: string;
@@ -35,11 +37,11 @@ const roles = [
 const labels: Record<string, string> = {
   ...SPECIALIZED_ROLE_LABELS,
   owner: "Propietario",
-  admin: "Administrador",
-  sales: "Ventas",
-  purchases: "Compras",
-  inventory: "Inventario",
-  finance: "Finanzas",
+  admin: "Administrador operativo",
+  sales: "SD · Ventas y distribución",
+  purchases: "MM · Materiales y abastecimiento",
+  inventory: "WM · Gestión de almacenes",
+  finance: "FI · Finanzas y contabilidad",
   viewer: "Consulta",
 };
 const date = new Intl.DateTimeFormat("es-MX", {
@@ -47,8 +49,10 @@ const date = new Intl.DateTimeFormat("es-MX", {
   timeStyle: "short",
 });
 export function AdministrationPage({ goBack }: { goBack: () => void }) {
-  const { session, tenantId } = useAuth();
+  const { session, tenantId, refreshSession } = useAuth();
   const [availableRoles, setAvailableRoles] = useState(roles);
+  const [assignment, setAssignment] = useState<AssignmentAccess | null>(null);
+  const [selectedMember, setSelectedMember] = useState<string | null>(null);
   const [memberships, setMemberships] = useState<Membership[]>([]),
     [logs, setLogs] = useState<AuditLog[]>([]),
     [loading, setLoading] = useState(true),
@@ -67,14 +71,16 @@ export function AdministrationPage({ goBack }: { goBack: () => void }) {
     setLoading(true);
     setError(null);
     try {
-      const [members, activity, configuredRoles] = await Promise.all([
+      const [members, activity, configuredRoles, moduleAccess] = await Promise.all([
         apiFetch<Membership[]>("/tenants/memberships", options),
         apiFetch<AuditLog[]>("/tenants/audit-logs", options),
         apiFetch<{ code: string; label: string }[]>("/tenants/roles", options).catch(() => roles.map((code) => ({ code, label: labels[code] }))),
+        apiFetch<AssignmentAccess>("/tenants/module-access", options),
       ]);
       setMemberships(members);
       setLogs(activity);
       setAvailableRoles(configuredRoles.map((item) => item.code));
+      setAssignment(moduleAccess);
     } catch (cause) {
       setError(
         cause instanceof Error
@@ -101,6 +107,7 @@ export function AdministrationPage({ goBack }: { goBack: () => void }) {
         body: JSON.stringify(changes),
       });
       await load();
+      if (member.user_id === session?.user.id) await refreshSession();
     } catch (cause) {
       setError(
         cause instanceof Error
@@ -140,12 +147,25 @@ export function AdministrationPage({ goBack }: { goBack: () => void }) {
       .toLowerCase()
       .includes(auditQuery.trim().toLowerCase()),
   );
+  const selected = memberships.find(member => member.id === selectedMember);
+  const saveAssignment = async (modules: Record<string, boolean>) => {
+    if (!selected) return;
+    const previous = assignment;
+    setAssignment(current => current ? { ...current, members: current.members.map(member => member.id === selected.id ? { ...member, overrides: { ...member.overrides, ...modules } } : member) } : current);
+    setSaving(selected.id); setError(null);
+    try {
+      await apiFetch(`/tenants/memberships/${selected.id}/module-access`, { ...options, method: "PATCH", body: JSON.stringify({ modules }) });
+      await load();
+      if (selected.user_id === session?.user.id) await refreshSession();
+    } catch (cause) { setAssignment(previous); setError(cause instanceof Error ? cause.message : "No se pudieron guardar los módulos."); }
+    finally { setSaving(null); }
+  };
   return (
     <section className="module-page administration-page">
       <div className="module-heading">
         <div>
           <button className="back-link" onClick={goBack}>
-            <ChevronLeft size={16} /> Panel general
+            <ChevronLeft size={16} /> Volver al módulo
           </button>
           <p className="eyebrow">GOBIERNO Y SEGURIDAD</p>
           <h1>Administración</h1>
@@ -161,6 +181,7 @@ export function AdministrationPage({ goBack }: { goBack: () => void }) {
           <button onClick={() => void load()}>Reintentar</button>
         </div>
       )}
+      {selected && assignment && <section className="panel member-assignment-panel"><header className="panel-header"><div><p className="card-label">ASIGNACIÓN POR MÓDULO</p><h2>{labels[selected.role_code]} · {selected.user_id.slice(0, 8)}</h2></div><button className="secondary-button" onClick={() => setSelectedMember(null)}>Cerrar asignación</button></header><p>El rol define las operaciones autorizadas. Esta selección limita sus módulos y transacciones; habilitar una casilla no amplía los permisos del rol. La administración corresponde al propietario.</p><ModuleAssignments groups={assignment.groups} modules={assignment.modules} role={selected.role_code} overrides={assignment.members.find(item => item.id === selected.id)?.overrides ?? {}} busy={saving !== null} onChange={changes => void saveAssignment(changes)} /></section>}
       <section className="customer-summary">
         <article>
           <span className="summary-icon">
@@ -239,6 +260,7 @@ export function AdministrationPage({ goBack }: { goBack: () => void }) {
                         </span>
                       </td>
                       <td>
+                        <button className="text-button" onClick={() => setSelectedMember(member.id)}>Módulos y transacciones</button>
                         <button
                           className="text-button"
                           disabled={saving === member.id}
@@ -311,6 +333,7 @@ export function AdministrationPage({ goBack }: { goBack: () => void }) {
               />
               <small className="field-help">Se enviará únicamente al correo indicado y no se guardará en el ERP.</small>
             </label>
+            <p className="field-help">Espacios del rol: {visibleWorkspaces(newRole).map(module => module.short).join(", ") || "Sin módulos operativos"}. Los permisos de administración y migración requieren el rol Propietario.</p>
             <button className="primary-button" disabled={saving === "invite"}>
               {saving === "invite"
                 ? "Enviando…"

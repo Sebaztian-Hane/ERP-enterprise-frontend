@@ -234,7 +234,7 @@ export function ProductsPage({ goBack }: { goBack: () => void }) {
       <div className="module-heading">
         <div>
           <button className="back-link" onClick={goBack}>
-            <ChevronLeft size={16} /> Panel general
+            <ChevronLeft size={16} /> Volver al módulo
           </button>
           <p className="eyebrow">CATÁLOGO E INVENTARIO</p>
           <h1>Productos</h1>

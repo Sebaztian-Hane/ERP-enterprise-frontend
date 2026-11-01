@@ -70,8 +70,8 @@ Contabilidad financiera, Aprobaciones, Flujo de caja, Disponibilidad/reservas y
 Valoración de referencia son accesos propios a funciones del backend existente.
 La guía explica los recorridos de compra, venta, inventario y carga de datos.
 
-Se conservan los siete roles: `owner`, `admin`, `sales`, `purchases`, `finance`,
-`inventory` y `viewer`. El menú incorpora restricciones por empresa/usuario
+Se conservan los roles base `owner`, `admin`, `sales`, `purchases`, `finance`,
+`inventory` y `viewer`, junto con los once roles especializados. El menú incorpora restricciones por empresa/usuario
 recibidas de `/auth/access`. Ante una API anterior, solo un `404` permite volver
 a `/auth/me`; una respuesta de autorización denegada no activa ese fallback.
 Compras y Consulta acceden al material en modo de consulta, con controles de
@@ -90,3 +90,34 @@ Esta carpeta es el repositorio `Sebaztian-Hane/ERP-enterprise-frontend`.
 aparece en GitHub después de hacer commit y push **en el repositorio al que
 pertenece**. Una rama de trabajo permite revisar ambos cambios antes de
 integrarlos a `main`; el backend tiene despliegue automático configurado.
+
+## Módulos, áreas de trabajo y transacciones
+
+El panel Aplicaciones presenta 18 espacios: SD, MM, WM, FI, HCM, PP, PM, QM,
+TM, PS, CO, AA, CRM, EHS, CS, DMS, BI y Administración del propietario.
+Solo aparecen los autorizados para el rol, la empresa y el usuario.
+Dentro de cada módulo, las transacciones se agrupan en datos maestros,
+preparación, operación y seguimiento. Administración tiene su propia sección.
+
+Por ejemplo, `#sd` contiene clientes, consulta de materiales, acuerdos,
+cotizaciones, pedidos y entregas, ventas y punto de venta. Los canales disponibles
+dependen del perfil del negocio. `#sd/clientes` abre la transacción de clientes;
+Volver al módulo regresa a SD. Los enlaces anteriores, como `#clientes`, siguen
+respetando los permisos. Los maestros de materiales siguen siendo compartidos.
+
+Ventas trabaja en SD; Compras en MM; Inventario en WM; Finanzas en FI; cada rol
+especializado trabaja en su módulo. Consulta ve los espacios habilitados de
+lectura, excepto HCM y EHS. Administrador operativo accede a las operaciones
+habilitadas, sin administración de usuarios, configuración ni migraciones.
+
+El propietario entra a Administración del propietario → Usuarios y permisos
+(`/#gobierno/accesos`), asigna el rol y abre Módulos y transacciones para restringir
+los accesos de un miembro. Guardar cambios requiere segundo factor. Activar una
+casilla no otorga permisos ajenos al rol ni habilita algo bloqueado para la empresa.
+Las especialidades usan su permiso de módulo; SD, MM y FI conservan además los
+controles de transacción existentes. El proveedor conserva su consola autorizada
+para habilitar módulos por empresa. Estas restricciones se validan también en la API.
+
+Esta reorganización reutiliza las tablas existentes: no requiere ejecutar SQL nuevo.
+El catálogo de navegación está en `src/lib/workspaceCatalog.ts`; las reglas de
+visibilidad y enlaces están en `src/lib/workspaceNavigation.ts`.

@@ -300,7 +300,7 @@ export function ReportsPage({ goBack }: { goBack: () => void }) {
       <div className="module-heading">
         <div>
           <button className="back-link no-print" onClick={goBack}>
-            <ChevronLeft size={16} /> Panel general
+            <ChevronLeft size={16} /> Volver al módulo
           </button>
           <p className="eyebrow">ANÁLISIS Y CONTROL</p>
           <h1>Reportes</h1>

@@ -69,6 +69,9 @@ import { CashFlowPage } from "./components/CashFlowPage";
 import { InventoryPlanningPage } from "./components/InventoryPlanningPage";
 import { HelpPage } from "./components/HelpPage";
 import { EnterprisePage } from "./components/EnterprisePage";
+import { ModuleWorkspace } from "./components/ModuleWorkspace";
+import { WORKSPACE_MODULES, WORKSPACE_TRANSACTIONS, transactionFor, workspaceFor } from "./lib/workspaceCatalog";
+import { defaultWorkspace, routeAllowed, routeWorkspace, visibleWorkspaces, workspaceTransactions } from "./lib/workspaceNavigation";
 import { ENTERPRISE_AREAS, ENTERPRISE_SUMMARIES } from "./lib/enterprise";
 import { useAuth } from "./auth/AuthProvider";
 import { canAccessModule, defaultModuleFor, isProfileModuleAvailable } from "./lib/roleAccess";
@@ -197,6 +200,8 @@ const supportedViews = new Set([
   // sync with its modules prevents an app from silently falling back to the
   // dashboard when a new card is added (as happened with Documents).
   ...appModules.map((item) => item.href),
+  ...WORKSPACE_MODULES.map((item) => item.href),
+  ...WORKSPACE_TRANSACTIONS.map((item) => item.href),
   "#perfil",
 ]);
 const readView = () => {
@@ -382,15 +387,11 @@ function ModuleLauncher({
     onClose();
   };
   const normalizedSearch = moduleSearch.trim().toLocaleLowerCase("es-MX");
-  const visibleModules = appModules.filter(
-    (module) =>
-      canAccessModule(roleCode, module.href, access) &&
-      isProfileModuleAvailable(businessProfile, module.href) &&
-      (!normalizedSearch ||
-        `${module.label} ${module.description}`
-          .toLocaleLowerCase("es-MX")
-          .includes(normalizedSearch)),
-  );
+  const visibleModules = visibleWorkspaces(roleCode, access, businessProfile).map(module => ({
+    ...module, label: `${module.short} · ${module.label}`, icon: module.id === "hcm" ? UsersRound : module.category === "comercial" ? ShoppingCart : module.category === "finanzas" ? WalletCards : module.id === "governance" ? Settings : Factory,
+    tone: module.category === "comercial" ? "blue" : module.category === "finanzas" ? "emerald" : "teal",
+    transactions: workspaceTransactions(module, roleCode, access, businessProfile),
+  })).filter(module => !normalizedSearch || `${module.label} ${module.description} ${module.transactions.map(item => item.label).join(" ")}`.toLocaleLowerCase("es-MX").includes(normalizedSearch));
 
   return (
     <div className="app-launcher-layer" role="presentation">
@@ -399,9 +400,9 @@ function ModuleLauncher({
         <DashboardCanvas />
         <header className="app-launcher-heading">
           <div>
-            <p className="eyebrow">APLICACIONES</p>
+            <p className="eyebrow">MÓDULOS EMPRESARIALES</p>
             <h1>Tu espacio de trabajo</h1>
-            <p>Aplicaciones ordenadas por área para operar {tenantName}.</p>
+            <p>Selecciona un módulo para ver sus áreas de trabajo y transacciones en {tenantName}.</p>
           </div>
           <button className="icon-button launcher-close" onClick={onClose} aria-label="Cerrar aplicaciones">
             <X size={20} />
@@ -414,7 +415,7 @@ function ModuleLauncher({
               autoFocus
               value={moduleSearch}
               onChange={(event) => setModuleSearch(event.target.value)}
-              placeholder="Buscar aplicaciones y procesos"
+              placeholder="Buscar módulos o transacciones"
               aria-label="Buscar aplicaciones"
             />
             {moduleSearch && (
@@ -423,7 +424,7 @@ function ModuleLauncher({
               </button>
             )}
           </label>
-          <span>{visibleModules.length} aplicaciones disponibles</span>
+          <span>{visibleModules.length} módulos asignados</span>
         </div>
         <div className="app-module-sections">
           {moduleCategories.map(({ id, label, description, icon: CategoryIcon }) => {
@@ -440,10 +441,10 @@ function ModuleLauncher({
                   <small>{modules.length}</small>
                 </header>
                 <div className="app-module-grid">
-                  {modules.map(({ label: moduleLabel, icon: Icon, href, description: moduleDescription, tone }) => (
+                  {modules.map(({ label: moduleLabel, icon: Icon, href, description: moduleDescription, tone, transactions }) => (
                     <button className="app-module-card" key={href} onClick={() => openModule(href)}>
                       <span className={`app-module-icon ${tone}`}><Icon size={25} /></span>
-                      <span><strong>{moduleLabel}</strong><small>{moduleDescription}</small></span>
+                      <span><strong>{moduleLabel}</strong><small>{moduleDescription}</small><small className="module-transaction-count">{transactions.length} transacciones</small></span>
                       <ChevronRight size={17} />
                     </button>
                   ))}
@@ -459,6 +460,7 @@ function ModuleLauncher({
             </div>
           )}
         </div>
+        <footer className="workspace-launcher-footer"><button className="secondary-button" onClick={() => openModule("#guia")}><CircleHelp size={17} /> Guía de uso</button><span>Se muestran los módulos permitidos por tu rol y asignación.</span></footer>
       </section>
     </div>
   );
@@ -551,7 +553,15 @@ export default function App() {
   const [assistantOpen, setAssistantOpen] = useState(false);
   const [quickQuery, setQuickQuery] = useState("");
   const globalSearchRef = useRef<HTMLInputElement>(null);
-  const [view, setView] = useState(readView);
+  const [route, setRoute] = useState(readView);
+  const transaction = transactionFor(route);
+  const view = transaction?.view ?? route;
+  const activeWorkspace = routeWorkspace(route, roleCode, access, activeTenant?.business_profile);
+  const workspaceHome = workspaceFor(route);
+  const backToWorkspace = () => {
+    if (activeWorkspace && activeWorkspace.href !== route) window.location.hash = activeWorkspace.href;
+    else setLauncherOpen(true);
+  };
   const [theme, setTheme] = useState<"light" | "dark">(() =>
     localStorage.getItem("enterprisecloud.theme") === "dark" ? "dark" : "light",
   );
@@ -569,7 +579,7 @@ export default function App() {
       if (nextView !== window.location.hash) {
         window.history.replaceState(null, "", nextView);
       }
-      setView(nextView);
+      setRoute(nextView);
     };
     syncView();
     window.addEventListener("hashchange", syncView);
@@ -589,11 +599,11 @@ export default function App() {
   useEffect(() => {
     if (isProviderPortal) return;
     if (isRoleLoading || !roleCode) return;
-    const allowed = view === "#perfil" || (canAccessModule(roleCode, view, access) && isProfileModuleAvailable(activeTenant?.business_profile, view));
+    const allowed = routeAllowed(route, roleCode, access, activeTenant?.business_profile);
     if (allowed) return;
-    const fallback = defaultModuleFor(roleCode, access, activeTenant?.business_profile);
+    const fallback = defaultWorkspace(roleCode, access, activeTenant?.business_profile);
     if (fallback) window.location.hash = fallback;
-  }, [access, activeTenant?.business_profile, isProviderPortal, isRoleLoading, roleCode, view]);
+  }, [access, activeTenant?.business_profile, isProviderPortal, isRoleLoading, roleCode, route]);
   if (isProviderPortal) return <ProviderPortal />;
   if (isLoading)
     return (
@@ -630,12 +640,13 @@ export default function App() {
   const profileName = typeof session.user.user_metadata.full_name === "string" ? session.user.user_metadata.full_name.trim() : "";
   const userName = profileName || (session.user.email?.split("@")[0] ?? "Usuario");
   const avatarPath = typeof session.user.user_metadata.avatar_path === "string" ? session.user.user_metadata.avatar_path : null;
-  const allowedNavigation = navigation.filter((item) => canAccessModule(roleCode, item.href, access) && isProfileModuleAvailable(activeTenant?.business_profile, item.href));
+  const allowedNavigation = visibleWorkspaces(roleCode, access, activeTenant?.business_profile).flatMap(module => [
+    { label: `${module.short} · ${module.label}`, href: module.href, icon: LayoutGrid },
+    ...workspaceTransactions(module, roleCode, access, activeTenant?.business_profile).map(item => ({ label: `${module.short} · ${item.label}`, href: item.href, icon: FileText })),
+  ]);
   const allQuickLinks = [
     ...allowedNavigation,
-    ...(canAccessModule(roleCode, "#administracion", access)
-      ? [{ label: "Administración", icon: BriefcaseBusiness, href: "#administracion" }]
-      : []),
+    { label: "Guía de uso", icon: CircleHelp, href: "#guia" },
     { label: "Mi perfil", icon: UsersRound, href: "#perfil" },
   ];
   const quickLinks = allQuickLinks.filter((item) =>
@@ -646,7 +657,7 @@ export default function App() {
   const breadcrumbLabel =
     view === "#dashboard"
       ? "Panel general"
-      : (allQuickLinks.find((item) => item.href === view)?.label ??
+      : (transaction?.label ?? allQuickLinks.find((item) => item.href === route)?.label ??
         "Panel general");
   const openQuickLink = (href: string) => {
     window.location.hash = href;
@@ -667,8 +678,9 @@ export default function App() {
             </select>
           </label>
           <div className="breadcrumb">
-            <span>Inicio</span>
+            <button className="breadcrumb-link" onClick={() => setLauncherOpen(true)}>Módulos</button>
             <ChevronRight size={15} />
+            {activeWorkspace && !workspaceHome && <><a href={activeWorkspace.href}>{activeWorkspace.short}</a><ChevronRight size={15} /></>}
             <strong>{breadcrumbLabel}</strong>
           </div>
           <button className="app-launcher-button" onClick={() => setLauncherOpen(true)}>
@@ -742,27 +754,29 @@ export default function App() {
           </div>
         </header>
         <div className="content-wrap">
-          <ModuleErrorBoundary view={view}>
-            {view !== "#perfil" && (!canAccessModule(roleCode, view, access) || !isProfileModuleAvailable(activeTenant?.business_profile, view)) ? (
+          <ModuleErrorBoundary view={route}>
+            {!routeAllowed(route, roleCode, access, activeTenant?.business_profile) ? (
                 <section className="module-state dashboard-state">
                   <AlertTriangle size={27} />
                   <strong>No tienes acceso a este módulo</strong>
                   <span>Te redirigiremos a las herramientas asignadas a tu rol.</span>
                 </section>
+              ) : workspaceHome ? (
+                <ModuleWorkspace module={workspaceHome} onModules={() => setLauncherOpen(true)} />
               ) : view === "#perfil" ? (
-                <ProfilePage goBack={() => { window.location.hash = "#dashboard"; }} />
+                <ProfilePage goBack={backToWorkspace} />
               ) : ENTERPRISE_AREAS.some((area) => area.href === view) ? (
-                <EnterprisePage key={`${tenantId}:${view}`} view={view} goBack={() => setLauncherOpen(true)} />
+                <EnterprisePage key={`${tenantId}:${route}`} view={view} resourceCode={transaction?.resource} goBack={backToWorkspace} />
               ) : view === "#guia" ? (
-                <HelpPage goBack={() => { window.location.hash = defaultModuleFor(roleCode, access, activeTenant?.business_profile) ?? "#dashboard"; }} />
+                <HelpPage goBack={backToWorkspace} />
               ) : view === "#contabilidad" ? (
-                <OperationsPage key="accounting" section="accounting" goBack={() => { window.location.hash = "#dashboard"; }} />
+                <OperationsPage key="accounting" section="accounting" goBack={backToWorkspace} />
               ) : view === "#aprobaciones" ? (
-                <OperationsPage key="approvals" section="approvals" goBack={() => { window.location.hash = "#dashboard"; }} />
+                <OperationsPage key="approvals" section="approvals" goBack={backToWorkspace} />
               ) : view === "#flujo-de-caja" ? (
-                <CashFlowPage goBack={() => { window.location.hash = "#dashboard"; }} />
+                <CashFlowPage goBack={backToWorkspace} />
               ) : view === "#disponibilidad" || view === "#valoracion" ? (
-                <InventoryPlanningPage key={view} mode={view === "#valoracion" ? "valuation" : "availability"} goBack={() => { window.location.hash = "#inventario"; }} />
+                <InventoryPlanningPage key={view} mode={view === "#valoracion" ? "valuation" : "availability"} goBack={backToWorkspace} />
               ) : view === "#dashboard" ? (
                 <DashboardPage
                   userName={userName}
@@ -772,120 +786,84 @@ export default function App() {
                 <>
                   {view === "#clientes" ? (
                     <CustomersPage
-                      goBack={() => {
-                        window.location.hash = "#dashboard";
-                      }}
+                      goBack={backToWorkspace}
                     />
                   ) : view === "#proveedores" ? (
                     <SuppliersPage
-                      goBack={() => {
-                        window.location.hash = "#dashboard";
-                      }}
+                      goBack={backToWorkspace}
                     />
                   ) : view === "#productos" ? (
                     <ProductsPage
-                      goBack={() => {
-                        window.location.hash = "#dashboard";
-                      }}
+                      goBack={backToWorkspace}
                     />
                   ) : view === "#ventas" || view === "#pos" ? (
                     <SalesPage
                       mode={view === "#pos" ? "pos" : "sales"}
-                      goBack={() => {
-                        window.location.hash = "#dashboard";
-                      }}
+                      goBack={backToWorkspace}
                     />
                   ) : view === "#cotizaciones" ? (
                     <QuotesPage
-                      goBack={() => {
-                        window.location.hash = "#dashboard";
-                      }}
+                      goBack={backToWorkspace}
                     />
                   ) : view === "#pedidos-de-venta" ? (
                     <SalesOrdersPage
-                      goBack={() => {
-                        window.location.hash = "#dashboard";
-                      }}
+                      goBack={backToWorkspace}
                     />
                   ) : view === "#ordenes-de-compra" ? (
                     <PurchaseOrdersPage
-                      goBack={() => {
-                        window.location.hash = "#dashboard";
-                      }}
+                      goBack={backToWorkspace}
                     />
                   ) : view === "#inventario" ? (
                     <InventoryPage
-                      goBack={() => {
-                        window.location.hash = "#dashboard";
-                      }}
+                      goBack={backToWorkspace}
                     />
                   ) : view === "#almacenes" ? (
                     <WarehousesPage
-                      goBack={() => {
-                        window.location.hash = "#inventario";
-                      }}
+                      goBack={backToWorkspace}
                     />
                   ) : view === "#kardex" ? (
                     <InventoryHistoryPage
-                      goBack={() => {
-                        window.location.hash = "#inventario";
-                      }}
+                      goBack={backToWorkspace}
                     />
                   ) : view === "#inventario-fisico" ? (
-                    <InventoryCountsPage goBack={() => { window.location.hash = "#inventario"; }} />
+                    <InventoryCountsPage goBack={backToWorkspace} />
                   ) : view === "#compras" ? (
                     <PurchasesPage
-                      goBack={() => {
-                        window.location.hash = "#dashboard";
-                      }}
+                      goBack={backToWorkspace}
                     />
                   ) : view === "#finanzas" ? (
                     <FinancePage
-                      goBack={() => {
-                        window.location.hash = "#dashboard";
-                      }}
+                      goBack={backToWorkspace}
                     />
                   ) : view === "#cuentas" ? (
                     <AccountsPage
-                      goBack={() => { window.location.hash = "#finanzas"; }}
+                      goBack={backToWorkspace}
                     />
                   ) : view === "#conciliacion" ? (
                     <ReconciliationPage
-                      goBack={() => {
-                        window.location.hash = "#finanzas";
-                      }}
+                      goBack={backToWorkspace}
                     />
                   ) : view === "#documentos" ? (
                     <DocumentsPage
-                      goBack={() => {
-                        window.location.hash = "#dashboard";
-                      }}
+                      goBack={backToWorkspace}
                     />
                   ) : view === "#reportes" ? (
                     <ReportsPage
-                      goBack={() => {
-                        window.location.hash = "#dashboard";
-                      }}
+                      goBack={backToWorkspace}
                     />
                   ) : view === "#centro-de-datos" ? (
-                    <DataCenterPage key={`${tenantId}:${session?.user.id}`} goBack={() => { window.location.hash = "#dashboard"; }} />
+                    <DataCenterPage key={`${tenantId}:${session?.user.id}`} goBack={backToWorkspace} />
                   ) : view === "#configuracion" ? (
                     <ConfigurationPage
-                      goBack={() => {
-                        window.location.hash = "#dashboard";
-                      }}
+                      goBack={backToWorkspace}
                     />
                   ) : view === "#administracion" ? (
                     <AdministrationPage
-                      goBack={() => {
-                        window.location.hash = "#dashboard";
-                      }}
+                      goBack={backToWorkspace}
                     />
                   ) : view === "#control-operativo" ? (
                     <OperationsPage key="operations"
-                      goBack={() => {
-                        window.location.hash = "#dashboard";
-                      }}
+                      goBack={backToWorkspace}
                     />
                   ) : (
                     <>

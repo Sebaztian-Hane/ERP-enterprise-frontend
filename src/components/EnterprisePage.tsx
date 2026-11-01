@@ -12,11 +12,11 @@ type Page = { records: BusinessRecord[]; meta: PageMeta };
 const emptyPage: Page = { records: [], meta: { page: 1, page_size: 25, total: 0, total_pages: 0, has_previous: false, has_next: false } };
 const clean = (values: Record<string, unknown>) => Object.fromEntries(Object.entries(values).filter(([, value]) => value !== "" && value !== null && value !== undefined));
 
-export function EnterprisePage({ view, goBack }: { view: string; goBack: () => void }) {
+export function EnterprisePage({ view, resourceCode, goBack }: { view: string; resourceCode?: string; goBack: () => void }) {
   const { session, tenantId, roleCode, access, tenants } = useAuth();
   const area = ENTERPRISE_AREAS.find((item) => item.href === view);
   const catalogQuery = useWorkspaceQuery("enterprise-catalog", (options) => apiFetch<EnterpriseCatalog>("/enterprise/catalog", options));
-  const resources = catalogQuery.data?.resources.filter((item) => item.module === area?.code) ?? [];
+  const resources = catalogQuery.data?.resources.filter((item) => item.module === area?.code && (!resourceCode || item.code === resourceCode)) ?? [];
   const [selected, setSelected] = useState("");
   const resource = resources.find((item) => item.code === selected) ?? resources[0];
   const [page, setPage] = useState(1);
@@ -30,7 +30,7 @@ export function EnterprisePage({ view, goBack }: { view: string; goBack: () => v
   const listing = useWorkspaceQuery(`enterprise-list:${resource?.code}:${page}:${search}:${catalogQuery.data?.ready}`, (options) => resource && catalogQuery.data?.ready ? apiFetch<Page>(`/enterprise/${resource.code}/records?page=${page}&q=${encodeURIComponent(search)}`, options) : Promise.resolve(emptyPage));
   const options = { accessToken: session?.access_token, tenantId: tenantId ?? undefined };
   const profile = tenants.find((item) => item.id === tenantId)?.business_profile;
-  const links = (AREA_LINKS[area?.code ?? ""] ?? []).filter((item) => canAccessModule(roleCode, item.href, access) && isProfileModuleAvailable(profile, item.href));
+  const links = resourceCode ? [] : (AREA_LINKS[area?.code ?? ""] ?? []).filter((item) => canAccessModule(roleCode, item.href, access) && isProfileModuleAvailable(profile, item.href));
   const open = async (item: BusinessRecord, kind: "view" | "edit" | "transition", state?: string) => {
     setBusy(true); setError(null);
     try { const record = await apiFetch<BusinessRecord>(`/enterprise/records/${item.id}`, options); setModal({ kind, record, state }); }
@@ -39,11 +39,11 @@ export function EnterprisePage({ view, goBack }: { view: string; goBack: () => v
   };
   const saved = () => { setModal(null); setNotice("Operación registrada. Consulta el historial del documento para verificarla."); listing.refresh(); };
   return <section className="module-page enterprise-page">
-    <div className="module-heading"><div><button className="back-link" onClick={goBack}><ChevronLeft size={16} /> Aplicaciones</button><p className="eyebrow">{area?.short} · GESTIÓN EMPRESARIAL</p><h1>{area?.label ?? "Gestión empresarial"}</h1><p className="subtitle">Documentos con origen, estados, responsable e historial por empresa.</p></div><div className="heading-actions"><button className="secondary-button" disabled={busy} onClick={() => { catalogQuery.refresh(); listing.refresh(); }}><RefreshCw size={16} /> Actualizar</button>{resource?.access.write && catalogQuery.data?.ready && <button className="primary-button" disabled={busy} onClick={() => setModal({ kind: "create" })}><Plus size={16} /> Nuevo registro</button>}</div></div>
+    <div className="module-heading"><div><button className="back-link" onClick={goBack}><ChevronLeft size={16} /> Volver al módulo</button><p className="eyebrow">{area?.short} · GESTIÓN EMPRESARIAL</p><h1>{resourceCode ? resource?.label ?? "Transacción" : area?.label ?? "Gestión empresarial"}</h1><p className="subtitle">Documentos con origen, estados, responsable e historial por empresa.</p></div><div className="heading-actions"><button className="secondary-button" disabled={busy} onClick={() => { catalogQuery.refresh(); listing.refresh(); }}><RefreshCw size={16} /> Actualizar</button>{resource?.access.write && catalogQuery.data?.ready && <button className="primary-button" disabled={busy} onClick={() => setModal({ kind: "create" })}><Plus size={16} /> Nuevo registro</button>}</div></div>
     {links.length > 0 && <nav className="enterprise-links" aria-label="Procesos relacionados">{links.map((link) => <a className="secondary-button" href={link.href} key={link.href}>{link.label}</a>)}</nav>}
     {catalogQuery.loading && !catalogQuery.data ? <div className="module-state"><LoaderCircle className="spin" /> Consultando procesos…</div> : catalogQuery.error ? <div className="module-error" role="alert">{catalogQuery.error}<button onClick={catalogQuery.refresh}>Reintentar</button></div> : <>
       {!catalogQuery.data?.ready && <article className="enterprise-activation panel"><AlertTriangle size={22} /><div><strong>Activación de tablas pendiente</strong><p>El proceso está implementado. Para registrar documentos, ejecuta <code>0065_enterprise_modules.sql</code> del backend en Supabase y pulsa Actualizar. Los módulos existentes continúan operativos.</p></div></article>}
-      <div className="data-object-tabs" role="group" aria-label="Transacciones del módulo">{resources.map((item) => <button key={item.code} className={resource?.code === item.code ? "selected" : ""} aria-pressed={resource?.code === item.code} onClick={() => { setSelected(item.code); setPage(1); setQuery(""); setNotice(null); }}>{item.label}</button>)}</div>
+      {!resourceCode && <div className="data-object-tabs" role="group" aria-label="Transacciones del módulo">{resources.map((item) => <button key={item.code} className={resource?.code === item.code ? "selected" : ""} aria-pressed={resource?.code === item.code} onClick={() => { setSelected(item.code); setPage(1); setQuery(""); setNotice(null); }}>{item.label}</button>)}</div>}
       {resource ? <>
         <article className="panel data-flow-intro"><div><small>ORIGEN</small><strong>{resource.origin}</strong></div><span aria-hidden="true">→</span><div><small>RESULTADO</small><strong>{resource.outcome}</strong></div><span className="status-pill active">{resource.access.write ? "Gestión" : "Consulta"}</span></article>
         <p className="migration-help enterprise-scope">{resource.limitation}</p>
