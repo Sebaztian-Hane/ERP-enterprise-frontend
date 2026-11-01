@@ -134,6 +134,10 @@ test("data center remains usable in dark mode on mobile", async ({ page }) => {
   await page.goto("/#centro-de-datos");
   await expect(page.getByText(/25 columnas/)).toBeVisible();
   await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+  const validate = page.getByRole("button", { name: "Validar sin guardar" });
+  expect(await validate.evaluate((element) => Number.parseFloat(getComputedStyle(element).fontSize))).toBeGreaterThanOrEqual(12);
+  const picker = await page.getByText("Seleccionar CSV o XLSX", { exact: true }).boundingBox();
+  expect(picker?.height).toBeLessThan(80);
   await page.screenshot({ path: "test-results/data-center-mobile-dark.png", fullPage: true });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 });
