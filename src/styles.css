@@ -4175,3 +4175,10 @@ html[data-theme="dark"] .migration-error-count { color:#ffaca1; }
   .migration-cockpit .panel-header .primary-button { font-size:13px; min-height:36px; width:auto; padding:8px 12px; }
 }
 .migration-table-panel th,.migration-table-panel td,.value-help-table th,.value-help-table td { display:table-cell; }
+.migration-dialog .table-wrap { max-height:42vh; overflow:auto; }
+.migration-dialog table { table-layout:fixed; }
+.migration-dialog th,.migration-dialog td { white-space:normal; overflow-wrap:anywhere; font-size:13px; vertical-align:top; }
+.migration-dialog th:first-child { width:28%; }
+.migration-dialog th:nth-child(2):not(:last-child) { width:10%; }
+.migration-dialog thead { position:sticky; top:0; background:#f1f6fa; }
+html[data-theme="dark"] .migration-dialog thead { background:#203945; }

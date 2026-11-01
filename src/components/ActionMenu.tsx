@@ -7,14 +7,20 @@ export function ActionMenu({ label = "Acciones", actions, disabled = false }: { 
   const trigger = useRef<HTMLButtonElement>(null);
   const menu = useRef<HTMLDivElement>(null);
   const [position, setPosition] = useState<{ top: number; left: number } | null>(null);
+  const opened = position !== null;
   useEffect(() => {
-    if (!position) return;
+    if (!opened) return;
     menu.current?.querySelector<HTMLButtonElement>("button:not(:disabled)")?.focus({ preventScroll: true });
     const close = (event: Event) => { if (!menu.current?.contains(event.target as Node) && !trigger.current?.contains(event.target as Node)) setPosition(null); };
-    const scroll = (event: Event) => { if (!menu.current?.contains(event.target as Node)) setPosition(null); };
-    document.addEventListener("pointerdown", close); window.addEventListener("scroll", scroll, true);
-    return () => { document.removeEventListener("pointerdown", close); window.removeEventListener("scroll", scroll, true); };
-  }, [position]);
+    const reposition = (event: Event) => {
+      if (menu.current?.contains(event.target as Node)) return;
+      const rect = trigger.current?.getBoundingClientRect();
+      if (!rect || rect.bottom < 0 || rect.top > window.innerHeight) { setPosition(null); return; }
+      setPosition({ top: Math.max(8, Math.min(rect.bottom + 4, window.innerHeight - Math.min(420, actions.length * 39 + 16) - 8)), left: Math.max(8, Math.min(rect.left, window.innerWidth - 264)) });
+    };
+    document.addEventListener("pointerdown", close); window.addEventListener("scroll", reposition, true); window.addEventListener("resize", reposition);
+    return () => { document.removeEventListener("pointerdown", close); window.removeEventListener("scroll", reposition, true); window.removeEventListener("resize", reposition); };
+  }, [opened, actions.length]);
   return <><button ref={trigger} className="migration-action-trigger" type="button" disabled={disabled} aria-haspopup="menu" aria-expanded={Boolean(position)} onClick={() => {
     if (position) { setPosition(null); return; }
     const rect = trigger.current!.getBoundingClientRect();

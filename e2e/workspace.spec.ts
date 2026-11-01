@@ -209,6 +209,8 @@ test("data center remains usable in dark mode on mobile", async ({ page }) => {
   await createMigration(page);
   await page.getByRole("button", { name: "Acciones \u00b7 Materiales y productos" }).click();
   await expect(page.getByRole("menuitem", { name: "Descargar plantilla Excel" })).toBeVisible();
+  await page.evaluate(() => window.scrollBy(0, window.scrollY > 20 ? -20 : 20));
+  await expect(page.getByRole("menuitem", { name: "Descargar plantilla Excel" })).toBeVisible();
   await page.screenshot({ path: "test-results/data-center-mobile-dark.png", fullPage: true });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 });
