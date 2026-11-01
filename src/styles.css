@@ -3900,6 +3900,46 @@ html[data-theme="dark"] .entity-choice legend { color:#b4cad3; } html[data-theme
 html[data-theme="dark"] .table-pagination { color:#acc6cf; border-color:#355b6a; }
 html[data-theme="dark"] .table-pagination strong { color:#dcecf2; }
 .migration-panel { margin-top: 12px; padding: 20px; }
+.migration-steps { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:10px; list-style:none; padding:0; margin:20px 0; }
+.migration-steps li { display:flex; align-items:center; gap:8px; padding:10px; border-bottom:2px solid #dce7ec; color:#718995; font-size:12px; }
+.migration-steps li > span { display:grid; place-items:center; width:24px; height:24px; flex:0 0 auto; border-radius:50%; background:#e9f0f3; }
+.migration-steps li.current { color:#176585; border-color:#1887af; font-weight:600; }
+.migration-steps li.current > span { background:#d9eef5; }
+.migration-dictionary,.migration-sample { min-width:0; margin-top:12px; font-size:12px; }
+.migration-dictionary summary,.migration-sample summary { cursor:pointer; padding:8px 0; color:inherit; font-weight:600; }
+.migration-dictionary .table-wrap { max-height:320px; overflow:auto; }
+.migration-dictionary td:last-child { min-width:280px; white-space:normal; }
+.migration-digest { overflow-wrap:anywhere; color:inherit; }
+.material-profile-editor { margin:0 22px 22px; padding-top:14px; border-top:1px solid #b4d1db; }
+.material-profile-editor summary { font-size:14px; font-weight:600; cursor:pointer; }
+.material-profile-editor .customer-form { padding:12px 0 0; }
+.material-profile-editor .form-grid { align-items:start; }
+.material-profile-editor small { font-weight:400; }
+.data-center-page h1 { display:flex; align-items:center; gap:10px; }
+.data-object-tabs { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:16px; }
+.data-object-tabs button { padding:10px 14px; border:1px solid #bbd1db; border-radius:7px; color:#365a6c; background:#fff; cursor:pointer; font:inherit; font-size:13px; }
+.data-object-tabs button.selected { border-color:#207f9f; background:#e0f2f8; color:#135572; font-weight:600; }
+.data-flow-intro { display:flex; align-items:center; flex-wrap:wrap; gap:20px; padding:18px 20px; }
+.data-flow-intro > div { display:grid; gap:6px; flex:1 1 210px; }
+.data-flow-intro small,.data-flow-card > small { font-size:11px; color:#64818e; }
+.data-flow-intro strong { font-size:13px; }
+.data-flows-heading { display:flex; align-items:center; gap:12px; margin:30px 0 16px; }
+.data-flows-heading h2 { margin:0 0 5px; font-size:18px; }
+.data-flows-heading p { margin:0; font-size:13px; color:#64818e; }
+.data-flows { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:16px; }
+.data-flow-card { padding:20px; }
+.data-flow-card h3 { font-size:16px; margin:8px 0 16px; }
+.data-flow-card ol { display:flex; flex-wrap:wrap; list-style:none; gap:8px; padding:0; }
+.data-flow-card li a { display:block; padding:7px 10px; border-radius:5px; background:#eaf3f7; color:#285e77; text-decoration:none; font-size:12px; }
+.data-flow-card li:not(:last-child)::after { content:"→"; float:right; margin-right:-6px; color:#64818e; }
+.data-flow-card p { margin:16px 0 0; font-size:12px; line-height:1.6; color:#64818e; }
+html[data-theme="dark"] .data-flow-intro,html[data-theme="dark"] .data-flow-card { background:#17303c; border-color:#3c6575; color:#dfedf3; }
+html[data-theme="dark"] .data-object-tabs button { background:#17303c; border-color:#426777; color:#c2dbe4; }
+html[data-theme="dark"] .data-object-tabs button.selected { background:#235368; border-color:#69bddc; color:#e6f7ff; }
+html[data-theme="dark"] .data-flow-card li a,html[data-theme="dark"] .migration-steps li > span { background:#244c5e; color:#c2e8f7; }
+html[data-theme="dark"] .data-flow-card p,html[data-theme="dark"] .data-flow-card > small,html[data-theme="dark"] .data-flow-intro small,html[data-theme="dark"] .data-flows-heading p,html[data-theme="dark"] .migration-steps li { color:#acc8d4; }
+html[data-theme="dark"] .migration-steps li.current { color:#91dbf4; border-color:#59b6d7; }
+@media(max-width:760px) { .data-flows { grid-template-columns:1fr; }.migration-steps { grid-template-columns:repeat(2,minmax(0,1fr)); }.data-flow-intro > span { display:none; }.file-picker { min-height:42px; } }
 .migration-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
 .migration-header > svg { flex: 0 0 auto; color: #2580a5; }
 .migration-header h2 { margin: 5px 0 7px; font-size: 18px; }

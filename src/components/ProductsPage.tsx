@@ -16,6 +16,7 @@ import { apiFetch } from "../lib/api";
 import { fetchPage, PageMeta, TablePagination } from "../lib/pagination";
 import { DataMigrationPanel } from "./DataMigrationPanel";
 import { EntityPicker } from "./EntityPicker";
+import { MaterialProfileEditor } from "./MaterialProfileEditor";
 
 type Category = { id: string; name: string; description: string | null };
 type Unit = { id: string; code: string; name: string; is_active: boolean };
@@ -60,7 +61,7 @@ const money = new Intl.NumberFormat("es-PE", {
 });
 
 export function ProductsPage({ goBack }: { goBack: () => void }) {
-  const { session, tenantId } = useAuth();
+  const { session, tenantId, roleCode } = useAuth();
   const [products, setProducts] = useState<Product[]>([]);
   const [page, setPage] = useState(1);
   const [meta, setMeta] = useState<PageMeta>({ page: 1, page_size: 25, total: 0, total_pages: 0, has_previous: false, has_next: false });
@@ -241,6 +242,7 @@ export function ProductsPage({ goBack }: { goBack: () => void }) {
           </p>
         </div>
         <div className="heading-actions">
+          {(roleCode === "owner" || roleCode === "admin") && <a className="secondary-button" href="#centro-de-datos">Centro de datos</a>}
           <button
             className="secondary-button"
             onClick={() => {
@@ -511,6 +513,7 @@ export function ProductsPage({ goBack }: { goBack: () => void }) {
               label={editingId ? "Guardar cambios" : "Guardar producto"}
             />
           </form>
+          {editingId && <MaterialProfileEditor key={`${tenantId}:${editingId}`} productId={editingId} />}
         </Modal>
       )}
       {categoryOpen && (

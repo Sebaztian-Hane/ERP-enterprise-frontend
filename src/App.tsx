@@ -64,6 +64,7 @@ import { AdministrationPage } from "./components/AdministrationPage";
 import { ProfilePage } from "./components/ProfilePage";
 import { OperationsPage } from "./components/OperationsPage";
 import { ConfigurationPage } from "./components/ConfigurationPage";
+import { DataCenterPage } from "./components/DataCenterPage";
 import { useAuth } from "./auth/AuthProvider";
 import { canAccessModule, defaultModuleFor } from "./lib/roleAccess";
 
@@ -143,6 +144,7 @@ const navigation: NavItem[] = [
   { label: "Conciliación", icon: ArrowLeftRight, href: "#conciliacion", category: "finanzas" },
   { label: "Reportes", icon: BarChart3, href: "#reportes", category: "finanzas" },
   { label: "Configuración", icon: Settings, href: "#configuracion", category: "administracion" },
+  { label: "Centro de datos", icon: ArrowLeftRight, href: "#centro-de-datos", category: "administracion" },
   { label: "Control operativo", icon: BadgeCheck, href: "#control-operativo", category: "finanzas" },
 ];
 const appModules: AppModule[] = [
@@ -165,6 +167,7 @@ const appModules: AppModule[] = [
   { label: "Conciliación", icon: ArrowLeftRight, href: "#conciliacion", category: "finanzas", description: "Movimientos bancarios", tone: "rose" },
   { label: "Reportes", icon: BarChart3, href: "#reportes", category: "finanzas", description: "Análisis y exportación", tone: "pink" },
   { label: "Configuración", icon: Settings, href: "#configuracion", category: "administracion", description: "Impuestos, monedas y maestros", tone: "slate" },
+  { label: "Centro de datos", icon: ArrowLeftRight, href: "#centro-de-datos", category: "administracion", description: "Plantillas, cargas y exportación de materiales", tone: "teal" },
   { label: "Administración", icon: BriefcaseBusiness, href: "#administracion", category: "administracion", description: "Usuarios y permisos", tone: "navy" },
   { label: "Documentos", icon: FileText, href: "#documentos", category: "administracion", description: "Archivo empresarial", tone: "slate" },
   { label: "Control operativo", icon: BadgeCheck, href: "#control-operativo", category: "finanzas", description: "Aprobaciones y contabilidad", tone: "indigo" },
@@ -839,6 +842,8 @@ export default function App() {
                         window.location.hash = "#dashboard";
                       }}
                     />
+                  ) : view === "#centro-de-datos" ? (
+                    <DataCenterPage goBack={() => { window.location.hash = "#dashboard"; }} />
                   ) : view === "#configuracion" ? (
                     <ConfigurationPage
                       goBack={() => {

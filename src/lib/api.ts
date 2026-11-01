@@ -41,10 +41,10 @@ function errorMessage(detail: unknown, status: number) {
   return `No se pudo completar la operación (HTTP ${status}).`;
 }
 
-export async function apiFetch<T>(
+async function apiRequest(
   path: string,
   { accessToken, tenantId, ...init }: ApiOptions = {},
-): Promise<T> {
+): Promise<Response> {
   const isFormData =
     typeof FormData !== "undefined" && init.body instanceof FormData;
   let response: Response;
@@ -73,8 +73,17 @@ export async function apiFetch<T>(
       response.status,
     );
   }
+  return response;
+}
+
+export async function apiFetch<T>(path: string, options: ApiOptions = {}): Promise<T> {
+  const response = await apiRequest(path, options);
   if (response.status === 204) return undefined as T;
   return response.json() as Promise<T>;
+}
+
+export async function apiDownload(path: string, options: ApiOptions = {}): Promise<Blob> {
+  return (await apiRequest(path, options)).blob();
 }
 
 function createIdempotencyKey(): string {
