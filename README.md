@@ -31,6 +31,9 @@ La pantalla inicial incluye una capa de Canvas exclusivamente decorativa en el i
 
 ## Centro de datos
 
+Web pública: https://erp-enterprise-frontend.vercel.app/.
+La guía de uso está en **Aplicaciones → Guía de uso** (`#guia`).
+
 Propietarios y administradores disponen de **Aplicaciones → Centro de datos**.
 El botón **Migrar** de cada módulo usa el mismo componente y las mismas rutas.
 La definición de columnas viene de `GET /imports/templates`, con compatibilidad
@@ -41,9 +44,29 @@ diccionario/catálogos/ejemplo separado, exportación CSV/XLSX, incidencias por
 fila y un comprobante de carga. Los atributos industriales se consultan y editan
 desde **Productos → Editar → Ficha industrial y planificación**.
 
-Para habilitar los campos nuevos en el servidor, aplica primero la migración
-`0064_material_master_profiles.sql` del repositorio backend y luego despliega
-esa API. La interfaz utiliza las capacidades que anuncie la API conectada.
+Para habilitar los 25 campos en el servidor, aplica la migración
+`0064_material_master_profiles.sql` del repositorio backend. La API actualizada
+ofrece nueve campos base mientras falta esa tabla adicional. La interfaz utiliza
+las capacidades que anuncie la API conectada y admite el contrato anterior.
+
+## Módulos y roles
+
+Contabilidad financiera, Aprobaciones, Flujo de caja, Disponibilidad/reservas y
+Valoración de referencia son accesos propios a funciones del backend existente.
+La guía explica los recorridos de compra, venta, inventario y carga de datos.
+
+Se conservan los siete roles: `owner`, `admin`, `sales`, `purchases`, `finance`,
+`inventory` y `viewer`. El menú incorpora restricciones por empresa/usuario
+recibidas de `/auth/access`. Ante una API anterior, solo un `404` permite volver
+a `/auth/me`; una respuesta de autorización denegada no activa ese fallback.
+Compras y Consulta acceden al material en modo de consulta, con controles de
+escritura ocultos. Las reservas manuales requieren permiso de inventario.
+
+`npm run test:e2e` ejecuta Playwright con un navegador aislado y respuestas de
+prueba; no envía cargas ni reservas a producción. En Windows usa Microsoft Edge
+y en CI Chromium. Las verificaciones incluyen los siete roles, restricciones
+por empresa, confirmación de carga con hash/idempotencia, consulta y reserva,
+escritura oculta y presentación móvil.
 
 ## Repositorios y publicación
 

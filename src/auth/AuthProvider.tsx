@@ -1,8 +1,9 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
-import { apiFetch } from "../lib/api";
+import { ApiError, apiFetch } from "../lib/api";
+import { fetchWorkspaceAccess } from "../lib/workspaceAccess";
 import { requiresMfaVerification } from "../lib/mfaLogin";
-import type { RoleCode } from "../lib/roleAccess";
+import type { RoleCode, WorkspaceAccess } from "../lib/roleAccess";
 import { supabase } from "../lib/supabase";
 
 export type Tenant = { id: string; name: string; timezone: string; business_profile: "retail" | "wholesale" | "hybrid" };
@@ -11,6 +12,7 @@ type AuthContextValue = {
   tenants: Tenant[];
   tenantId: string | null;
   roleCode: RoleCode | null;
+  access: WorkspaceAccess | null;
   isRoleLoading: boolean;
   roleError: string | null;
   isLoading: boolean;
@@ -39,6 +41,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [tenantId, setTenantId] = useState<string | null>(null);
   const tenantIdRef = useRef<string | null>(null);
   const [roleCode, setRoleCode] = useState<RoleCode | null>(null);
+  const [access, setAccess] = useState<WorkspaceAccess | null>(null);
   const roleCodeRef = useRef<RoleCode | null>(null);
   const [isRoleLoading, setIsRoleLoading] = useState(false);
   const [roleError, setRoleError] = useState<string | null>(null);
@@ -85,6 +88,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (!session || !tenantId) {
       roleCodeRef.current = null;
       setRoleCode(null);
+      setAccess(null);
       setRoleError(null);
       setIsRoleLoading(false);
       return () => { active = false; };
@@ -97,13 +101,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const shouldBlockWorkspace = roleCodeRef.current === null;
     if (shouldBlockWorkspace) setIsRoleLoading(true);
     setRoleError(null);
-    void apiFetch<{ role_code: RoleCode }>("/auth/me", {
+    void fetchWorkspaceAccess({
       accessToken: session.access_token,
       tenantId,
     }).then((actor) => {
       if (active) {
         roleCodeRef.current = actor.role_code;
         setRoleCode(actor.role_code);
+        setAccess(actor.access);
       }
     }).catch((cause) => {
       if (active) {
@@ -111,9 +116,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         // failure. The next authenticated API request remains protected by
         // the server; this only prevents a harmless network hiccup from
         // destroying an unsaved local form.
-        if (shouldBlockWorkspace) {
+        if (shouldBlockWorkspace || (cause instanceof ApiError && (cause.status === 401 || cause.status === 403))) {
           roleCodeRef.current = null;
           setRoleCode(null);
+          setAccess(null);
           setRoleError(`No se pudo validar tu rol de acceso: ${message(cause)}`);
         }
       }
@@ -143,7 +149,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (!nextSession) {
           roleCodeRef.current = null;
           tenantIdRef.current = null;
-          setTenants([]); setTenantId(null); setError(null); setIsLoading(false);
+          setTenants([]); setTenantId(null); setAccess(null); setError(null); setIsLoading(false);
           return;
         }
         // This must never trigger the full-page loader. Apart from token refresh,
@@ -175,8 +181,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       void loadTenants(refreshed.access_token, tenantIdRef.current === null);
     }
   };
-  const selectTenant = (nextId: string) => { roleCodeRef.current = null; tenantIdRef.current = nextId; setRoleCode(null); setTenantId(nextId); localStorage.setItem(storedTenantKey, nextId); };
-  const value = useMemo(() => ({ session, tenants, tenantId, roleCode, isRoleLoading, roleError, isLoading, error, mfaRequired, signIn, signOut, selectTenant, refreshSession }), [session, tenants, tenantId, roleCode, isRoleLoading, roleError, isLoading, error, mfaRequired]);
+  const selectTenant = (nextId: string) => { roleCodeRef.current = null; tenantIdRef.current = nextId; setRoleCode(null); setAccess(null); setTenantId(nextId); localStorage.setItem(storedTenantKey, nextId); };
+  const value = useMemo(() => ({ session, tenants, tenantId, roleCode, access, isRoleLoading, roleError, isLoading, error, mfaRequired, signIn, signOut, selectTenant, refreshSession }), [session, tenants, tenantId, roleCode, access, isRoleLoading, roleError, isLoading, error, mfaRequired]);
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 

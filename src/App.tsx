@@ -65,8 +65,11 @@ import { ProfilePage } from "./components/ProfilePage";
 import { OperationsPage } from "./components/OperationsPage";
 import { ConfigurationPage } from "./components/ConfigurationPage";
 import { DataCenterPage } from "./components/DataCenterPage";
+import { CashFlowPage } from "./components/CashFlowPage";
+import { InventoryPlanningPage } from "./components/InventoryPlanningPage";
+import { HelpPage } from "./components/HelpPage";
 import { useAuth } from "./auth/AuthProvider";
-import { canAccessModule, defaultModuleFor } from "./lib/roleAccess";
+import { canAccessModule, defaultModuleFor, isProfileModuleAvailable } from "./lib/roleAccess";
 
 const CHUNK_RELOAD_PARAM = "ec-reload";
 
@@ -146,6 +149,12 @@ const navigation: NavItem[] = [
   { label: "Configuración", icon: Settings, href: "#configuracion", category: "administracion" },
   { label: "Centro de datos", icon: ArrowLeftRight, href: "#centro-de-datos", category: "administracion" },
   { label: "Control operativo", icon: BadgeCheck, href: "#control-operativo", category: "finanzas" },
+  { label: "Contabilidad financiera", icon: BriefcaseBusiness, href: "#contabilidad", category: "finanzas" },
+  { label: "Aprobaciones", icon: BadgeCheck, href: "#aprobaciones", category: "administracion" },
+  { label: "Flujo de caja", icon: WalletCards, href: "#flujo-de-caja", category: "finanzas" },
+  { label: "Disponibilidad y reservas", icon: PackageSearch, href: "#disponibilidad", category: "abastecimiento" },
+  { label: "Valoración de inventario", icon: BarChart3, href: "#valoracion", category: "abastecimiento" },
+  { label: "Guía de uso", icon: CircleHelp, href: "#guia", category: "administracion" },
 ];
 const appModules: AppModule[] = [
   { label: "Panel ejecutivo", icon: Gauge, href: "#dashboard", category: "administracion", description: "Indicadores de tu operación", tone: "sky" },
@@ -171,15 +180,14 @@ const appModules: AppModule[] = [
   { label: "Administración", icon: BriefcaseBusiness, href: "#administracion", category: "administracion", description: "Usuarios y permisos", tone: "navy" },
   { label: "Documentos", icon: FileText, href: "#documentos", category: "administracion", description: "Archivo empresarial", tone: "slate" },
   { label: "Control operativo", icon: BadgeCheck, href: "#control-operativo", category: "finanzas", description: "Aprobaciones y contabilidad", tone: "indigo" },
+  { label: "Contabilidad financiera", icon: BriefcaseBusiness, href: "#contabilidad", category: "finanzas", description: "Libro diario y balance de comprobación", tone: "navy" },
+  { label: "Aprobaciones", icon: BadgeCheck, href: "#aprobaciones", category: "administracion", description: "Solicitudes, decisiones y evidencia de aprobación", tone: "indigo" },
+  { label: "Flujo de caja", icon: WalletCards, href: "#flujo-de-caja", category: "finanzas", description: "Saldos por moneda y antigüedad de cartera", tone: "emerald" },
+  { label: "Disponibilidad y reservas", icon: PackageSearch, href: "#disponibilidad", category: "abastecimiento", description: "Existencias, compromisos y reserva manual", tone: "teal" },
+  { label: "Valoración de inventario", icon: BarChart3, href: "#valoracion", category: "abastecimiento", description: "Valor de referencia al costo promedio", tone: "amber" },
+  { label: "Guía de uso", icon: CircleHelp, href: "#guia", category: "administracion", description: "Recorridos de trabajo y responsabilidades por rol", tone: "sky" },
 ];
 type BusinessProfile = "retail" | "wholesale" | "hybrid";
-const PROFILE_BLOCKED_VIEWS: Record<BusinessProfile, ReadonlySet<string>> = {
-  retail: new Set(["#cotizaciones", "#pedidos-de-venta"]),
-  wholesale: new Set(["#pos"]),
-  hybrid: new Set(),
-};
-const isProfileModuleAvailable = (profile: BusinessProfile | undefined, href: string) =>
-  !PROFILE_BLOCKED_VIEWS[profile ?? "hybrid"].has(href);
 const supportedViews = new Set([
   // The launcher is the source of truth. Keeping the recognized hashes in
   // sync with its modules prevents an app from silently falling back to the
@@ -242,6 +250,7 @@ function Sidebar({
   onTenantChange: (id: string) => void;
   onLogout: () => void;
 }) {
+  const { access } = useAuth();
   return (
     <>
       {open && (
@@ -287,19 +296,19 @@ function Sidebar({
         </label>
         <nav aria-label="Navegación principal">
           <p className="nav-caption">ESPACIO DE TRABAJO</p>
-          {canAccessModule(roleCode, "#dashboard") && (
+          {canAccessModule(roleCode, "#dashboard", access) && (
             <a className={`nav-item ${view === "#dashboard" ? "active" : ""}`} href="#dashboard">
               <Gauge size={18} strokeWidth={view === "#dashboard" ? 2.2 : 1.8} />
               <span>Panel ejecutivo</span>
             </a>
           )}
           {moduleCategories
-            .filter((category) => navigation.some((item) => item.category === category.id && item.href !== "#dashboard" && canAccessModule(roleCode, item.href)))
+            .filter((category) => navigation.some((item) => item.category === category.id && item.href !== "#dashboard" && canAccessModule(roleCode, item.href, access)))
             .map((category) => (
               <div className="nav-category" key={category.id}>
                 <p className="nav-caption nav-category-title">{category.label}</p>
                 {navigation
-                  .filter((item) => item.category === category.id && item.href !== "#dashboard" && canAccessModule(roleCode, item.href))
+                  .filter((item) => item.category === category.id && item.href !== "#dashboard" && canAccessModule(roleCode, item.href, access))
                   .map(({ label, icon: Icon, href, badge }) => (
                     <a
                       className={`nav-item ${view === href ? "active" : ""}`}
@@ -313,7 +322,7 @@ function Sidebar({
                   ))}
               </div>
             ))}
-          {canAccessModule(roleCode, "#administracion") && <>
+          {canAccessModule(roleCode, "#administracion", access) && <>
             <p className="nav-caption lower">CONFIGURACIÓN</p>
             <a className={`nav-item ${view === "#administracion" ? "active" : ""}`} href="#administracion">
               <Settings size={18} />
@@ -324,9 +333,7 @@ function Sidebar({
         <div className="sidebar-footer">
           <a
             className="nav-item"
-            href="https://erp-enterprisecloud-api.onrender.com/docs"
-            target="_blank"
-            rel="noreferrer"
+            href="#guia"
           >
             <CircleHelp size={18} />
             <span>Centro de ayuda</span>
@@ -356,6 +363,7 @@ function ModuleLauncher({
   roleCode: string | null;
   businessProfile: BusinessProfile | undefined;
 }) {
+  const { access } = useAuth();
   const [moduleSearch, setModuleSearch] = useState("");
   useEffect(() => {
     const closeOnEscape = (event: KeyboardEvent) => {
@@ -372,7 +380,7 @@ function ModuleLauncher({
   const normalizedSearch = moduleSearch.trim().toLocaleLowerCase("es-MX");
   const visibleModules = appModules.filter(
     (module) =>
-      canAccessModule(roleCode, module.href) &&
+      canAccessModule(roleCode, module.href, access) &&
       isProfileModuleAvailable(businessProfile, module.href) &&
       (!normalizedSearch ||
         `${module.label} ${module.description}`
@@ -525,6 +533,7 @@ export default function App() {
     tenants,
     tenantId,
     roleCode,
+    access,
     isRoleLoading,
     roleError,
     isLoading,
@@ -576,11 +585,11 @@ export default function App() {
   useEffect(() => {
     if (isProviderPortal) return;
     if (isRoleLoading || !roleCode) return;
-    const allowed = view === "#perfil" || (canAccessModule(roleCode, view) && isProfileModuleAvailable(activeTenant?.business_profile, view));
+    const allowed = view === "#perfil" || (canAccessModule(roleCode, view, access) && isProfileModuleAvailable(activeTenant?.business_profile, view));
     if (allowed) return;
-    const fallback = defaultModuleFor(roleCode);
+    const fallback = defaultModuleFor(roleCode, access, activeTenant?.business_profile);
     if (fallback) window.location.hash = fallback;
-  }, [activeTenant?.business_profile, isProviderPortal, isRoleLoading, roleCode, view]);
+  }, [access, activeTenant?.business_profile, isProviderPortal, isRoleLoading, roleCode, view]);
   if (isProviderPortal) return <ProviderPortal />;
   if (isLoading)
     return (
@@ -617,10 +626,10 @@ export default function App() {
   const profileName = typeof session.user.user_metadata.full_name === "string" ? session.user.user_metadata.full_name.trim() : "";
   const userName = profileName || (session.user.email?.split("@")[0] ?? "Usuario");
   const avatarPath = typeof session.user.user_metadata.avatar_path === "string" ? session.user.user_metadata.avatar_path : null;
-  const allowedNavigation = navigation.filter((item) => canAccessModule(roleCode, item.href) && isProfileModuleAvailable(activeTenant?.business_profile, item.href));
+  const allowedNavigation = navigation.filter((item) => canAccessModule(roleCode, item.href, access) && isProfileModuleAvailable(activeTenant?.business_profile, item.href));
   const allQuickLinks = [
     ...allowedNavigation,
-    ...(canAccessModule(roleCode, "#administracion")
+    ...(canAccessModule(roleCode, "#administracion", access)
       ? [{ label: "Administración", icon: BriefcaseBusiness, href: "#administracion" }]
       : []),
     { label: "Mi perfil", icon: UsersRound, href: "#perfil" },
@@ -730,7 +739,7 @@ export default function App() {
         </header>
         <div className="content-wrap">
           <ModuleErrorBoundary view={view}>
-            {view !== "#perfil" && (!canAccessModule(roleCode, view) || !isProfileModuleAvailable(activeTenant?.business_profile, view)) ? (
+            {view !== "#perfil" && (!canAccessModule(roleCode, view, access) || !isProfileModuleAvailable(activeTenant?.business_profile, view)) ? (
                 <section className="module-state dashboard-state">
                   <AlertTriangle size={27} />
                   <strong>No tienes acceso a este módulo</strong>
@@ -738,6 +747,16 @@ export default function App() {
                 </section>
               ) : view === "#perfil" ? (
                 <ProfilePage goBack={() => { window.location.hash = "#dashboard"; }} />
+              ) : view === "#guia" ? (
+                <HelpPage goBack={() => { window.location.hash = defaultModuleFor(roleCode, access, activeTenant?.business_profile) ?? "#dashboard"; }} />
+              ) : view === "#contabilidad" ? (
+                <OperationsPage key="accounting" section="accounting" goBack={() => { window.location.hash = "#dashboard"; }} />
+              ) : view === "#aprobaciones" ? (
+                <OperationsPage key="approvals" section="approvals" goBack={() => { window.location.hash = "#dashboard"; }} />
+              ) : view === "#flujo-de-caja" ? (
+                <CashFlowPage goBack={() => { window.location.hash = "#dashboard"; }} />
+              ) : view === "#disponibilidad" || view === "#valoracion" ? (
+                <InventoryPlanningPage key={view} mode={view === "#valoracion" ? "valuation" : "availability"} goBack={() => { window.location.hash = "#inventario"; }} />
               ) : view === "#dashboard" ? (
                 <DashboardPage
                   userName={userName}
@@ -857,7 +876,7 @@ export default function App() {
                       }}
                     />
                   ) : view === "#control-operativo" ? (
-                    <OperationsPage
+                    <OperationsPage key="operations"
                       goBack={() => {
                         window.location.hash = "#dashboard";
                       }}

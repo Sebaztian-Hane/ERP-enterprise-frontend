@@ -18,9 +18,9 @@ const policyLabels: Record<PolicyKind, { title: string; detail: string }> = {
   purchase_order: { title: "Autorización para órdenes de compra", detail: "Las órdenes que alcancen el umbral se asignarán al rol indicado; las demás las revisa el propietario o administrador." },
 };
 
-export function OperationsPage({ goBack }: { goBack: () => void }) {
+export function OperationsPage({ goBack, section }: { goBack: () => void; section?: Tab }) {
   const { session, tenantId, roleCode } = useAuth();
-  const [tab, setTab] = useState<Tab>("approvals");
+  const [tab, setTab] = useState<Tab>(section ?? "approvals");
   const [approvals, setApprovals] = useState<Approval[]>([]);
   const [policies, setPolicies] = useState<Policy[]>([]);
   const [journal, setJournal] = useState<Journal[]>([]);
@@ -87,8 +87,9 @@ export function OperationsPage({ goBack }: { goBack: () => void }) {
   const policyScope = (item: Policy) => item.module === "inventory" && item.action === "physical_count" ? "Todo conteo enviado" : item.module === "purchases" && item.action === "purchase_order" ? `Desde ${money.format(Number(item.min_amount))}` : money.format(Number(item.min_amount));
 
   return <section className="module-page">
-    <div className="module-heading"><div><button className="back-link" onClick={goBack}><ChevronLeft size={16} /> Panel general</button><p className="eyebrow">GOBIERNO OPERATIVO</p><h1>Control operativo</h1><p className="subtitle">Aprobaciones trazables y consulta contable de la empresa.</p></div></div>
-    <div className="customers-toolbar" role="tablist"><button className={tab === "approvals" ? "primary-button" : "secondary-button"} onClick={() => setTab("approvals")}><BadgeCheck size={16} /> Aprobaciones</button><button className={tab === "accounting" ? "primary-button" : "secondary-button"} onClick={() => setTab("accounting")}><BookOpenCheck size={16} /> Contabilidad</button><a className="secondary-button" href="#configuracion">Configuración y maestros</a></div>
+    <div className="module-heading"><div><button className="back-link" onClick={goBack}><ChevronLeft size={16} /> Panel general</button><p className="eyebrow">GOBIERNO OPERATIVO</p><h1>{section === "accounting" ? "Contabilidad financiera" : section === "approvals" ? "Aprobaciones" : "Control operativo"}</h1><p className="subtitle">{section === "accounting" ? "Consulta el libro diario y el balance de comprobación con origen en los documentos de la empresa." : "Aprobaciones trazables y consulta contable de la empresa."}</p></div></div>
+    {(!section || canConfigure) && <div className="customers-toolbar">{!section && <><button className={tab === "approvals" ? "primary-button" : "secondary-button"} onClick={() => setTab("approvals")}><BadgeCheck size={16} /> Aprobaciones</button><button className={tab === "accounting" ? "primary-button" : "secondary-button"} onClick={() => setTab("accounting")}><BookOpenCheck size={16} /> Contabilidad</button></>}{canConfigure && <a className="secondary-button" href="#configuracion">Configuración y maestros</a>}</div>}
+    {section && <div className="process-strip"><span>{section === "accounting" ? "Documento origen" : "Solicitud"}</span><span>→</span><span>{section === "accounting" ? "Asiento" : "Revisión y firma"}</span><span>→</span><span>{section === "accounting" ? "Balance de comprobación" : "Decisión trazable"}</span><a href="#guia">Ver guía del proceso</a></div>}
     {error && <div className="module-error">{error}<button onClick={() => void load()}>Reintentar</button></div>}
     {loading ? <div className="module-state"><LoaderCircle className="spin" size={24} /> Cargando…</div> : tab === "approvals" ? <>
       <section className="metric-grid"><article className="metric-card"><p>Pendientes</p><strong>{approvals.filter((item) => item.status === "pending").length}</strong><span className="trend neutral">Solicitudes por resolver</span></article><article className="metric-card"><p>Políticas activas</p><strong>{policies.filter((item) => item.is_active).length}</strong><span className="trend neutral">Reglas vigentes</span></article></section>

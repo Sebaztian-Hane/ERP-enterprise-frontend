@@ -2,6 +2,7 @@ import { useState } from "react";
 import { ChevronLeft, Database, ExternalLink, Route } from "lucide-react";
 import { useAuth } from "../auth/AuthProvider";
 import { DataMigrationPanel, type ImportModule } from "./DataMigrationPanel";
+import { canAccessModule } from "../lib/roleAccess";
 
 const objects: { module: ImportModule; label: string; origin: string; destination: string; href: string }[] = [
   { module: "products", label: "1. Materiales", origin: "Unidades y clasificación", destination: "Catálogo de materiales; después, existencias por almacén", href: "#productos" },
@@ -20,11 +21,12 @@ const flows = [
 ];
 
 export function DataCenterPage({ goBack }: { goBack: () => void }) {
-  const { tenants, tenantId } = useAuth();
+  const { tenants, tenantId, roleCode, access } = useAuth();
   const profile = tenants.find((tenant) => tenant.id === tenantId)?.business_profile;
   const [module, setModule] = useState<ImportModule>("products");
-  const available = objects.filter((item) => !(profile === "retail" && item.module === "sales"));
+  const available = objects.filter((item) => !(profile === "retail" && item.module === "sales") && canAccessModule(roleCode, item.href, access));
   const selected = available.find((item) => item.module === module) ?? available[0];
+  if (!selected) return <section className="module-page"><h1>Centro de datos</h1><p>No hay objetos de carga habilitados para tu acceso.</p><button className="secondary-button" onClick={goBack}>Volver</button></section>;
   return <section className="module-page data-center-page">
     <div className="module-heading"><div><button className="back-link" onClick={goBack}><ChevronLeft size={16} /> Panel general</button><p className="eyebrow">ADMINISTRACIÓN DE DATOS</p><h1><Database size={25} /> Centro de datos</h1><p className="subtitle">Carga y exportación por objeto, con un origen y un resultado definidos.</p></div></div>
     <div className="data-object-tabs" role="group" aria-label="Objeto de carga">{available.map((item) => <button key={item.module} type="button" className={selected.module === item.module ? "selected" : ""} aria-pressed={selected.module === item.module} onClick={() => setModule(item.module)}>{item.label}</button>)}</div>

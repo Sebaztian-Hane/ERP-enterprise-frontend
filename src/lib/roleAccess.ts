@@ -7,6 +7,25 @@ export type RoleCode =
   | "inventory"
   | "viewer";
 
+export type WorkspaceAccess = { role_code: RoleCode; permissions: string[]; modules: Record<string, boolean> };
+export type BusinessProfile = "retail" | "wholesale" | "hybrid";
+
+const moduleCodes: Record<string, string> = {
+  "#dashboard": "reports", "#ventas": "sales", "#pos": "pos", "#cotizaciones": "quotes",
+  "#pedidos-de-venta": "sales_orders", "#clientes": "customers", "#compras": "purchases",
+  "#proveedores": "suppliers", "#ordenes-de-compra": "purchase_orders", "#inventario": "inventory",
+  "#almacenes": "inventory", "#kardex": "inventory", "#inventario-fisico": "inventory",
+  "#productos": "products", "#finanzas": "finance", "#cuentas": "finance",
+  "#conciliacion": "reconciliation", "#reportes": "reports", "#configuracion": "operations",
+  "#control-operativo": "operations", "#administracion": "administration", "#documentos": "documents",
+  "#contabilidad": "operations", "#aprobaciones": "operations", "#flujo-de-caja": "finance",
+  "#disponibilidad": "inventory", "#valoracion": "inventory",
+};
+
+export function isProfileModuleAvailable(profile: BusinessProfile | undefined, href: string) {
+  return !(profile === "retail" && ["#cotizaciones", "#pedidos-de-venta"].includes(href)) && !(profile === "wholesale" && href === "#pos");
+}
+
 // These routes mirror the API permissions. The browser uses this only to
 // tailor the workspace; every write and read remains enforced by the API.
 const modulesByRole: Record<RoleCode, readonly string[]> = {
@@ -25,9 +44,10 @@ const modulesByRole: Record<RoleCode, readonly string[]> = {
     "#compras",
     "#proveedores",
     "#ordenes-de-compra",
+    "#productos",
   ],
-  inventory: ["#inventario", "#almacenes", "#kardex", "#inventario-fisico", "#productos"],
-  finance: ["#dashboard", "#finanzas", "#cuentas", "#conciliacion", "#documentos", "#reportes"],
+  inventory: ["#inventario", "#almacenes", "#kardex", "#inventario-fisico", "#productos", "#disponibilidad", "#valoracion"],
+  finance: ["#dashboard", "#finanzas", "#cuentas", "#conciliacion", "#documentos", "#reportes", "#contabilidad", "#aprobaciones", "#flujo-de-caja"],
   viewer: [
     "#dashboard",
     "#ventas",
@@ -42,6 +62,7 @@ const modulesByRole: Record<RoleCode, readonly string[]> = {
     "#documentos",
     "#cuentas",
     "#reportes",
+    "#contabilidad", "#disponibilidad", "#valoracion",
   ],
 };
 
@@ -49,14 +70,20 @@ export function isKnownRole(value: string | null): value is RoleCode {
   return value !== null && Object.hasOwn(modulesByRole, value);
 }
 
-export function canAccessModule(role: string | null, href: string) {
+export function canAccessModule(role: string | null, href: string, access?: WorkspaceAccess | null) {
   if (!isKnownRole(role)) return false;
+  if (href === "#guia") return true;
   const modules = modulesByRole[role];
-  return modules.includes("*") || modules.includes(href);
+  if (!(modules.includes("*") || modules.includes(href))) return false;
+  if (!access) return true; // Compatibility with servers before /auth/access.
+  if (access.role_code !== role) return false;
+  if (href === "#centro-de-datos") return ["products", "customers", "suppliers", "inventory", "purchases", "sales"].some((code) => access.modules[code] === true);
+  return moduleCodes[href] ? access.modules[moduleCodes[href]] === true : false;
 }
 
-export function defaultModuleFor(role: string | null) {
+export function defaultModuleFor(role: string | null, access?: WorkspaceAccess | null, profile?: BusinessProfile) {
   if (!isKnownRole(role)) return null;
   const modules = modulesByRole[role];
-  return modules.includes("*") ? "#dashboard" : modules[0] ?? null;
+  const candidates = modules.includes("*") ? ["#dashboard", ...Object.keys(moduleCodes)] : modules;
+  return candidates.find((href) => canAccessModule(role, href, access) && isProfileModuleAvailable(profile, href)) ?? "#guia";
 }

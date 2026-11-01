@@ -61,7 +61,8 @@ const money = new Intl.NumberFormat("es-PE", {
 });
 
 export function ProductsPage({ goBack }: { goBack: () => void }) {
-  const { session, tenantId, roleCode } = useAuth();
+  const { session, tenantId, roleCode, access } = useAuth();
+  const canWrite = access ? access.permissions.includes("*") || access.permissions.includes("products:write") : ["owner", "admin", "inventory"].includes(roleCode ?? "");
   const [products, setProducts] = useState<Product[]>([]);
   const [page, setPage] = useState(1);
   const [meta, setMeta] = useState<PageMeta>({ page: 1, page_size: 25, total: 0, total_pages: 0, has_previous: false, has_next: false });
@@ -139,6 +140,7 @@ export function ProductsPage({ goBack }: { goBack: () => void }) {
   };
   const saveProduct = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (!canWrite) return;
     setSaving(true);
     setError(null);
     try {
@@ -243,7 +245,7 @@ export function ProductsPage({ goBack }: { goBack: () => void }) {
         </div>
         <div className="heading-actions">
           {(roleCode === "owner" || roleCode === "admin") && <a className="secondary-button" href="#centro-de-datos">Centro de datos</a>}
-          <button
+          {canWrite && <><button
             className="secondary-button"
             onClick={() => {
               setError(null);
@@ -262,7 +264,7 @@ export function ProductsPage({ goBack }: { goBack: () => void }) {
             }}
           >
             <Plus size={18} /> Nuevo producto
-          </button>
+          </button></>}
         </div>
       </div>
       <section className="customer-summary product-summary">
@@ -322,7 +324,7 @@ export function ProductsPage({ goBack }: { goBack: () => void }) {
                 ? "Prueba con otro término."
                 : "Crea el primer producto para comenzar a operar."}
             </span>
-            <button
+            {canWrite && <button
               className="text-button"
               onClick={() => {
                 setEditingId(null);
@@ -331,7 +333,7 @@ export function ProductsPage({ goBack }: { goBack: () => void }) {
               }}
             >
               Crear producto
-            </button>
+            </button>}
           </div>
         ) : (
           <><div className="table-wrap">
@@ -376,18 +378,18 @@ export function ProductsPage({ goBack }: { goBack: () => void }) {
                         <button
                           className="icon-button muted"
                           onClick={() => editProduct(item)}
-                          aria-label="Editar producto"
+                          aria-label={canWrite ? "Editar producto" : "Ver producto"}
                         >
                           <Pencil size={15} />
                         </button>
-                        <button
+                        {canWrite && <button
                           className="icon-button muted"
                           onClick={() => void toggleProduct(item)}
                           disabled={saving}
                           aria-label="Cambiar estado"
                         >
                           <Power size={15} />
-                        </button>
+                        </button>}
                       </div>
                     </td>
                   </tr>
@@ -399,10 +401,11 @@ export function ProductsPage({ goBack }: { goBack: () => void }) {
       </article>
       {productOpen && (
         <Modal
-          title={editingId ? "Editar producto" : "Crear producto"}
+          title={editingId ? canWrite ? "Editar producto" : "Ver producto" : "Crear producto"}
           onClose={closeProduct}
         >
           <form className="customer-form" onSubmit={saveProduct}>
+            <fieldset className="product-fields" disabled={!canWrite}>
             <label>
               SKU
               <input
@@ -506,12 +509,13 @@ export function ProductsPage({ goBack }: { goBack: () => void }) {
               Costo inicial / promedio
               <input type="number" min="0" step="0.01" value={product.average_cost} onChange={(event) => setProduct((current) => ({ ...current, average_cost: event.target.value }))} />
             </label>
+            </fieldset>
             {error && <p className="login-error">{error}</p>}
-            <ModalActions
+            {canWrite ? <ModalActions
               saving={saving}
               onCancel={closeProduct}
               label={editingId ? "Guardar cambios" : "Guardar producto"}
-            />
+            /> : <button className="secondary-button" type="button" onClick={closeProduct}>Cerrar consulta</button>}
           </form>
           {editingId && <MaterialProfileEditor key={`${tenantId}:${editingId}`} productId={editingId} />}
         </Modal>

@@ -3915,7 +3915,46 @@ html[data-theme="dark"] .table-pagination strong { color:#dcecf2; }
 .material-profile-editor .customer-form { padding:12px 0 0; }
 .material-profile-editor .form-grid { align-items:start; }
 .material-profile-editor small { font-weight:400; }
+.product-fields { display:grid; gap:16px; min-width:0; margin:0; padding:0; border:0; }
 .data-center-page h1 { display:flex; align-items:center; gap:10px; }
+.help-page h1 { display:flex; align-items:center; gap:10px; }
+.process-strip { display:flex; align-items:center; flex-wrap:wrap; gap:9px; padding:13px 16px; margin-bottom:18px; border:1px solid #c3dbe4; border-radius:8px; background:#eef7fa; color:#416677; font-size:12px; }
+.process-strip a { margin-left:auto; color:#116c94; font-weight:600; }
+.cash-currency-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:16px; margin-bottom:20px; }
+.cash-flow-page .customers-panel { min-height:0; }
+.cash-currency-card { padding:22px; }
+.cash-currency-card > small { color:#64818e; font-size:11px; }
+.cash-currency-card > strong { display:block; margin:12px 0 20px; font-size:28px; }
+.cash-currency-card > div { display:grid; gap:8px; }
+.cash-currency-card span,.aging-buckets > div { display:flex; justify-content:space-between; gap:18px; font-size:13px; }
+.aging-buckets { display:grid; gap:12px; margin:20px 0; }
+.aging-buckets > div { border-bottom:1px solid #dce7ec; padding-bottom:10px; }
+.help-intro { display:flex; gap:16px; padding:22px; margin-bottom:20px; }
+.help-intro > svg { flex:0 0 auto; color:#2185a8; }
+.help-intro h2 { margin:0 0 8px; font-size:17px; }
+.help-intro p,.coverage-roadmap p { margin:0; font-size:13px; line-height:1.7; color:#64818e; }
+.help-processes { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:18px; margin-bottom:20px; }
+.help-processes h2 { font-size:18px; }
+.help-page .help-step-list { display:block; list-style:decimal; padding-left:20px; font-size:13px; line-height:1.7; }
+.help-step-list li { margin-bottom:9px; padding-left:3px; }
+.help-page .help-step-list li::after { content:none; }
+.help-links { display:flex; flex-wrap:wrap; gap:8px; margin-top:18px; }
+.help-links a.secondary-button { display:inline-flex; align-items:center; gap:6px; min-height:34px; padding:8px 10px; font:inherit; font-size:12px; line-height:1.2; text-decoration:none; }
+.help-page .data-flow-card .help-step-list li:not(:last-child)::after { content:none; }
+.help-page .customers-panel { min-height:0; }
+.help-page table { min-width:0; table-layout:fixed; }
+.help-page table th:first-child { width:130px; }
+.help-page table td:last-child { white-space:normal; line-height:1.7; }
+.coverage-roadmap { padding:20px; }
+.coverage-roadmap summary { cursor:pointer; font-size:14px; font-weight:600; }
+.coverage-roadmap p { margin-top:12px; }
+.module-notice { padding:13px 16px; border:1px solid #a5d5bd; border-radius:7px; color:#236346; background:#effaf4; font-size:13px; }
+html[data-theme="dark"] .process-strip,html[data-theme="dark"] .help-intro,html[data-theme="dark"] .cash-currency-card,html[data-theme="dark"] .coverage-roadmap { background:#17303c; border-color:#3c6575; color:#d2e6ef; }
+html[data-theme="dark"] .process-strip a { color:#92d8f1; }
+html[data-theme="dark"] .help-intro p,html[data-theme="dark"] .coverage-roadmap p,html[data-theme="dark"] .cash-currency-card > small { color:#acc8d4; }
+html[data-theme="dark"] .aging-buckets > div { border-color:#3c6575; }
+html[data-theme="dark"] .module-notice { background:#17392f; border-color:#497564; color:#b4eccb; }
+@media(max-width:760px) { .help-processes { grid-template-columns:1fr; }.process-strip a { margin-left:0; width:100%; }.cash-currency-card > strong { font-size:24px; } }
 .data-object-tabs { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:16px; }
 .data-object-tabs button { padding:10px 14px; border:1px solid #bbd1db; border-radius:7px; color:#365a6c; background:#fff; cursor:pointer; font:inherit; font-size:13px; }
 .data-object-tabs button.selected { border-color:#207f9f; background:#e0f2f8; color:#135572; font-weight:600; }
