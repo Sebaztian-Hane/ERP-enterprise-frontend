@@ -233,6 +233,7 @@ test("account without a factor can enroll by QR before confirming", async ({ pag
   await expect(dialog.getByRole("img", { name: "QR privado para vincular tu autenticador" })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   expect(await page.locator(".action-confirmation-layer").evaluate(element => getComputedStyle(element).zIndex)).toBe("14000");
+  expect(await dialog.getByRole("button", { name: "Verificar y continuar" }).evaluate(element => Number.parseFloat(getComputedStyle(element).fontSize))).toBeGreaterThan(0);
   expect(calls.executed).toBe(0);
   await dialog.getByLabel("Código del autenticador").fill("654321");
   await dialog.getByRole("button", { name: "Verificar y continuar" }).click();
