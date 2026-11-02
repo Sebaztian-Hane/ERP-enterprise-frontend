@@ -1,3 +1,4 @@
+import { SystemNotice } from "./SystemNotifications";
 import { FormEvent, Fragment, useEffect, useMemo, useState } from "react";
 import { Building2, Check, GitBranch, LoaderCircle, Power, Plus } from "lucide-react";
 import { useAuth } from "../auth/AuthProvider";
@@ -99,7 +100,7 @@ export function LegalEntityManagement() {
 
   return <section className="legal-entity-management" aria-labelledby="legal-structure-title">
     <div className="panel-header"><div><p className="card-label">ESTRUCTURA FISCAL Y OPERATIVA</p><h2 id="legal-structure-title">Entidades legales y sucursales</h2><p>Define los emisores tributarios y establecimientos que podrán asociarse a almacenes y documentos.</p></div></div>
-    {error && <div className="module-error">{error}<button onClick={() => void load()}>Reintentar</button></div>}
+    {error && <SystemNotice tone="error">{error}<button onClick={() => void load()}>Reintentar</button></SystemNotice>}
     <div className="configuration-grid legal-structure-grid">
       <article className="panel customers-panel"><div className="panel-header"><div><p className="card-label">EMISOR TRIBUTARIO</p><h2>Nueva entidad legal</h2></div><Building2 className="muted-icon" size={20} /></div>
         <form className="customer-form config-form" onSubmit={saveEntity}>

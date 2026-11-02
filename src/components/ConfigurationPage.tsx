@@ -1,3 +1,4 @@
+import { SystemNotice } from "./SystemNotifications";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { ChevronLeft, LoaderCircle, Plus, Settings2 } from "lucide-react";
 import { useAuth } from "../auth/AuthProvider";
@@ -207,10 +208,10 @@ export function ConfigurationPage({ goBack }: { goBack: () => void }) {
       <LegalEntityManagement />
       <CommercialPoliciesPanel />
       {error && (
-        <div className="module-error">
+        <SystemNotice tone="error">
           {error}
           <button onClick={() => void load()}>Reintentar</button>
-        </div>
+        </SystemNotice>
       )}
       <div className="configuration-grid">
         <article className="panel customers-panel">

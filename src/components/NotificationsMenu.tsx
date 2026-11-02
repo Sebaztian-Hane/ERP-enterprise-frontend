@@ -1,7 +1,9 @@
+import { SystemNotice } from "./SystemNotifications";
 import { useEffect, useState } from "react";
 import { Bell, CheckCheck, CircleAlert, CircleCheck, Info, LoaderCircle, RefreshCw, X } from "lucide-react";
 import { useAuth } from "../auth/AuthProvider";
 import { apiFetch } from "../lib/api";
+import { useSystemNotifications } from "./SystemNotifications";
 
 type SystemNotification = {
   id: string;
@@ -27,6 +29,7 @@ function detail(error: unknown) {
 }
 
 export function NotificationsMenu() {
+  const system = useSystemNotifications();
   const { session, tenantId } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
   const [notifications, setNotifications] = useState<SystemNotification[]>([]);
@@ -122,11 +125,12 @@ export function NotificationsMenu() {
             </div>
           </header>
           <p className="notifications-caption">Alertas relevantes de los módulos a los que tienes acceso.</p>
+          <button type="button" className="secondary-button" onClick={() => { setIsOpen(false); system?.openHistory(); }}>Registro de alertas del sistema ({system?.count ?? 0})</button>
           <div className="notifications-list" aria-live="polite">
             {isLoading && !notifications.length ? (
               <div className="notifications-state"><LoaderCircle className="spin" size={20} /> Actualizando alertas…</div>
             ) : error ? (
-              <div className="notifications-state notification-error"><CircleAlert size={20} /><span>{error}</span><button type="button" onClick={() => void load()}>Reintentar</button></div>
+              <SystemNotice tone="error"><CircleAlert size={20} /><span>{error}</span><button type="button" onClick={() => void load()}>Reintentar</button></SystemNotice>
             ) : notifications.length ? (
               notifications.map((notification) => (
                 <button

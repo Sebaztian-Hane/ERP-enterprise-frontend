@@ -1,3 +1,4 @@
+import { SystemNotice } from "./SystemNotifications";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import {
   ArrowRight,
@@ -233,10 +234,10 @@ export function PurchaseOrdersPage({ goBack }: { goBack: () => void }) {
         </article>
       </section>
       {error && !open && (
-        <div className="module-error">
+        <SystemNotice tone="error">
           {error}
           <button onClick={() => void load()}>Reintentar</button>
-        </div>
+        </SystemNotice>
       )}
       <article className="panel customers-panel">
         <div className="panel-header">
@@ -501,7 +502,7 @@ export function PurchaseOrdersPage({ goBack }: { goBack: () => void }) {
                   ))
                 )}
               </div>
-              {error && <p className="login-error">{error}</p>}
+              {error && <SystemNotice tone="error">{error}</SystemNotice>}
               <div className="sale-total">
                 <span>Total de la orden</span>
                 <strong>{currency.format(total)}</strong>

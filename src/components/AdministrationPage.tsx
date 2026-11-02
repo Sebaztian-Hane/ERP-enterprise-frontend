@@ -1,3 +1,4 @@
+import { SystemNotice } from "./SystemNotifications";
 import { FormEvent, useEffect, useState } from "react";
 import {
   ChevronLeft,
@@ -176,10 +177,10 @@ export function AdministrationPage({ goBack }: { goBack: () => void }) {
         </div>
       </div>
       {error && (
-        <div className="module-error">
+        <SystemNotice tone="error">
           {error}
           <button onClick={() => void load()}>Reintentar</button>
-        </div>
+        </SystemNotice>
       )}
       {selected && assignment && <section className="panel member-assignment-panel"><header className="panel-header"><div><p className="card-label">ASIGNACIÓN POR MÓDULO</p><h2>{labels[selected.role_code]} · {selected.user_id.slice(0, 8)}</h2></div><button className="secondary-button" onClick={() => setSelectedMember(null)}>Cerrar asignación</button></header><p>El rol define las operaciones autorizadas. Esta selección limita sus módulos y transacciones; habilitar una casilla no amplía los permisos del rol. La administración corresponde al propietario.</p><ModuleAssignments groups={assignment.groups} modules={assignment.modules} role={selected.role_code} overrides={assignment.members.find(item => item.id === selected.id)?.overrides ?? {}} busy={saving !== null} onChange={changes => void saveAssignment(changes)} /></section>}
       <section className="customer-summary">

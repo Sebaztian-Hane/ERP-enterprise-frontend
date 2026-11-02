@@ -1,3 +1,4 @@
+import { SystemNotice } from "./SystemNotifications";
 import { type FormEvent, useEffect, useRef, useState } from "react";
 import { Bot, CircleAlert, History, LoaderCircle, MessageSquarePlus, SendHorizontal, Sparkles, Trash2, X } from "lucide-react";
 import { useAuth } from "../auth/AuthProvider";
@@ -165,7 +166,7 @@ export function AssistantChat({ isOpen, onClose, tenantName, roleCode }: { isOpe
       </header>
       {showHistory ? <section className="assistant-history" aria-label="Historial de conversaciones">
         <div className="assistant-history-intro"><div><p>CONVERSACIONES</p><strong>{conversations.length} de 5 chats disponibles</strong></div><button type="button" onClick={startNewChat}><MessageSquarePlus size={16} /> Nuevo chat</button></div>
-        {historyError && <p className="assistant-history-error">{historyError}</p>}
+        {historyError && <SystemNotice tone="error">{historyError}</SystemNotice>}
         {isLoadingHistory ? <div className="assistant-history-loading"><LoaderCircle className="spin" size={19} /> Cargando chat…</div> : conversations.length ? <div className="assistant-conversation-list">
           {conversations.map((conversation) => <div className={`assistant-conversation ${conversation.id === activeConversationId ? "is-active" : ""}`} key={conversation.id}>
             <button className="assistant-conversation-open" type="button" onClick={() => void openConversation(conversation.id)}><span><strong>{conversation.title}</strong><small>{conversation.preview || "Sin mensajes todavía"}</small><em>{displayDate(conversation.updated_at)}</em></span></button>
@@ -174,7 +175,7 @@ export function AssistantChat({ isOpen, onClose, tenantName, roleCode }: { isOpe
         </div> : <div className="assistant-history-empty"><History size={26} /><strong>Aún no tienes chats guardados</strong><p>Inicia uno nuevo y podrás retomarlo desde aquí.</p></div>}
       </section> : <>
         <div className="assistant-scope"><Sparkles size={15} /> Consultas operativas según los módulos autorizados para tu rol.</div>
-        {historyError && <div className="assistant-inline-error"><CircleAlert size={15} /> {historyError}</div>}
+        {historyError && <SystemNotice tone="error"><CircleAlert size={15} /> {historyError}</SystemNotice>}
         <div className="assistant-messages" aria-live="polite" aria-relevant="additions">
           {messages.map((message) => <div className={`assistant-message ${message.role}`} key={message.id}>{message.role === "assistant" && <Bot size={16} aria-hidden="true" />}<p>{message.content}</p></div>)}
           {isSending && <div className="assistant-message assistant is-thinking"><LoaderCircle size={17} className="spin" /><p>Analizando tu consulta…</p></div>}

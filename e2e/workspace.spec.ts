@@ -66,6 +66,10 @@ async function bootstrap(page: Page, role: Role, disabled: string[] = [], enterp
         const item = migration.objects.find((item) => item.code === code)!;
         item.filename = `${code}.csv`; item.rows = 1; item.status = "uploaded"; item.file_sha256 = "a".repeat(64);
         migration.version++; migration.simulation = {}; migration.status = "uploaded";
+      } else if (path.endsWith("/upload-bulk")) {
+        const log = { severity: "success", phase: "recognition", file: "MM - Materiales y abastecimiento.xlsx", sheet: "Materiales y productos", object: "products", message: "Plantilla reconocida por nombre de hoja: 1 fila preparada." };
+        migration.objects.forEach(item => { item.filename = log.file; item.rows = 1; item.status = "uploaded"; item.file_sha256 = "a".repeat(64); });
+        migration.version++; migration.simulation = { upload_logs: [log] }; migration.status = "uploaded";
       } else if (path.endsWith("/simulate")) {
         for (const item of migration.objects.filter((item) => item.filename)) { item.status = "ready"; item.report = { rows: 1, created: 1, reused: 0, status: "ready", errors: [] }; }
         migration.version++; migration.status = "ready"; migration.simulation = { can_commit: true, digest: "a".repeat(64), total_created: 1, total_rows: 1, objects: Object.fromEntries(migration.objects.filter((item) => item.report).map((item) => [item.code, item.report!])) };
@@ -91,6 +95,7 @@ async function bootstrap(page: Page, role: Role, disabled: string[] = [], enterp
       }
       payload = row;
     }
+    else if (path === "/sales" || path === "/purchases") payload = { [path.slice(1)]: [], meta: { page: 1, page_size: 25, total: 0, total_pages: 1, has_previous: false, has_next: false } };
     else if (path === "/products") payload = url.searchParams.has("page") ? { products: [product], meta: { page: 1, page_size: 25, total: 1, total_pages: 1, has_previous: false, has_next: false } } : [product];
     else if (path === "/customers") payload = url.searchParams.has("page") ? { customers: [], meta: { page: 1, page_size: 25, total: 0, total_pages: 1, has_previous: false, has_next: false } } : [];
     else if (path === "/products/units") payload = [{ id: product.unit_id, code: "NIU", name: "Unidad", is_active: true }];
@@ -148,9 +153,11 @@ test("migration group stages, simulates and requires the final checkbox", async 
   await page.getByRole("button", { name: "Acciones \u00b7 Materiales y productos" }).click();
   await page.getByRole("menuitem", { name: "Cargar archivo", exact: true }).click();
   await page.getByLabel("Archivo de migraci\u00f3n").setInputFiles({ name: "products.csv", mimeType: "text/csv", buffer: Buffer.from("sku,name,unit,sale_price,average_cost\nMAT-001,Material,NIU,100,80") });
+  await page.getByRole("button", { name: "Cerrar registro de validación" }).click();
   await expect(page.getByText("products.csv", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Simular grupo", exact: true }).click();
-  await page.getByRole("button", { name: "Revisar y confirmar grupo" }).click();
+  await page.getByRole("button", { name: "Cerrar registro de validación" }).click();
+  await page.getByRole("button", { name: "Cargar datos", exact: true }).click();
   const dialog = page.getByRole("dialog", { name: "Confirmaci\u00f3n final de migraci\u00f3n" });
   await expect(dialog.getByRole("button", { name: "Confirmar carga completa" })).toBeDisabled();
   await dialog.getByRole("checkbox").check();
@@ -160,6 +167,43 @@ test("migration group stages, simulates and requires the final checkbox", async 
   expect(commit?.idempotency).toBeTruthy();
   expect(JSON.parse(commit?.body ?? "{}")).toMatchObject({ confirmed: true, digest: "a".repeat(64) });
   await page.screenshot({ path: "test-results/migration-group-desktop.png", fullPage: true });
+});
+
+test("bulk migration assigns files and presents validation in a dialog with system alerts", async ({ page }) => {
+  const requests = await bootstrap(page, "owner");
+  await createMigration(page);
+  await expect(page.getByRole("button", { name: "Cargar datos", exact: true })).toBeDisabled();
+  await page.getByRole("button", { name: "Carga masiva", exact: true }).click();
+  const input = page.getByLabel("Archivo de migración");
+  await expect(input).toHaveAttribute("multiple", "");
+  await input.setInputFiles([{ name: "MM - Materiales y abastecimiento.xlsx", mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", buffer: Buffer.from("mock workbook: parsing tested by API integration tests") }]);
+  const log = page.getByRole("dialog", { name: "Registro de validación", exact: true });
+  await expect(log.getByText(/Plantilla reconocida por nombre/)).toBeVisible();
+  await expect(log.getByRole("button", { name: "Descargar registro" })).toBeEnabled();
+  expect(requests.find(request => request.path.endsWith("/upload-bulk"))?.body).toContain('name="files"');
+  await expect(page.getByRole("region", { name: "Alertas del sistema" })).toContainText("Plantillas reconocidas");
+  expect(await page.locator(".system-toasts").evaluate(element => getComputedStyle(element).position)).toBe("fixed");
+  await page.screenshot({ path: "test-results/bulk-migration-log.png", fullPage: true });
+  await log.getByRole("button", { name: "Cerrar registro de validación" }).click();
+  await page.getByRole("button", { name: /Ver registro de alertas/ }).click();
+  await expect(page.getByRole("dialog", { name: "Registro de alertas del sistema" }).getByText(/Plantillas reconocidas/)).toBeVisible();
+});
+
+test("invalid template displays file sheet row and field without allowing final load", async ({ page }) => {
+  await bootstrap(page, "owner");
+  await createMigration(page);
+  await page.route("**/migration-projects/*/upload-bulk", route => route.fulfill({ status: 422, json: { detail: { message: "El archivo no es una plantilla válida. No se cargó ningún archivo.", logs: [{ severity: "error", phase: "recognition", file: "Clientes incorrectos.xlsx", sheet: "Clientes", object: "customers", row: 1, field: "columna_inventada", message: "La columna no pertenece a la plantilla." }] } } }));
+  await page.getByRole("button", { name: "Carga masiva", exact: true }).click();
+  await page.getByLabel("Archivo de migración").setInputFiles({ name: "Clientes incorrectos.xlsx", mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", buffer: Buffer.from("invalid") });
+  const log = page.getByRole("dialog", { name: "Registro de validación", exact: true });
+  await expect(log.getByText("columna_inventada")).toBeVisible();
+  await expect(log.getByRole("cell", { name: "1", exact: true })).toBeVisible();
+  await expect(page.getByRole("alert")).toContainText("El archivo no es una plantilla válida");
+  await page.setViewportSize({ width: 390, height: 844 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  await page.screenshot({ path: "test-results/invalid-template-mobile.png", fullPage: true });
+  await log.getByRole("button", { name: "Cerrar registro de validación" }).click();
+  await expect(page.getByRole("button", { name: "Cargar datos", exact: true })).toBeDisabled();
 });
 
 test("inventory can reserve while viewers only consult", async ({ page }) => {
@@ -207,6 +251,8 @@ test("new screens render on desktop and mobile without horizontal overflow", asy
 });
 
 test("data center remains usable in dark mode on mobile", async ({ page }) => {
+  const errors: string[] = [];
+  page.on("pageerror", error => errors.push(error.message));
   await bootstrap(page, "owner");
   await page.addInitScript(() => localStorage.setItem("enterprisecloud.theme", "dark"));
   await page.setViewportSize({ width: 390, height: 844 });
@@ -217,9 +263,11 @@ test("data center remains usable in dark mode on mobile", async ({ page }) => {
   await page.getByRole("button", { name: "Acciones \u00b7 Materiales y productos" }).click();
   await expect(page.getByRole("menuitem", { name: "Descargar plantilla Excel" })).toBeVisible();
   await page.evaluate(() => window.scrollBy(0, window.scrollY > 20 ? -20 : 20));
+  await page.setViewportSize({ width: 412, height: 850 });
   await expect(page.getByRole("menuitem", { name: "Descargar plantilla Excel" })).toBeVisible();
   await page.screenshot({ path: "test-results/data-center-mobile-dark.png", fullPage: true });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  expect(errors).toEqual([]);
 });
 
 test("value help opens over a transaction and preserves values on cancellation", async ({ page }) => {

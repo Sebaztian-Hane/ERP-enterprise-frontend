@@ -1,3 +1,4 @@
+import { SystemNotice } from "./SystemNotifications";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { LoaderCircle, Plus, Search, Tags } from "lucide-react";
 import { useAuth } from "../auth/AuthProvider";
@@ -124,7 +125,7 @@ export function PriceListItemsManager({ lists }: { lists: CommercialPriceList[] 
 
   return <article className="panel customers-panel price-list-items-panel">
     <div className="panel-header"><div><p className="card-label">TARIFAS POR PRODUCTO</p><h2>Contenido de la lista</h2><p>Las ventas toman la tarifa vigente y la cantidad mínima más favorable desde el servidor.</p></div><Tags className="muted-icon" size={20} /></div>
-    {error && <div className="module-error">{error}<button type="button" onClick={() => void loadItems()}>Reintentar</button></div>}
+    {error && <SystemNotice tone="error">{error}<button type="button" onClick={() => void loadItems()}>Reintentar</button></SystemNotice>}
     {manageableLists.length === 0 ? <div className="module-state"><Tags size={26} /><strong>Crea una lista activa primero</strong><span>Luego podrás cargar sus tarifas por producto.</span></div> : <>
       <fieldset className="entity-choice"><legend>Lista que deseas administrar</legend><div className="entity-choice-list currency-choice-list">{manageableLists.map((list) => <button key={list.id} type="button" className={activeListId === list.id ? "selected" : ""} onClick={() => selectList(list.id)}><strong>{list.name}</strong><small>{list.code} · {list.currency_code}</small></button>)}</div></fieldset>
       {activeList && <form className="customer-form config-form price-list-item-form" onSubmit={save}>

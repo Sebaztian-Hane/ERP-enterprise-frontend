@@ -11,6 +11,7 @@ export class ApiError extends Error {
   constructor(
     message: string,
     readonly status?: number,
+    readonly detail?: unknown,
   ) {
     super(message);
     this.name = "ApiError";
@@ -23,8 +24,8 @@ function errorMessage(detail: unknown, status: number) {
     const messages = detail
       .map((item) => {
         if (typeof item === "string") return item;
-        if (item && typeof item === "object" && "msg" in item) {
-          return String(item.msg);
+        if (item && typeof item === "object" && ("msg" in item || "message" in item)) {
+          return String("message" in item ? item.message : item.msg);
         }
         return null;
       })
@@ -71,6 +72,7 @@ async function apiRequest(
     throw new ApiError(
       errorMessage(payload?.detail, response.status),
       response.status,
+      payload?.detail,
     );
   }
   return response;

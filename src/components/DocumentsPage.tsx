@@ -1,3 +1,4 @@
+import { SystemNotice } from "./SystemNotifications";
 import {
   ChangeEvent,
   FormEvent,
@@ -322,10 +323,10 @@ export function DocumentsPage({ goBack }: { goBack: () => void }) {
         </article>
       </section>
       {error && !open && (
-        <div className="module-error">
+        <SystemNotice tone="error">
           {error}
           <button onClick={() => void load()}>Reintentar</button>
-        </div>
+        </SystemNotice>
       )}
       <article className="panel documents-panel">
         <div className="panel-header">
@@ -516,7 +517,7 @@ export function DocumentsPage({ goBack }: { goBack: () => void }) {
                   </small>
                 </span>
               </label>
-              {error && <p className="login-error">{error}</p>}
+              {error && <SystemNotice tone="error">{error}</SystemNotice>}
               <div className="modal-actions">
                 <button
                   type="button"

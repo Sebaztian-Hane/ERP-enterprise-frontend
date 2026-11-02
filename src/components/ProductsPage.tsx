@@ -1,3 +1,4 @@
+import { SystemNotice } from "./SystemNotifications";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import {
   Boxes,
@@ -300,10 +301,10 @@ export function ProductsPage({ goBack }: { goBack: () => void }) {
           <span>{query ? `${shown.length} en esta página` : `${meta.total} resultados`}</span>
         </div>
         {error && !productOpen && !categoryOpen && (
-          <div className="module-error">
+          <SystemNotice tone="error">
             {error}
             <button onClick={() => void load()}>Reintentar</button>
-          </div>
+          </SystemNotice>
         )}
         {loading ? (
           <div className="module-state">
@@ -508,7 +509,7 @@ export function ProductsPage({ goBack }: { goBack: () => void }) {
               <input type="number" min="0" step="0.01" value={product.average_cost} onChange={(event) => setProduct((current) => ({ ...current, average_cost: event.target.value }))} />
             </label>
             </fieldset>
-            {error && <p className="login-error">{error}</p>}
+            {error && <SystemNotice tone="error">{error}</SystemNotice>}
             {canWrite ? <ModalActions
               saving={saving}
               onCancel={closeProduct}
@@ -540,7 +541,7 @@ export function ProductsPage({ goBack }: { goBack: () => void }) {
                 placeholder="Opcional"
               />
             </label>
-            {error && <p className="login-error">{error}</p>}
+            {error && <SystemNotice tone="error">{error}</SystemNotice>}
             <ModalActions
               saving={saving}
               onCancel={() => setCategoryOpen(false)}

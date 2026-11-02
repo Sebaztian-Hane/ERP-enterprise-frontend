@@ -1,3 +1,4 @@
+import { SystemNotice } from "./SystemNotifications";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import {
   Building2,
@@ -426,10 +427,10 @@ export function FinancePage({ goBack }: { goBack: () => void }) {
         </article>
       </section>
       {error && !accountOpen && !paymentOpen && (
-        <div className="module-error">
+        <SystemNotice tone="error">
           {error}
           <button onClick={() => void load()}>Reintentar</button>
-        </div>
+        </SystemNotice>
       )}
       <section className="finance-grid">
         {loading ? (
@@ -647,7 +648,7 @@ export function FinancePage({ goBack }: { goBack: () => void }) {
                 }
               />
             </label>
-            {error && <p className="login-error">{error}</p>}
+            {error && <SystemNotice tone="error">{error}</SystemNotice>}
             <div className="modal-actions">
               <button
                 type="button"
@@ -671,7 +672,7 @@ export function FinancePage({ goBack }: { goBack: () => void }) {
             <label>Cuenta de caja chica<select required value={pettyCashForm.cash_account_id} onChange={(e) => setPettyCashForm((v) => ({ ...v, cash_account_id: e.target.value }))}><option value="">Selecciona una caja</option>{accounts.filter((a) => a.account_type === "cash" && a.is_active).map((a) => <option key={a.id} value={a.id}>{a.name} · {a.currency}</option>)}</select></label>
             <label>Cuenta que financia<select required value={pettyCashForm.funding_cash_account_id} onChange={(e) => setPettyCashForm((v) => ({ ...v, funding_cash_account_id: e.target.value }))}><option value="">Selecciona origen</option>{accounts.filter((a) => a.is_active && a.id !== pettyCashForm.cash_account_id).map((a) => <option key={a.id} value={a.id}>{a.name} · {a.currency}</option>)}</select></label>
             <p className="form-help">El usuario actual quedará como custodio. La constitución crea movimientos y un asiento contable.</p>
-            {error && <p className="login-error">{error}</p>}
+            {error && <SystemNotice tone="error">{error}</SystemNotice>}
             <div className="modal-actions"><button type="button" className="secondary-button" onClick={() => setPettyCashOpen(false)}>Cancelar</button><button className="primary-button" disabled={saving}>{saving ? "Constituyendo…" : "Constituir fondo"}</button></div>
           </form>
         </Modal>
@@ -684,7 +685,7 @@ export function FinancePage({ goBack }: { goBack: () => void }) {
             <div className="form-grid"><label>Proveedor o comercio<input value={expenseForm.merchant_name} onChange={(e) => setExpenseForm((v) => ({ ...v, merchant_name: e.target.value }))} /></label><label>Comprobante<input value={expenseForm.receipt_number} onChange={(e) => setExpenseForm((v) => ({ ...v, receipt_number: e.target.value }))} /></label></div>
             <label>Cuenta de gasto<input required value={expenseForm.expense_account_code} onChange={(e) => setExpenseForm((v) => ({ ...v, expense_account_code: e.target.value }))} /></label>
             <p className="form-help">Al enviar, el vale quedará pendiente de aprobación. Aún no descuenta saldo ni contabiliza el gasto.</p>
-            {error && <p className="login-error">{error}</p>}
+            {error && <SystemNotice tone="error">{error}</SystemNotice>}
             <div className="modal-actions"><button type="button" className="secondary-button" onClick={() => setExpenseFund(null)}>Cancelar</button><button className="primary-button" disabled={saving}>{saving ? "Enviando…" : "Enviar a aprobación"}</button></div>
           </form>
         </Modal>
@@ -828,7 +829,7 @@ export function FinancePage({ goBack }: { goBack: () => void }) {
                 placeholder="Opcional"
               />
             </label>
-            {error && <p className="login-error">{error}</p>}
+            {error && <SystemNotice tone="error">{error}</SystemNotice>}
             <div className="modal-actions">
               <button
                 type="button"

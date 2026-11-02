@@ -13,7 +13,7 @@ export function ActionMenu({ label = "Acciones", actions, disabled = false }: { 
     menu.current?.querySelector<HTMLButtonElement>("button:not(:disabled)")?.focus({ preventScroll: true });
     const close = (event: Event) => { if (!menu.current?.contains(event.target as Node) && !trigger.current?.contains(event.target as Node)) setPosition(null); };
     const reposition = (event: Event) => {
-      if (menu.current?.contains(event.target as Node)) return;
+      if (event.target instanceof Node && menu.current?.contains(event.target)) return;
       const rect = trigger.current?.getBoundingClientRect();
       if (!rect || rect.bottom < 0 || rect.top > window.innerHeight) { setPosition(null); return; }
       setPosition({ top: Math.max(8, Math.min(rect.bottom + 4, window.innerHeight - Math.min(420, actions.length * 39 + 16) - 8)), left: Math.max(8, Math.min(rect.left, window.innerWidth - 264)) });

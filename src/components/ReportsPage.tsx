@@ -1,3 +1,4 @@
+import { SystemNotice } from "./SystemNotifications";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import {
   BarChart3,
@@ -363,10 +364,10 @@ export function ReportsPage({ goBack }: { goBack: () => void }) {
         </button>
       </form>
       {error && (
-        <div className="module-error">
+        <SystemNotice tone="error">
           {error}
           <button onClick={() => void load()}>Reintentar</button>
-        </div>
+        </SystemNotice>
       )}
       {loading || !p ? (
         <div className="module-state">

@@ -1,3 +1,4 @@
+import { SystemNotice } from "./SystemNotifications";
 import { FormEvent, useEffect, useState } from "react";
 import { ArrowRight, KeyRound, LockKeyhole, Mail } from "lucide-react";
 import { useAuth } from "../auth/AuthProvider";
@@ -76,7 +77,7 @@ export function LoginPage({ providerAccess = false }: { providerAccess?: boolean
               <input type="text" inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6}" maxLength={6} value={mfaCode} onChange={(event) => setMfaCode(event.target.value.replace(/\D/g, ""))} required placeholder="000000" />
             </span>
           </label>
-          {error && <p className="login-error" role="alert">{error}</p>}
+          {error && <SystemNotice tone="error">{error}</SystemNotice>}
           <button className="login-submit" disabled={sending || !factorId}>
             {sending ? "Verificando…" : <>Verificar acceso <ArrowRight size={18} /></>}
           </button>
@@ -96,7 +97,7 @@ export function LoginPage({ providerAccess = false }: { providerAccess?: boolean
               <input type="password" autoComplete="current-password" value={password} onChange={(event) => setPassword(event.target.value)} required placeholder="••••••••" />
             </span>
           </label>
-          {error && <p className="login-error" role="alert">{error}</p>}
+          {error && <SystemNotice tone="error">{error}</SystemNotice>}
           <button className="login-submit" disabled={sending}>
             {sending ? "Validando acceso…" : <>Ingresar <ArrowRight size={18} /></>}
           </button>

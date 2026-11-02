@@ -1,3 +1,4 @@
+import { SystemNotice } from "./SystemNotifications";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import {
   ChevronLeft,
@@ -279,10 +280,10 @@ export function PurchasesPage({ goBack }: { goBack: () => void }) {
           <span className="table-count">{meta.total} registros</span>
         </div>
         {error && !isOpen && (
-          <div className="module-error">
+          <SystemNotice tone="error">
             {error}
             <button onClick={() => void load()}>Reintentar</button>
-          </div>
+          </SystemNotice>
         )}
         {loading ? (
           <div className="module-state">
@@ -559,7 +560,7 @@ export function PurchasesPage({ goBack }: { goBack: () => void }) {
                   />
                 </label>
               </div>
-              {error && <p className="login-error">{error}</p>}
+              {error && <SystemNotice tone="error">{error}</SystemNotice>}
               <div className="sale-total">
                 <span>Total de la compra</span>
                 <strong>{money.format(total)}</strong>
@@ -580,7 +581,7 @@ export function PurchasesPage({ goBack }: { goBack: () => void }) {
           </section>
         </div>
       )}
-      {returningPurchase && <div className="modal-layer"><section className="customer-modal" role="dialog" aria-modal="true" aria-label="Devolver compra"><div className="modal-header"><div><p className="eyebrow">DEVOLUCIÓN A PROVEEDOR</p><h2>Devolver compra {returningPurchase.number}</h2></div><button className="icon-button" onClick={() => setReturningPurchase(null)} aria-label="Cerrar"><X size={20} /></button></div><div className="customer-form"><p className="field-help">Se revertirá completamente la recepción, la cuenta por pagar y el asiento. No se permite si existen pagos aplicados o si el stock ya fue consumido.</p><label>Motivo<input autoFocus minLength={3} value={returnReason} onChange={(event) => setReturnReason(event.target.value)} placeholder="Describe el motivo de la devolución" /></label>{error && <p className="login-error">{error}</p>}<div className="modal-actions"><button type="button" className="secondary-button" onClick={() => setReturningPurchase(null)}>Cancelar</button><button type="button" className="danger-button" disabled={returningBusy || returnReason.trim().length < 3} onClick={() => void returnPurchase()}>{returningBusy ? "Registrando…" : "Confirmar devolución"}</button></div></div></section></div>}
+      {returningPurchase && <div className="modal-layer"><section className="customer-modal" role="dialog" aria-modal="true" aria-label="Devolver compra"><div className="modal-header"><div><p className="eyebrow">DEVOLUCIÓN A PROVEEDOR</p><h2>Devolver compra {returningPurchase.number}</h2></div><button className="icon-button" onClick={() => setReturningPurchase(null)} aria-label="Cerrar"><X size={20} /></button></div><div className="customer-form"><p className="field-help">Se revertirá completamente la recepción, la cuenta por pagar y el asiento. No se permite si existen pagos aplicados o si el stock ya fue consumido.</p><label>Motivo<input autoFocus minLength={3} value={returnReason} onChange={(event) => setReturnReason(event.target.value)} placeholder="Describe el motivo de la devolución" /></label>{error && <SystemNotice tone="error">{error}</SystemNotice>}<div className="modal-actions"><button type="button" className="secondary-button" onClick={() => setReturningPurchase(null)}>Cancelar</button><button type="button" className="danger-button" disabled={returningBusy || returnReason.trim().length < 3} onClick={() => void returnPurchase()}>{returningBusy ? "Registrando…" : "Confirmar devolución"}</button></div></div></section></div>}
     </section>
   );
 }

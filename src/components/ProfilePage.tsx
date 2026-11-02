@@ -1,3 +1,4 @@
+import { SystemNotice } from "./SystemNotifications";
 import { type ChangeEvent, type FormEvent, useEffect, useRef, useState } from "react";
 import { Camera, ChevronLeft, KeyRound, LoaderCircle, LogOut, ShieldCheck, Smartphone, Trash2, Upload } from "lucide-react";
 import { useAuth } from "../auth/AuthProvider";
@@ -211,7 +212,7 @@ export function ProfilePage({ goBack }: { goBack: () => void }) {
             <div className="mfa-enabled"><span><ShieldCheck size={16} /> {mfaAssurance === "aal2" ? "Verificación activa en esta sesión" : "Autenticador registrado; verifica el código al iniciar sesión"}</span>{mfaFactors.map((factor) => <div key={factor.id} className="mfa-factor"><small>{factor.friendly_name || "Autenticador EnterpriseCloud"}</small><button type="button" className="text-button danger-text" disabled={isMfaLoading} onClick={() => void removeMfaFactor(factor.id)}>Eliminar</button></div>)}</div>
           ) : <div className="profile-form-actions"><button type="button" className="secondary-button" disabled={isMfaLoading} onClick={() => void startMfaEnrollment()}>{isMfaLoading ? "Preparando…" : "Configurar autenticador"}</button></div>}
         </section>
-        {error && <p className="login-error">{error}</p>}{success && <p className="profile-success">{success}</p>}
+        {error && <SystemNotice tone="error">{error}</SystemNotice>}{success && <SystemNotice tone="success">{success}</SystemNotice>}
       </article>
     </div>
   </section>;

@@ -1,3 +1,4 @@
+import { SystemNotice } from "./SystemNotifications";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import {
   ArrowLeftRight,
@@ -314,10 +315,10 @@ export function InventoryPage({ goBack }: { goBack: () => void }) {
           <a className="text-button" href="#almacenes">Gestionar almacenes</a>
         </div>
         {error && !mode && (
-          <div className="module-error">
+          <SystemNotice tone="error">
             {error}
             <button onClick={() => void load()}>Reintentar</button>
-          </div>
+          </SystemNotice>
         )}
         {loading ? (
           <div className="module-state">
@@ -518,7 +519,7 @@ export function InventoryPage({ goBack }: { goBack: () => void }) {
                   </label>
                 </>
               )}
-              {error && <p className="login-error">{error}</p>}
+              {error && <SystemNotice tone="error">{error}</SystemNotice>}
               <div className="modal-actions">
                 <button
                   type="button"
