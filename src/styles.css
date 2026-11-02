@@ -4180,6 +4180,31 @@ html[data-theme="dark"] .pos-method-config-row { border-color:#365f6f; } html[da
 .migration-badge.ready,.migration-badge.migrated { background:#e7f6ee; color:#176240; border-color:#a9d3bb; }
 .migration-badge.error,.migration-badge.errors { background:#fff0ed; color:#a93527; border-color:#e9b8b2; }
 .migration-error-count { color:#b63d31; display:block; }
+.migration-object-progress { min-width:170px; max-width:280px; }
+.migration-progress-caption { display:flex; justify-content:space-between; align-items:baseline; gap:14px; font-size:12px; line-height:1.4; }
+.migration-progress-caption strong { flex-shrink:0; font-variant-numeric:tabular-nums; }
+.migration-progress-track { height:7px; overflow:hidden; border-radius:4px; background:#e6edf2; margin:8px 0; }
+.migration-progress-track > span { display:block; height:100%; border-radius:inherit; background:#3484ab; transition:width .3s ease; }
+.migration-progress-track.complete > span { background:#248360; }
+.migration-progress-track.error > span { background:#c75349; }
+.migration-progress-track.indeterminate > span { width:30%; animation:migration-progress-pulse 1.6s ease-in-out infinite alternate; }
+.migration-object-progress > small { display:block; color:var(--migration-muted); font-size:11px; line-height:1.5; }
+.migration-object-progress.complete .migration-progress-caption { color:#176240; }
+.migration-object-progress.error .migration-progress-caption { color:#a93527; }
+.migration-group-progress { padding:18px 20px; margin:0 0 18px; background:var(--migration-surface); border:1px solid var(--migration-line); border-radius:8px; }
+.migration-group-progress .migration-progress-caption { font-size:14px; }
+.migration-group-progress .migration-progress-track { height:9px; margin:12px 0; }
+.migration-progress-foot { display:flex; flex-wrap:wrap; justify-content:space-between; gap:8px 20px; font-size:13px; }
+.migration-progress-foot small { color:var(--migration-muted); font-size:12px; }
+.migration-progress-explanation { display:block; color:var(--migration-muted); font-size:12px; margin-bottom:10px; }
+@keyframes migration-progress-pulse { from { transform:translateX(0); } to { transform:translateX(233%); } }
+@media(prefers-reduced-motion:reduce) { .migration-progress-track > span { transition:none; }.migration-progress-track.indeterminate > span { animation:none; } }
+html[data-theme="dark"] .migration-progress-track { background:#304a5a; }
+html[data-theme="dark"] .migration-progress-track > span { background:#56b8df; }
+html[data-theme="dark"] .migration-progress-track.complete > span { background:#55bf93; }
+html[data-theme="dark"] .migration-progress-track.error > span { background:#eb8a80; }
+html[data-theme="dark"] .migration-object-progress.complete .migration-progress-caption { color:#8cdfb5; }
+html[data-theme="dark"] .migration-object-progress.error .migration-progress-caption { color:#ffb3aa; }
 .migration-success { color:#14764f; }
 .migration-empty { display:grid; justify-items:center; gap:12px; padding:50px 20px; text-align:center; color:var(--migration-muted); }
 .migration-empty span { max-width:500px; }

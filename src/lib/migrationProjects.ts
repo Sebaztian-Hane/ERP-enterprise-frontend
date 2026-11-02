@@ -2,7 +2,9 @@ export type MigrationDefinition = { code: string; module: string; label: string;
 export type MigrationCatalog = { ready: boolean; migration: string; limits?: { file_bytes: number; batch_bytes: number; project_rows: number; object_rows: number }; groups: { code: string; label: string; objects: string[] }[]; objects: MigrationDefinition[] };
 export type MigrationLog = { phase?: string; severity?: "error" | "warning" | "info" | "success"; file?: string; sheet?: string; object?: string; row?: number | null; field?: string | null; value?: string | null; message?: string; msg?: string };
 export type ObjectReport = { rows: number; created: number; reused: number; status: string; errors: MigrationLog[]; error_count?: number; logs?: MigrationLog[] };
-export type MigrationJob = { id: string; kind: "simulate" | "commit"; state: "queued" | "completed" | "failed"; requested_at: string; finished_at?: string; seconds?: number; message?: string };
+export type MigrationObjectProgress = { total_rows: number; validated_rows: number; prepared_rows: number; percent: number; state: "pending" | "running" | "processed" | "error" | "rolled_back"; phase: "waiting" | "validating" | "checking" | "preparing" | "done" };
+export type MigrationProgress = { attempt_id: string; phase: "running" | "finalizing" | "completed" | "failed"; current_object: string | null; started_at: string; updated_at: string; live: boolean; total_rows: number; percent: number; objects: Record<string, MigrationObjectProgress> };
+export type MigrationJob = { id: string; kind: "simulate" | "commit"; state: "queued" | "completed" | "failed"; requested_at: string; finished_at?: string; seconds?: number; message?: string; progress?: MigrationProgress | null };
 export type MigrationProject = {
   id: string; name: string; groups: string[]; status: string; version: number; created_by: string; created_at: string;
   objects: { code: string; filename: string | null; rows: number; file_sha256: string | null; status: string; report?: ObjectReport }[];

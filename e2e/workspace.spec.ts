@@ -1,7 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import { ENTERPRISE_AREAS, SPECIALIZED_ROLE_MODULE, type BusinessRecord, type BusinessResource } from "../src/lib/enterprise";
 import type { RoleCode } from "../src/lib/roleAccess";
-import type { MigrationProject } from "../src/lib/migrationProjects";
+import type { MigrationProject, MigrationProgress } from "../src/lib/migrationProjects";
 
 type Role = RoleCode;
 const tenant = { id: "00000000-0000-0000-0000-000000000002", name: "DUNS - Evaluación ERP", timezone: "America/Lima", business_profile: "hybrid" };
@@ -62,13 +62,19 @@ async function bootstrap(page: Page, role: Role, disabled: string[] = [], enterp
       } else payload = { ready: true, projects: migration ? [{ ...migration, object_count: migration.objects.length }] : [] };
     }
     else if (path.startsWith("/migration-projects/") && migration) {
-      if (route.request().method() === "GET" && migration.simulation.job?.state === "queued" && ++jobReads >= 2) {
-        const kind = migration.simulation.job.kind;
-        migration.simulation.job.state = "completed";
-        migration.simulation.can_commit = true;
-        migration.status = kind === "commit" ? "migrated" : "ready";
-        migration.version++;
-        if (kind === "commit") migration.receipt = { total_created: 1 };
+      if (route.request().method() === "GET" && migration.simulation.job?.state === "queued") {
+        jobReads++;
+        const finished = jobReads >= 2;
+        const staged = migration.objects.filter(item => item.filename);
+        migration.simulation.job.progress = { attempt_id: "attempt-1", phase: finished ? "completed" : "running", current_object: finished ? null : staged[1]?.code ?? null, started_at: new Date().toISOString(), updated_at: new Date().toISOString(), live: !finished, total_rows: staged.length, percent: finished ? 100 : 50, objects: Object.fromEntries(staged.map((item, index) => [item.code, { total_rows: 1, validated_rows: finished || index <= 1 ? 1 : 0, prepared_rows: finished || index === 0 ? 1 : 0, percent: finished || index === 0 ? 100 : index === 1 ? 50 : 0, state: finished || index === 0 ? "processed" : index === 1 ? "running" : "pending", phase: finished || index === 0 ? "done" : index === 1 ? "validating" : "waiting" }])) };
+        if (finished) {
+          const kind = migration.simulation.job.kind;
+          migration.simulation.job.state = "completed";
+          migration.simulation.can_commit = true;
+          migration.status = kind === "commit" ? "migrated" : "ready";
+          migration.version++;
+          if (kind === "commit") migration.receipt = { total_created: 1 };
+        }
       }
       if (path.endsWith("/file")) {
         const code = path.split("/").at(-2);
@@ -150,13 +156,14 @@ test("company restrictions remove inventory modules even for an owner", async ({
   await expect(page.getByRole("dialog").getByRole("button", { name: /^WM ·/ })).toHaveCount(0);
 });
 
-async function createMigration(page: Page) {
+async function createMigration(page: Page, includeHcm = false) {
   await page.goto("/#centro-de-datos");
   await page.getByRole("button", { name: "Crear grupo", exact: true }).click();
   const dialog = page.getByRole("dialog", { name: "Crear grupo de migraci\u00f3n" });
   await dialog.getByLabel("Nombre del grupo").fill("Evaluaci\u00f3n de materiales");
   await dialog.getByLabel(/Maestros comunes/).check();
   await expect(dialog.getByText(/2 plantillas asignadas/)).toBeVisible();
+  if (includeHcm) await dialog.getByLabel(/HCM · Personas/).check();
   await dialog.getByRole("button", { name: "Crear grupo", exact: true }).click();
   await expect(page.getByText(/25 columnas/)).toBeVisible();
 }
@@ -305,22 +312,63 @@ test("bulk migration assigns files and presents validation in a dialog with syst
 test("background simulation polls until ready and final load waits for its persisted result", async ({ page }) => {
   test.setTimeout(60000);
   await bootstrap(page, "owner", [], true, true);
-  await createMigration(page);
+  await createMigration(page, true);
   await page.getByRole("button", { name: "Carga masiva", exact: true }).click();
   await page.getByLabel("Archivo de migración").setInputFiles({ name: "MM.xlsx", mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", buffer: Buffer.from("mock") });
   await page.getByRole("button", { name: "Cerrar registro de validación" }).click();
   await page.getByRole("button", { name: "Simular grupo", exact: true }).click();
-  await expect(page.getByText(/Simulación en segundo plano\. Puedes volver/)).toBeVisible();
+  await expect(page.getByRole("progressbar", { name: "Simulación del grupo", exact: true })).toBeVisible();
+  await expect(page.getByRole("progressbar", { name: "Simulación · Materiales y productos", exact: true })).not.toHaveAttribute("aria-valuenow");
   await expect(page.getByRole("button", { name: "Cargar datos", exact: true })).toBeDisabled();
+  await expect(page.getByRole("progressbar", { name: "Simulación · Materiales y productos", exact: true })).toHaveAttribute("aria-valuenow", "50", { timeout: 10000 });
+  await expect(page.getByRole("progressbar", { name: "Simulación · Unidades de medida", exact: true })).toHaveAttribute("aria-valuenow", "100");
+  await expect(page.getByRole("progressbar", { name: "Simulación · Empleados", exact: true })).toHaveAttribute("aria-valuenow", "0");
+  await page.screenshot({ path: "test-results/migration-progress-simulation.png", fullPage: true });
   await expect(page.getByRole("dialog", { name: "Registro de validación", exact: true })).toBeVisible({ timeout: 20000 });
   await page.getByRole("button", { name: "Cerrar registro de validación" }).click();
   await page.getByRole("button", { name: "Cargar datos", exact: true }).click();
   const dialog = page.getByRole("dialog", { name: "Confirmación final de migración" });
   await dialog.getByRole("checkbox").check();
   await dialog.getByRole("button", { name: "Confirmar carga completa" }).click();
-  await expect(page.getByText(/Carga final en segundo plano\. El grupo/)).toBeVisible();
+  await expect(page.getByRole("progressbar", { name: "Carga definitiva del grupo", exact: true })).toBeVisible();
+  await expect(page.getByText("Carga en proceso", { exact: true })).toBeVisible();
   await expect(page.getByText(/Migración completada: 1/)).toHaveCount(0);
+  await expect(page.getByRole("progressbar", { name: "Carga · Materiales y productos", exact: true })).toHaveAttribute("aria-valuenow", "50", { timeout: 10000 });
+  await expect(page.getByText("Pendiente de cierre", { exact: true })).toHaveCount(1);
+  await page.screenshot({ path: "test-results/migration-progress-load.png", fullPage: true });
   await expect(page.getByText(/Migración completada: 1/)).toBeVisible({ timeout: 20000 });
+  await expect(page.getByRole("progressbar", { name: "Carga · Materiales y productos", exact: true })).toHaveAttribute("aria-valuenow", "100");
+});
+
+test("migration progress can be reopened and never presents reverted rows as saved", async ({ page }) => {
+  await bootstrap(page, "owner");
+  const progress: MigrationProgress = { attempt_id: "load-1", phase: "running", current_object: "products", started_at: new Date().toISOString(), updated_at: new Date().toISOString(), live: true, total_rows: 422, percent: 75, objects: {
+    units: { total_rows: 2, validated_rows: 2, prepared_rows: 2, percent: 100, state: "processed", phase: "done" },
+    products: { total_rows: 420, validated_rows: 420, prepared_rows: 210, percent: 75, state: "running", phase: "preparing" },
+  } };
+  const project: MigrationProject = { id: "progress-case", name: "Carga con seguimiento", groups: ["base"], status: "ready", version: 5, created_by: user.id, created_at: new Date().toISOString(), objects: ["units", "products"].map(code => ({ code, filename: `${code}.xlsx`, rows: code === "units" ? 2 : 420, file_sha256: "a".repeat(64), status: "ready", report: { rows: code === "units" ? 2 : 420, created: code === "units" ? 2 : 420, reused: 0, status: "ready", errors: [] } })), simulation: { can_commit: true, job: { id: "load-job", kind: "commit", state: "queued", requested_at: new Date().toISOString(), progress } }, receipt: {} };
+  await page.route("**/api/v1/migration-projects", route => route.fulfill({ json: { ready: true, projects: [{ ...project, object_count: 2 }] } }));
+  await page.route("**/api/v1/migration-projects/progress-case", route => route.fulfill({ json: project }));
+  await page.goto("/#centro-de-datos");
+  await page.getByRole("button", { name: "Carga con seguimiento", exact: true }).click();
+  const bar = page.getByRole("progressbar", { name: "Carga · Materiales y productos", exact: true });
+  await expect(bar).toHaveAttribute("aria-valuenow", "75");
+  await expect(page.getByText("210 / 420 filas preparadas", { exact: true })).toBeVisible();
+  await expect(page.getByText("Pendiente de cierre", { exact: true })).toHaveCount(1);
+  await expect(page.getByRole("button", { name: "Revisar y confirmar grupo" })).toHaveCount(0);
+  await page.getByRole("button", { name: "Cambiar a modo noche" }).click();
+  await page.screenshot({ path: "test-results/migration-progress-dark.png", fullPage: true });
+  await page.setViewportSize({ width: 390, height: 844 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await page.screenshot({ path: "test-results/migration-progress-mobile.png", fullPage: true });
+  project.status = "errors"; project.simulation.can_commit = false;
+  project.simulation.job!.state = "failed"; project.simulation.job!.message = "Se revirtió todo el grupo";
+  progress.phase = "failed"; progress.live = false;
+  progress.objects.units.state = "rolled_back"; progress.objects.products.state = "error";
+  await expect(page.getByText("Carga revertida", { exact: true })).toHaveCount(2, { timeout: 10000 });
+  await expect(bar).toHaveAttribute("aria-valuenow", "0");
+  await expect(page.getByText("0 filas guardadas en esta carga", { exact: true })).toHaveCount(2);
+  await expect(page.getByText("Cargada en el ERP", { exact: true })).toHaveCount(0);
 });
 
 test("invalid template displays file sheet row and field without allowing final load", async ({ page }) => {
