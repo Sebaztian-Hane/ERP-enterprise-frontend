@@ -93,7 +93,9 @@ export function DataCenterPage({ goBack }: { goBack: () => void }) {
       if (files.length > 40 || files.some(file => file.size > (code === "pack" ? 40 : 20) * 1024 * 1024) || files.reduce((sum, file) => sum + file.size, 0) > 40 * 1024 * 1024) throw new Error("Selecciona hasta 40 archivos: 20 MB por Excel y 40 MB en total.");
       const body = new FormData(); for (const file of files) body.append(code === "bulk" ? "files" : "file", file); body.append("version", String(project.version));
       const result = await apiFetch<MigrationProject>(`/migration-projects/${project.id}/${code === "pack" ? "upload-pack" : code === "bulk" ? "upload-bulk" : `objects/${code}/file`}`, { ...options, method: "POST", body });
-      setProject(result); setOperationLogs([]); setLogOpen(true); listing.refresh(); setNotice("Plantillas reconocidas y asignadas al grupo. Ejecuta Simular grupo para revisar datos y relaciones antes de cargarlos al ERP.");
+      const assigned = [...new Set((result.simulation.upload_logs ?? []).filter(log => log.severity === "success" && log.object).map(log => labelFor(log.object!)))];
+      const summary = assigned.length > 3 ? `${assigned.length} plantillas` : assigned.join(", ");
+      setProject(result); setOperationLogs([]); setLogOpen(true); listing.refresh(); setNotice(`Plantillas reconocidas y asignadas al grupo${summary ? `: ${summary}` : ""}. Ejecuta Simular grupo para revisar datos y relaciones antes de cargarlos al ERP.`);
     });
   };
   const migrate = () => project && void task("Migrando el grupo completo…", async () => {
@@ -136,7 +138,7 @@ export function DataCenterPage({ goBack }: { goBack: () => void }) {
         { label: "Descargar plantilla CSV", run: () => download(item.code, false, "csv") },
         { label: "Descargar ejemplo completo", run: () => download(item.code, true) },
         ...(item.code === "products" ? [{ label: "Exportar materiales actuales", run: () => void task("Exportando materiales…", async () => saveDownload(await apiDownload("/imports/products/export?format=xlsx", options), "materiales.xlsx")) }] : []),
-        { label: "Cargar archivo", run: () => chooseFile(item.code), disabled: !project || frozen || !!definition.blocked_dependencies.length },
+        { label: "Cargar archivo o libro Excel", run: () => chooseFile(item.code), disabled: !project || frozen || !!definition.blocked_dependencies.length },
         { label: "Simular grupo", run: simulate, disabled: !project || frozen || !rows },
         { label: "Mensajes y dependencias", run: () => setObjectDetail(definition) },
         { label: "Migrar grupo", run: () => { setChecked(false); setConfirmOpen(true); }, disabled: !project?.simulation.can_commit || frozen },

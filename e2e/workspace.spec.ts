@@ -72,9 +72,11 @@ async function bootstrap(page: Page, role: Role, disabled: string[] = [], enterp
       }
       if (path.endsWith("/file")) {
         const code = path.split("/").at(-2);
-        const item = migration.objects.find((item) => item.code === code)!;
-        item.filename = `${code}.csv`; item.rows = 1; item.status = "uploaded"; item.file_sha256 = "a".repeat(64);
-        migration.version++; migration.simulation = {}; migration.status = "uploaded";
+        const workbook = route.request().postData()?.includes('filename="MM - Materiales y abastecimiento.xlsx"');
+        const assigned = workbook ? migration.objects : migration.objects.filter(item => item.code === code);
+        const filename = workbook ? "MM - Materiales y abastecimiento.xlsx" : `${code}.csv`;
+        assigned.forEach(item => { item.filename = filename; item.rows = 1; item.status = "uploaded"; item.file_sha256 = "a".repeat(64); });
+        migration.version++; migration.simulation = { upload_logs: workbook ? assigned.map(item => ({ severity: "success", phase: "recognition", file: filename, sheet: migrationObjects.find(definition => definition.code === item.code)!.label, object: item.code, message: "Plantilla reconocida: 1 fila preparada." })) : [] }; migration.status = "uploaded";
       } else if (path.endsWith("/upload-bulk")) {
         const log = { severity: "success", phase: "recognition", file: "MM - Materiales y abastecimiento.xlsx", sheet: "Materiales y productos", object: "products", message: "Plantilla reconocida por nombre de hoja: 1 fila preparada." };
         migration.objects.forEach(item => { item.filename = log.file; item.rows = 1; item.status = "uploaded"; item.file_sha256 = "a".repeat(64); });
@@ -163,7 +165,7 @@ test("migration group stages, simulates and requires the final checkbox", async 
   const requests = await bootstrap(page, "owner");
   await createMigration(page);
   await page.getByRole("button", { name: "Acciones \u00b7 Materiales y productos" }).click();
-  await page.getByRole("menuitem", { name: "Cargar archivo", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Cargar archivo o libro Excel", exact: true }).click();
   await page.getByLabel("Archivo de migraci\u00f3n").setInputFiles({ name: "products.csv", mimeType: "text/csv", buffer: Buffer.from("sku,name,unit,sale_price,average_cost\nMAT-001,Material,NIU,100,80") });
   await page.getByRole("button", { name: "Cerrar registro de validación" }).click();
   await expect(page.getByText("products.csv", { exact: true })).toBeVisible();
@@ -179,6 +181,25 @@ test("migration group stages, simulates and requires the final checkbox", async 
   expect(commit?.idempotency).toBeTruthy();
   expect(JSON.parse(commit?.body ?? "{}")).toMatchObject({ confirmed: true, digest: "a".repeat(64) });
   await page.screenshot({ path: "test-results/migration-group-desktop.png", fullPage: true });
+});
+
+test("row upload shows every assigned workbook sheet and still requires simulation", async ({ page }) => {
+  const requests = await bootstrap(page, "owner");
+  await createMigration(page);
+  await page.getByRole("button", { name: "Acciones · Materiales y productos" }).click();
+  await page.getByRole("menuitem", { name: "Cargar archivo o libro Excel", exact: true }).click();
+  await page.getByLabel("Archivo de migración").setInputFiles({ name: "MM - Materiales y abastecimiento.xlsx", mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", buffer: Buffer.from("multi-sheet workbook; recognition covered by API integration tests") });
+  const log = page.getByRole("dialog", { name: "Registro de validación", exact: true });
+  await expect(log.getByText("Plantilla reconocida: 1 fila preparada.")).toHaveCount(2);
+  await expect(log).toContainText("0 errores · 2 resultados correctos");
+  const alert = page.getByRole("region", { name: "Alertas del sistema" });
+  await expect(alert).toContainText("Unidades de medida, Materiales y productos");
+  await log.getByRole("button", { name: "Cerrar registro de validación" }).click();
+  await expect(page.locator(".migration-filename").filter({ hasText: "MM - Materiales y abastecimiento.xlsx" })).toHaveCount(2);
+  await expect(page.getByRole("button", { name: "Simular grupo", exact: true })).toBeEnabled();
+  await expect(page.getByRole("button", { name: "Cargar datos", exact: true })).toBeDisabled();
+  expect(requests.filter(request => request.path.endsWith("/objects/products/file"))).toHaveLength(1);
+  expect(requests.some(request => request.path.endsWith("/upload-bulk") || request.path.endsWith("/commit"))).toBe(false);
 });
 
 test("bulk migration assigns files and presents validation in a dialog with system alerts", async ({ page }) => {
