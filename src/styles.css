@@ -3131,38 +3131,90 @@ html[data-theme="dark"] .module-inline-note { color: #a9bfca; }
   position: sticky;
   z-index: 30;
   top: 0;
-  gap: 14px;
-  padding: 0 22px;
+  display: block;
+  min-height: 0;
+  height: auto;
+  padding: 0;
   box-shadow: 0 2px 12px rgba(26, 55, 72, .04);
 }
+.workspace-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  min-height: 72px;
+  padding: 10px 24px;
+}
+.workspace-toolbar > * { min-width: 0; }
+.workspace-toolbar .global-search { flex: 1 1 280px; max-width: 440px; height: 40px; }
+.workspace-toolbar .global-search > svg,
+.workspace-toolbar .global-search kbd { flex-shrink: 0; }
+.workspace-toolbar .top-actions { flex: 0 0 auto; margin-left: 0; gap: 8px; }
+.workspace-toolbar .app-launcher-button { flex-shrink: 0; height: 40px; }
+.workspace-breadcrumb {
+  min-width: 0;
+  min-height: 40px;
+  padding: 8px 24px;
+  border-top: 1px solid #edf1f5;
+  background: #f8fafc;
+  gap: 10px;
+  font-size: 12px;
+}
+.workspace-breadcrumb > svg { display: block; flex-shrink: 0; color: #9aabb6; }
+.workspace-breadcrumb > a,
+.workspace-breadcrumb > button { flex-shrink: 0; }
+.workspace-breadcrumb > strong { overflow: hidden; min-width: 0; text-overflow: ellipsis; }
+.workspace-breadcrumb .workspace-module-link {
+  padding: 3px 7px;
+  border-radius: 5px;
+  background: #e9f1f6;
+  color: #365a70;
+  font-size: 11px;
+  font-weight: 750;
+  text-decoration: none;
+}
+.workspace-breadcrumb a:hover,
+.workspace-breadcrumb button:hover { color: #167ca4; }
+.workspace-breadcrumb a:focus-visible,
+.workspace-breadcrumb button:focus-visible { outline: 2px solid #2692bd; outline-offset: 3px; }
 .top-brand {
   display: inline-flex;
   align-items: center;
   flex: 0 0 auto;
-  gap: 8px;
-  padding: 0;
+  gap: 10px;
+  padding: 8px 16px 8px 2px;
   color: #163c53;
   background: transparent;
   border: 0;
-  font-size: 16px;
+  border-right: 1px solid #e5eaf0;
+  font-size: 21px;
   font-weight: 800;
   letter-spacing: -.7px;
   cursor: pointer;
 }
 .top-brand .brand-mark { width: 21px; height: 21px; border-color: #3caed5; }
 .top-brand .brand-mark span { width: 7px; height: 7px; background: #3caed5; }
-.top-brand > span:last-child span { color: #2692bd; }
+.top-brand:focus-visible { outline: 2px solid #2692bd; outline-offset: 3px; border-radius: 4px; }
 .top-workspace {
+  position: relative;
   display: flex;
   align-items: center;
-  min-width: 0;
-  gap: 7px;
-  padding: 5px 8px;
+  justify-content: space-between;
+  flex: 0 1 184px;
+  min-width: 96px;
+  gap: 10px;
+  padding: 6px 12px;
+  color: #31576a;
   background: #f6fafc;
   border: 1px solid #dce8ed;
-  border-radius: 7px;
+  border-radius: 8px;
+  cursor: pointer;
 }
-.top-workspace .workspace-icon { width: 24px; height: 24px; font-size: 9px; }
+.top-workspace:hover { border-color: #a5c5d6; }
+.top-workspace:focus-within { outline: 2px solid #2692bd; outline-offset: 3px; }
+.top-workspace > svg { flex-shrink: 0; }
+.workspace-company { display: grid; gap: 1px; min-width: 0; }
+.workspace-company small { color: #708593; font-size: 10px; line-height: 1.2; }
+.workspace-company strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; line-height: 1.4; font-weight: 750; }
 
 /* Final dark-theme pass: it is intentionally placed after every module style. */
 html[data-theme="dark"] .content-wrap,
@@ -3265,30 +3317,32 @@ html[data-theme="dark"] .app-module-card:hover,
 html[data-theme="dark"] .app-module-card:focus-visible { background: #294552; border-color: #78d2f1; }
 html[data-theme="dark"] .app-module-icon { filter: saturate(1.12) brightness(1.35); }
 .top-workspace select {
-  min-width: 120px;
-  max-width: 180px;
-  overflow: hidden;
-  color: #31576a;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  background: transparent;
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  opacity: 0;
   border: 0;
-  outline: 0;
-  font-size: 11px;
-  font-weight: 750;
+  cursor: pointer;
+  font-size: 14px;
 }
 @media (max-width: 1050px) {
-  .workspace-topbar { gap: 10px; padding: 0 16px; }
-  .top-workspace select { min-width: 92px; max-width: 125px; }
-  .breadcrumb span, .breadcrumb svg { display: none; }
+  .workspace-toolbar { gap: 12px; padding-inline: 16px; }
+  .workspace-breadcrumb { padding-inline: 16px; }
+  .top-workspace { flex-basis: 156px; }
+  .workspace-toolbar .app-launcher-button { width: 40px; min-width: 40px; padding: 0; justify-content: center; font-size: 0; }
 }
 @media (max-width: 760px) {
-  .workspace-topbar { height: 58px; gap: 9px; padding: 0 14px; }
-  .top-brand { font-size: 0; }
-  .top-brand .brand-mark { width: 20px; height: 20px; }
-  .top-workspace { flex: 1; min-width: 0; }
-  .top-workspace select { width: 100%; max-width: none; min-width: 0; }
-  .workspace-topbar .breadcrumb { display: none; }
+  .workspace-toolbar { min-height: 64px; gap: 8px; padding: 8px 12px; }
+  .workspace-toolbar .top-brand { border: 0; padding: 4px 0; font-size: 18px; }
+  .workspace-toolbar .top-brand .brand-mark { display: none; }
+  .workspace-toolbar .top-workspace { flex: 1; min-width: 0; padding: 6px 8px; gap: 6px; }
+  .workspace-toolbar .top-actions { gap: 2px; }
+  .workspace-toolbar .top-actions .icon-button { width: 32px; height: 36px; }
+  .workspace-toolbar .top-avatar { width: 34px; height: 34px; }
+  .workspace-toolbar .app-launcher-button { width: 36px; min-width: 36px; }
+  .workspace-breadcrumb { padding: 7px 12px; gap: 8px; min-height: 38px; }
 }
 
 /* Dark-mode consistency layer.  Kept last so module-specific light styles cannot
@@ -3302,6 +3356,11 @@ html[data-theme="dark"] .top-workspace select {
   background: transparent;
 }
 html[data-theme="dark"] .top-workspace select option { color: #e6f2f7; background: #172a35; }
+html[data-theme="dark"] .top-workspace { color: #e6f2f7; }
+html[data-theme="dark"] .workspace-company small { color: #a9becb; }
+html[data-theme="dark"] .top-brand { border-color: #334c5b; }
+html[data-theme="dark"] .workspace-breadcrumb { background: #15232e; border-color: #29404f; }
+html[data-theme="dark"] .workspace-breadcrumb .workspace-module-link { color: #a8dcf0; background: #243d4c; }
 
 html[data-theme="dark"] .metric-card p,
 html[data-theme="dark"] .metric-card > p,

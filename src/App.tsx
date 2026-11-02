@@ -40,6 +40,7 @@ import { DashboardCanvas } from "./components/DashboardCanvas";
 import { AssistantChat } from "./components/AssistantChat";
 import { LoginPage } from "./components/LoginPage";
 import { NotificationsMenu } from "./components/NotificationsMenu";
+import { CompanySwitcher } from "./components/CompanySwitcher";
 import { UserAvatar } from "./components/UserAvatar";
 import { ProviderPortal } from "./components/ProviderPortal";
 import { DashboardPage } from "./components/DashboardPage";
@@ -667,91 +668,88 @@ export default function App() {
     <div className="app-shell">
       <main className="main-content">
         <header className="topbar workspace-topbar">
-          <button className="top-brand" onClick={() => setLauncherOpen(true)} aria-label="Abrir aplicaciones">
-            <span className="brand-mark"><span /></span>
-            <span>enterprise<span>cloud</span></span>
-          </button>
-          <label className="top-workspace">
-            <span className="workspace-icon">GN</span>
-            <select aria-label="Empresa activa" value={tenantId} onChange={(event) => selectTenant(event.target.value)}>
-            {tenants.map((tenant) => <option key={tenant.id} value={tenant.id}>{tenant.name}</option>)}
-            </select>
-          </label>
-          <div className="breadcrumb">
+          <div className="workspace-toolbar">
+            <button className="top-brand" onClick={() => setLauncherOpen(true)} aria-label="Abrir aplicaciones" title="EnterpriseCloud">
+              <span className="brand-mark"><span /></span>
+              <span className="top-brand-name">EC</span>
+            </button>
+            <CompanySwitcher companies={tenants} value={tenantId} onChange={selectTenant} />
+            <button className="app-launcher-button" onClick={() => setLauncherOpen(true)} aria-label="Aplicaciones" title="Abrir módulos">
+              <LayoutGrid size={18} /> Aplicaciones
+            </button>
+            <div className="search global-search">
+              <Search size={18} />
+              <input
+                ref={globalSearchRef}
+                aria-label="Buscar"
+                placeholder="Buscar transacciones"
+                value={quickQuery}
+                onChange={(event) => setQuickQuery(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" && quickLinks[0]) {
+                    event.preventDefault();
+                    openQuickLink(quickLinks[0].href);
+                  }
+                  if (event.key === "Escape") setQuickQuery("");
+                }}
+                aria-expanded={Boolean(quickQuery)}
+                aria-controls="global-search-results"
+              />
+              <kbd>Ctrl K</kbd>
+              {quickQuery && (
+                <div id="global-search-results" className="global-search-results">
+                  {quickLinks.length ? (
+                    quickLinks.map(({ label, icon: Icon, href }) => (
+                      <button
+                        key={href}
+                        type="button"
+                        onClick={() => openQuickLink(href)}
+                      >
+                        <Icon size={16} />
+                        <span>{label}</span>
+                        <ChevronRight size={15} />
+                      </button>
+                    ))
+                  ) : (
+                    <p>No se encontró un módulo con ese nombre.</p>
+                  )}
+                </div>
+              )}
+            </div>
+            <div className="top-actions">
+              <button
+                className={`icon-button assistant-trigger ${assistantOpen ? "is-active" : ""}`}
+                type="button"
+                onClick={() => setAssistantOpen((current) => !current)}
+                aria-label="Abrir asistente EnterpriseCloud"
+                aria-expanded={assistantOpen}
+                aria-controls="erp-assistant"
+                title="Asistente EnterpriseCloud"
+              >
+                <Bot size={20} />
+              </button>
+              <button
+                className="icon-button theme-toggle"
+                type="button"
+                onClick={() => setTheme((current) => current === "dark" ? "light" : "dark")}
+                aria-label={theme === "dark" ? "Cambiar a modo claro" : "Cambiar a modo noche"}
+                aria-pressed={theme === "dark"}
+                title={theme === "dark" ? "Modo noche activo" : "Modo claro activo"}
+              >
+                {theme === "dark" ? <Moon size={20} /> : <Sun size={20} />}
+              </button>
+              <NotificationsMenu />
+              <button className="top-profile-trigger" type="button" onClick={() => { window.location.hash = "#perfil"; }} aria-label="Abrir mi perfil" title="Mi perfil">
+                <UserAvatar name={userName} avatarPath={avatarPath} className="top-avatar" />
+              </button>
+            </div>
+          </div>
+          <nav className="breadcrumb workspace-breadcrumb" aria-label="Ubicación actual">
             <button className="breadcrumb-link" onClick={() => setLauncherOpen(true)}>Módulos</button>
-            <ChevronRight size={15} />
-            {activeWorkspace && !workspaceHome && <><a href={activeWorkspace.href}>{activeWorkspace.short}</a><ChevronRight size={15} /></>}
-            <strong>{breadcrumbLabel}</strong>
-          </div>
-          <button className="app-launcher-button" onClick={() => setLauncherOpen(true)}>
-            <LayoutGrid size={18} /> Aplicaciones
-          </button>
-          <div className="search global-search">
-            <Search size={18} />
-            <input
-              ref={globalSearchRef}
-              aria-label="Buscar"
-              placeholder="Buscar en EnterpriseCloud"
-              value={quickQuery}
-              onChange={(event) => setQuickQuery(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === "Enter" && quickLinks[0]) {
-                  event.preventDefault();
-                  openQuickLink(quickLinks[0].href);
-                }
-                if (event.key === "Escape") setQuickQuery("");
-              }}
-              aria-expanded={Boolean(quickQuery)}
-              aria-controls="global-search-results"
-            />
-            <kbd>⌘ K</kbd>
-            {quickQuery && (
-              <div id="global-search-results" className="global-search-results">
-                {quickLinks.length ? (
-                  quickLinks.map(({ label, icon: Icon, href }) => (
-                    <button
-                      key={href}
-                      type="button"
-                      onClick={() => openQuickLink(href)}
-                    >
-                      <Icon size={16} />
-                      <span>{label}</span>
-                      <ChevronRight size={15} />
-                    </button>
-                  ))
-                ) : (
-                  <p>No se encontró un módulo con ese nombre.</p>
-                )}
-              </div>
-            )}
-          </div>
-          <div className="top-actions">
-            <button
-              className={`icon-button assistant-trigger ${assistantOpen ? "is-active" : ""}`}
-              type="button"
-              onClick={() => setAssistantOpen((current) => !current)}
-              aria-label="Abrir asistente EnterpriseCloud"
-              aria-expanded={assistantOpen}
-              aria-controls="erp-assistant"
-              title="Asistente EnterpriseCloud"
-            >
-              <Bot size={20} />
-            </button>
-            <button
-              className="icon-button theme-toggle"
-              type="button"
-              onClick={() => setTheme((current) => current === "dark" ? "light" : "dark")}
-              aria-label={theme === "dark" ? "Cambiar a modo claro" : "Cambiar a modo noche"}
-              aria-pressed={theme === "dark"}
-              title={theme === "dark" ? "Modo noche activo" : "Modo claro activo"}
-            >
-              {theme === "dark" ? <Moon size={20} /> : <Sun size={20} />}
-            </button>
-            <NotificationsMenu />
-            <button className="top-profile-trigger" type="button" onClick={() => { window.location.hash = "#perfil"; }} aria-label="Abrir mi perfil" title="Mi perfil">
-              <UserAvatar name={userName} avatarPath={avatarPath} className="top-avatar" />
-            </button>
-          </div>
+            <ChevronRight size={14} aria-hidden="true" />
+            {activeWorkspace && !workspaceHome && <><a className="workspace-module-link" href={activeWorkspace.href} title={activeWorkspace.label}>{activeWorkspace.short}</a><ChevronRight size={14} aria-hidden="true" /></>}
+            <strong aria-current="page" title={breadcrumbLabel}>{breadcrumbLabel}</strong>
+          </nav>
         </header>
         <div className="content-wrap">
           <ModuleErrorBoundary view={route}>

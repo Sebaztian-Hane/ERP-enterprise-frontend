@@ -384,6 +384,49 @@ test("new screens render on desktop and mobile without horizontal overflow", asy
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 });
 
+test("workspace header separates company and navigation at desktop, zoomed and mobile widths", async ({ page }) => {
+  await bootstrap(page, "owner");
+  const secondCompany = { ...tenant, id: "00000000-0000-0000-0000-000000000006", name: "Consorcio Internacional de Suministros Industriales del Pacífico" };
+  await page.route("**/api/v1/auth/tenants", route => route.fulfill({ json: [tenant, secondCompany] }));
+  await page.goto("/#sd/materiales");
+  const company = page.getByRole("combobox", { name: "Empresa activa" });
+  const navigation = page.getByRole("navigation", { name: "Ubicación actual" });
+  await expect(navigation).toContainText("Consulta de materiales");
+  await expect(page.locator(".workspace-company strong")).toHaveText("DUNS");
+  await expect(company.locator("option:checked")).toHaveText(tenant.name);
+  await expect(company).toHaveAttribute("title", tenant.name);
+  for (const width of [1920, 1280, 1024, 768, 390, 320]) {
+    await page.setViewportSize({ width, height: 900 });
+    await expect(navigation).toBeVisible();
+    const layout = await page.locator(".workspace-toolbar").evaluate(toolbar => {
+      const boxes = Array.from(toolbar.children).filter(child => getComputedStyle(child).display !== "none").map(child => child.getBoundingClientRect());
+      const nav = toolbar.nextElementSibling!.getBoundingClientRect();
+      return {
+        insideViewport: boxes.every(box => box.left >= 0 && box.right <= innerWidth),
+        separated: boxes.every((box, index) => index === 0 || box.left >= boxes[index - 1].right),
+        navBelow: nav.top >= toolbar.getBoundingClientRect().bottom,
+        pageFits: document.documentElement.scrollWidth <= innerWidth,
+      };
+    });
+    expect(layout, `Header at ${width}px`).toEqual({ insideViewport: true, separated: true, navBelow: true, pageFits: true });
+    if (width === 1280 || width === 390) await page.screenshot({ path: `test-results/header-${width}.png` });
+  }
+  await company.focus();
+  await expect(page.locator(".top-workspace")).toHaveCSS("outline-style", "solid");
+  await company.selectOption(secondCompany.id);
+  await expect(company.locator("option:checked")).toHaveText(secondCompany.name);
+  await expect(company).toHaveAttribute("title", secondCompany.name);
+  await expect.poll(() => page.evaluate(() => localStorage.getItem("enterprisecloud.activeTenantId"))).toBe(secondCompany.id);
+  await page.getByRole("button", { name: "Cambiar a modo noche" }).click();
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.screenshot({ path: "test-results/header-mobile-dark.png" });
+  await navigation.getByRole("link", { name: "SD", exact: true }).click();
+  await expect(page).toHaveURL(/#sd$/);
+  await page.getByRole("button", { name: "Aplicaciones", exact: true }).click();
+  await expect(page.getByRole("dialog", { name: "Aplicaciones de EnterpriseCloud" })).toBeVisible();
+});
+
 test("data center remains usable in dark mode on mobile", async ({ page }) => {
   const errors: string[] = [];
   page.on("pageerror", error => errors.push(error.message));
