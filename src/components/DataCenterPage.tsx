@@ -1,5 +1,5 @@
 import { SystemNotice } from "./SystemNotifications";
-import { useRef, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { CheckCircle2, ChevronLeft, Database, Files, LoaderCircle, Plus, RefreshCw, Search, Upload, ListChecks, X } from "lucide-react";
 import { useAuth } from "../auth/AuthProvider";
 import { ApiError, apiDownload, apiFetch, postIdempotent } from "../lib/api";
@@ -20,7 +20,7 @@ export function DataCenterPage({ goBack }: { goBack: () => void }) {
   const [objectDetail, setObjectDetail] = useState<MigrationDefinition | null>(null);
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState("");
-  const [busy, setBusy] = useState<string | null>(null);
+  const [busyAction, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [logOpen, setLogOpen] = useState(false);
@@ -29,6 +29,34 @@ export function DataCenterPage({ goBack }: { goBack: () => void }) {
   const target = useRef("");
   const options = { accessToken: session?.access_token, tenantId: tenantId ?? undefined };
   const definitions = catalog.data?.objects ?? [];
+  const job = project?.simulation.job;
+  const processing = job?.state === "queued";
+  const busy = busyAction || (processing ? (job.kind === "simulate" ? "Simulación en segundo plano. Puedes volver más tarde; el estado se actualiza automáticamente." : "Carga final en segundo plano. El grupo se guardará completo o se revertirá si aparece un error.") : null);
+  useEffect(() => {
+    if (!processing || !project) return;
+    let active = true;
+    let timer: ReturnType<typeof setTimeout>;
+    const controller = new AbortController();
+    const poll = async () => {
+      try {
+        const result = await apiFetch<MigrationProject>(`/migration-projects/${project.id}`, { accessToken: session?.access_token, tenantId: tenantId ?? undefined, signal: controller.signal });
+        if (!active) return;
+        setError(null); setProject(result);
+        if (result.simulation.job?.state !== "queued") {
+          listing.refresh();
+          if (result.simulation.job?.state === "failed") setError(result.simulation.job.message ?? "La operación no terminó. Revisa el registro del grupo.");
+          else setNotice(result.status === "migrated" ? `Migración completada: ${result.receipt.total_created} registros creados. El comprobante está disponible.` : result.simulation.can_commit ? "Simulación correcta. Revisa el registro y pulsa Cargar datos para confirmar la carga final." : "La simulación encontró errores. Revisa el Registro de validación.");
+          if (result.status !== "migrated") setLogOpen(true);
+          return;
+        }
+      } catch (cause) {
+        if (active) setError(cause instanceof Error ? cause.message : "No se pudo consultar el estado. La operación continúa en el servidor.");
+      }
+      if (active) timer = setTimeout(poll, 5000);
+    };
+    timer = setTimeout(poll, 3000);
+    return () => { active = false; clearTimeout(timer); controller.abort(); };
+  }, [project?.id, job?.id, processing, session?.access_token, tenantId]);
   const labelFor = (code: string) => definitions.find((item) => item.code === code)?.label ?? code;
   const task = async (name: string, operation: () => Promise<void>) => {
     if (busy) return;
@@ -48,8 +76,8 @@ export function DataCenterPage({ goBack }: { goBack: () => void }) {
   });
   const refresh = () => { catalog.refresh(); listing.refresh(); if (project) openProject(project.id); };
   const simulate = () => project && void task("Simulando el grupo…", async () => {
-    const result = await postIdempotent<MigrationProject>(`/migration-projects/${project.id}/simulate`, { ...options, body: JSON.stringify({ version: project.version }) });
-    setProject(result); setOperationLogs([]); setLogOpen(true); listing.refresh(); setNotice(result.simulation.can_commit ? "Simulación correcta. Revisa el registro y pulsa Cargar datos para confirmar la carga final." : "La simulación encontró errores. El Registro de validación muestra los datos que debes corregir.");
+    const result = await postIdempotent<MigrationProject>(`/migration-projects/${project.id}/simulate?background=true`, { ...options, body: JSON.stringify({ version: project.version }) });
+    setProject(result); setOperationLogs([]); setLogOpen(result.simulation.job?.state !== "queued"); listing.refresh(); setNotice(result.simulation.job?.state === "queued" ? "Simulación iniciada en segundo plano. El resultado se guardará en este grupo." : result.simulation.can_commit ? "Simulación correcta. Revisa el registro y pulsa Cargar datos para confirmar la carga final." : "La simulación encontró errores. El Registro de validación muestra los datos que debes corregir.");
   });
   const download = (code: string, example = false, format = "xlsx") => void task("Preparando descarga…", async () => {
     saveDownload(await apiDownload(`/migration-projects/objects/${code}/template?example=${example}&format=${format}${project ? `&project_id=${project.id}` : ""}`, options), `${definitions.find(item => item.code === code)?.sheet_name ?? labelFor(code)}.${format}`);
@@ -69,8 +97,8 @@ export function DataCenterPage({ goBack }: { goBack: () => void }) {
     });
   };
   const migrate = () => project && void task("Migrando el grupo completo…", async () => {
-    const result = await postIdempotent<MigrationProject>(`/migration-projects/${project.id}/commit`, { ...options, body: JSON.stringify({ version: project.version, digest: project.simulation.digest, confirmed: checked }) });
-    setProject(result); setConfirmOpen(false); setChecked(false); listing.refresh(); setNotice(`Migración completada: ${result.receipt.total_created} registros creados. El comprobante está disponible.`);
+    const result = await postIdempotent<MigrationProject>(`/migration-projects/${project.id}/commit?background=true`, { ...options, body: JSON.stringify({ version: project.version, digest: project.simulation.digest, confirmed: checked }) });
+    setProject(result); setConfirmOpen(false); setChecked(false); listing.refresh(); setNotice(result.simulation.job?.state === "queued" ? "Carga final iniciada. Puedes consultar su resultado en este grupo; no vuelvas a enviar los archivos." : `Migración completada: ${result.receipt.total_created} registros creados. El comprobante está disponible.`);
   });
   const normalized = query.trim().toLocaleLowerCase("es-PE");
   const projects = (listing.data?.projects ?? []).filter((item) => (!filter || item.status === filter) && item.name.toLocaleLowerCase("es-PE").includes(normalized));
@@ -78,10 +106,10 @@ export function DataCenterPage({ goBack }: { goBack: () => void }) {
   const frozen = project?.status === "migrated";
   const rows = project?.objects.reduce((sum, item) => sum + item.rows, 0) ?? 0;
   const errors = project?.objects.reduce((sum, item) => sum + (item.report?.error_count ?? item.report?.errors.length ?? 0), 0) ?? 0;
-  const logs: MigrationLog[] = [...operationLogs, ...(project?.simulation.upload_logs ?? []), ...Object.entries(project?.simulation.objects ?? {}).flatMap(([object, report]) => (report.logs ?? report.errors).map(item => ({ ...item, object })))];
+  const logs: MigrationLog[] = [...(job?.state === "failed" ? [{ severity: "error" as const, phase: job.kind === "commit" ? "commit" : "simulation", message: job.message ?? "La operación no terminó; no se guardaron datos parciales." }] : []), ...operationLogs, ...(project?.simulation.upload_logs ?? []), ...Object.entries(project?.simulation.objects ?? {}).flatMap(([object, report]) => (report.logs ?? report.errors).map(item => ({ ...item, object })))];
 
   return <section className="module-page migration-cockpit">
-    <div className="module-heading"><div><button className="back-link" disabled={!!busy} onClick={() => project ? (setProject(null), setQuery(""), setFilter("")) : goBack()}><ChevronLeft size={16} />{project ? "Grupos de migración" : "Aplicaciones"}</button><p className="eyebrow">ADMINISTRACIÓN DE DATOS</p><h1><Database size={24} />{project?.name ?? "Centro de migraciones"}</h1><p className="subtitle">{project ? "Objetos, dependencias y resultados del grupo." : "Grupos de carga según los módulos habilitados para tu empresa y usuario."}</p></div><div className="heading-actions"><button className="secondary-button" disabled={!!busy} onClick={refresh}><RefreshCw size={16} /> Actualizar</button>{!project ? <button className="primary-button" disabled={!catalog.data?.ready || !!busy} onClick={() => setCreateOpen(true)}><Plus size={16} /> Crear grupo</button> : <ActionMenu disabled={!!busy} label="Acciones del grupo" actions={[
+    <div className="module-heading"><div><button className="back-link" disabled={!!busyAction} onClick={() => project ? (setProject(null), setQuery(""), setFilter("")) : goBack()}><ChevronLeft size={16} />{project ? "Grupos de migración" : "Aplicaciones"}</button><p className="eyebrow">ADMINISTRACIÓN DE DATOS</p><h1><Database size={24} />{project?.name ?? "Centro de migraciones"}</h1><p className="subtitle">{project ? "Objetos, dependencias y resultados del grupo." : "Grupos de carga según los módulos habilitados para tu empresa y usuario."}</p></div><div className="heading-actions"><button className="secondary-button" disabled={!!busy} onClick={refresh}><RefreshCw size={16} /> Actualizar</button>{!project ? <button className="primary-button" disabled={!catalog.data?.ready || !!busy} onClick={() => setCreateOpen(true)}><Plus size={16} /> Crear grupo</button> : <ActionMenu disabled={!!busy} label="Acciones del grupo" actions={[
       { label: "Descargar Excel de prueba (ZIP)", run: () => void task("Descargando ejemplos…", async () => saveDownload(await apiDownload(`/migration-projects/${project.id}/example-pack`, options), "ejemplos-migracion.zip")) },
       { label: "Carga masiva de Excel", run: () => chooseFile("bulk"), disabled: frozen },
       { label: "Descargar todas las plantillas en un Excel", run: () => void task("Preparando libro…", async () => saveDownload(await apiDownload(`/migration-projects/${project.id}/workbook`, options), "Plantillas del grupo.xlsx")) },
@@ -99,7 +127,7 @@ export function DataCenterPage({ goBack }: { goBack: () => void }) {
     {catalog.data && !catalog.data.ready && <article className="migration-activation panel"><strong>Activación de grupos pendiente</strong><p>Ejecuta <code>0066_migration_projects.sql</code> del backend en Supabase y pulsa Actualizar. Ya puedes consultar y descargar las plantillas autorizadas.</p></article>}
     {project && <div className="migration-metrics"><span className={`migration-badge ${project.status}`}>{migrationStatus[project.status]}</span><span><strong>{project.objects.length}</strong> objetos asignados</span><span><strong>{rows}</strong> filas cargadas</span><span className={errors ? "migration-error-count" : ""}><strong>{errors}</strong> errores</span><span>Versión {project.version}</span></div>}
     <div className="migration-filters"><label>Buscar<div className="migration-search"><Search size={16} /><input aria-label={project ? "Buscar objeto de migración" : "Buscar grupo de migración"} placeholder={project ? "Objeto, módulo o código" : "Nombre del grupo"} value={query} onChange={(event) => setQuery(event.target.value)} /></div></label><label>Estado<select value={filter} onChange={(event) => setFilter(event.target.value)}><option value="">Todos</option>{(project ? ["empty", "uploaded", "ready", "error", "migrated"] : ["draft", "uploaded", "ready", "errors", "migrated"]).map((state) => <option key={state} value={state}>{migrationStatus[state]}</option>)}</select></label></div>
-    {!project && catalog.data?.ready && <article className="panel migration-table-panel"><div className="panel-header"><h2>Grupos de migración ({projects.length})</h2><span>Hasta 200 grupos recientes</span></div><div className="table-wrap"><table><thead><tr><th>Nombre</th><th>Estado</th><th>Autor / fecha de creación</th><th>Grupos de módulos</th><th>Objetos</th><th></th></tr></thead><tbody>{projects.map((item) => <tr key={item.id}><td><button className="migration-object-link" disabled={!!busy} onClick={() => openProject(item.id)}>{item.name}</button></td><td><span className={`migration-badge ${item.status}`}>{migrationStatus[item.status]}</span></td><td>{item.created_by === session?.user.id ? "Tú" : `Usuario ${item.created_by.slice(0, 8)}`}<small className="table-secondary">{new Date(item.created_at).toLocaleString("es-PE")}</small></td><td>{item.groups.map((code) => catalog.data?.groups.find((group) => group.code === code)?.label ?? code).join(", ")}</td><td>{item.object_count}</td><td><button className="text-button" disabled={!!busy} onClick={() => openProject(item.id)}>Abrir grupo</button></td></tr>)}{!projects.length && <tr><td colSpan={6}><div className="migration-empty"><Files size={28} /><strong>No hay grupos para este filtro</strong><span>Crea un grupo y selecciona sus módulos. Las plantillas y predecesores se asignan automáticamente.</span></div></td></tr>}</tbody></table></div></article>}
+    {!project && catalog.data?.ready && <article className="panel migration-table-panel"><div className="panel-header"><h2>Grupos de migración ({projects.length})</h2><span>Hasta 200 grupos recientes</span></div><div className="table-wrap"><table><thead><tr><th>Nombre</th><th>Estado</th><th>Autor / fecha de creación</th><th>Grupos de módulos</th><th>Objetos</th><th></th></tr></thead><tbody>{projects.map((item) => <tr key={item.id}><td><button className="migration-object-link" disabled={!!busy} onClick={() => openProject(item.id)}>{item.name}</button></td><td><span className={`migration-badge ${item.status}`}>{item.job?.state === "queued" ? (item.job.kind === "simulate" ? "Simulación en proceso" : "Carga en proceso") : migrationStatus[item.status]}</span></td><td>{item.created_by === session?.user.id ? "Tú" : `Usuario ${item.created_by.slice(0, 8)}`}<small className="table-secondary">{new Date(item.created_at).toLocaleString("es-PE")}</small></td><td>{item.groups.map((code) => catalog.data?.groups.find((group) => group.code === code)?.label ?? code).join(", ")}</td><td>{item.object_count}</td><td><button className="text-button" disabled={!!busy} onClick={() => openProject(item.id)}>Abrir grupo</button></td></tr>)}{!projects.length && <tr><td colSpan={6}><div className="migration-empty"><Files size={28} /><strong>No hay grupos para este filtro</strong><span>Crea un grupo y selecciona sus módulos. Las plantillas y predecesores se asignan automáticamente.</span></div></td></tr>}</tbody></table></div></article>}
     {(project || !catalog.data?.ready) && <article className="panel migration-table-panel"><div className="panel-header"><div><h2>{project ? "Objetos de migración" : "Plantillas disponibles"} ({objects.length})</h2><span>{project ? "Los objetos sin archivo no se migran. Sus datos pueden existir previamente en la empresa." : "Crea un grupo después de activar sus tablas."}</span></div></div><div className="table-wrap"><table><thead><tr><th>Objeto de migración</th><th>Datos</th><th>Simulación</th><th>Migración</th><th>Acción</th></tr></thead><tbody>{objects.map((item) => {
       const definition = definitions.find((entry) => entry.code === item.code);
       if (!definition) return null;

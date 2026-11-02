@@ -1,7 +1,7 @@
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
-const suspicious = /\u00c3[\u0080-\u00bf]|\u00c2[\u0080-\u00bf]|\u00e2\u20ac|\ufffd|\b(?:Evaluaci|Operaci|Informaci|Planificaci|Producci|Distribuci|Revisi)\?n\b/i;
+const suspicious = /\u00c3[\u0080-\u00bf]|\u00c2[\u0080-\u00bf]|\u00e2\u20ac|\ufffd|\b(?:Evaluaci|Operaci|Informaci|Planificaci|Producci|Distribuci|Revisi|Simulaci|Confirmaci|Transacci)\?n\b|\bm\?dulos\b/i;
 const decoder = new TextDecoder("utf-8", { fatal: true });
 const failures = [];
 function visit(directory) {

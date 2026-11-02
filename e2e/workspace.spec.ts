@@ -16,11 +16,12 @@ const equipment: BusinessResource = {
   fields: [{ key: "location", label: "Ubicación", kind: "text", required: true, choices: [], reference: null, minimum: null, maximum: null }, { key: "criticality", label: "Criticidad", kind: "select", required: true, choices: ["low", "medium", "high"], reference: null, minimum: null, maximum: null }],
 };
 
-async function bootstrap(page: Page, role: Role, disabled: string[] = [], enterpriseReady = true) {
+async function bootstrap(page: Page, role: Role, disabled: string[] = [], enterpriseReady = true, backgroundJobs = false) {
   const requests: { path: string; method: string; idempotency?: string; body: string | null }[] = [];
   const documents: BusinessRecord[] = [];
   let memberOverrides: Record<string, boolean> = {};
   let migration: MigrationProject | null = null;
+  let jobReads = 0;
   const migrationObjects = [
     { code: "units", module: "products", label: "Unidades de medida", columns: ["code", "name"], dependencies: [] },
     { code: "products", module: "products", label: "Materiales y productos", columns, dependencies: ["units"] },
@@ -61,6 +62,14 @@ async function bootstrap(page: Page, role: Role, disabled: string[] = [], enterp
       } else payload = { ready: true, projects: migration ? [{ ...migration, object_count: migration.objects.length }] : [] };
     }
     else if (path.startsWith("/migration-projects/") && migration) {
+      if (route.request().method() === "GET" && migration.simulation.job?.state === "queued" && ++jobReads >= 2) {
+        const kind = migration.simulation.job.kind;
+        migration.simulation.job.state = "completed";
+        migration.simulation.can_commit = true;
+        migration.status = kind === "commit" ? "migrated" : "ready";
+        migration.version++;
+        if (kind === "commit") migration.receipt = { total_created: 1 };
+      }
       if (path.endsWith("/file")) {
         const code = path.split("/").at(-2);
         const item = migration.objects.find((item) => item.code === code)!;
@@ -73,8 +82,10 @@ async function bootstrap(page: Page, role: Role, disabled: string[] = [], enterp
       } else if (path.endsWith("/simulate")) {
         for (const item of migration.objects.filter((item) => item.filename)) { item.status = "ready"; item.report = { rows: 1, created: 1, reused: 0, status: "ready", errors: [] }; }
         migration.version++; migration.status = "ready"; migration.simulation = { can_commit: true, digest: "a".repeat(64), total_created: 1, total_rows: 1, objects: Object.fromEntries(migration.objects.filter((item) => item.report).map((item) => [item.code, item.report!])) };
+        if (backgroundJobs) { jobReads = 0; migration.status = "uploaded"; migration.simulation.can_commit = false; migration.simulation.job = { id: "simulation-job", kind: "simulate", state: "queued", requested_at: new Date().toISOString() }; }
       } else if (path.endsWith("/commit")) {
         migration.status = "migrated"; migration.version++; migration.receipt = { digest: "a".repeat(64), total_created: 1 }; migration.objects.forEach((item) => { if (item.filename) item.status = "migrated"; });
+        if (backgroundJobs) { jobReads = 0; migration.status = "ready"; migration.receipt = {}; migration.simulation.job = { id: "commit-job", kind: "commit", state: "queued", requested_at: new Date().toISOString() }; }
       }
       payload = migration;
     }
@@ -98,9 +109,10 @@ async function bootstrap(page: Page, role: Role, disabled: string[] = [], enterp
     else if (path === "/sales" || path === "/purchases") payload = { [path.slice(1)]: [], meta: { page: 1, page_size: 25, total: 0, total_pages: 1, has_previous: false, has_next: false } };
     else if (path === "/products") payload = url.searchParams.has("page") ? { products: [product], meta: { page: 1, page_size: 25, total: 1, total_pages: 1, has_previous: false, has_next: false } } : [product];
     else if (path === "/customers") payload = url.searchParams.has("page") ? { customers: [], meta: { page: 1, page_size: 25, total: 0, total_pages: 1, has_previous: false, has_next: false } } : [];
+    else if (path === "/suppliers") payload = url.searchParams.has("page") ? { suppliers: [], meta: { page: 1, page_size: 25, total: 0, total_pages: 1, has_previous: false, has_next: false } } : [];
     else if (path === "/products/units") payload = [{ id: product.unit_id, code: "NIU", name: "Unidad", is_active: true }];
     else if (path.endsWith("/material-profile")) payload = { attributes: {}, fields: [{ key: "barcode", group: "Identificación", description: "Código de barras como texto." }] };
-    else if (path === "/inventory/warehouses") payload = [warehouse];
+    else if (path === "/inventory/warehouses") payload = url.searchParams.has("page") ? { warehouses: [warehouse], meta: { page: 1, page_size: 25, total: 1, total_pages: 1, has_previous: false, has_next: false } } : [warehouse];
     else if (path === "/operations/inventory/availability") payload = [{ id: "position-1", product_id: product.id, warehouse_id: warehouse.id, on_hand: "10", reserved_quantity: "2", available_quantity: "8" }];
     else if (path === "/operations/inventory/valuation") payload = [{ product_id: product.id, sku: product.sku, name: product.name, quantity: "10", average_cost: "80.00", inventory_value: "800.00" }];
     else if (path === "/operations/finance/cash-flow") payload = [{ id: "cash-1", code: "CAJA-01", name: "Caja operativa", currency: "PEN", balance: "120.00", month_inflow: "150.00", month_outflow: "30.00" }];
@@ -187,6 +199,27 @@ test("bulk migration assigns files and presents validation in a dialog with syst
   await log.getByRole("button", { name: "Cerrar registro de validación" }).click();
   await page.getByRole("button", { name: /Ver registro de alertas/ }).click();
   await expect(page.getByRole("dialog", { name: "Registro de alertas del sistema" }).getByText(/Plantillas reconocidas/)).toBeVisible();
+});
+
+test("background simulation polls until ready and final load waits for its persisted result", async ({ page }) => {
+  test.setTimeout(60000);
+  await bootstrap(page, "owner", [], true, true);
+  await createMigration(page);
+  await page.getByRole("button", { name: "Carga masiva", exact: true }).click();
+  await page.getByLabel("Archivo de migración").setInputFiles({ name: "MM.xlsx", mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", buffer: Buffer.from("mock") });
+  await page.getByRole("button", { name: "Cerrar registro de validación" }).click();
+  await page.getByRole("button", { name: "Simular grupo", exact: true }).click();
+  await expect(page.getByText(/Simulación en segundo plano\. Puedes volver/)).toBeVisible();
+  await expect(page.getByRole("button", { name: "Cargar datos", exact: true })).toBeDisabled();
+  await expect(page.getByRole("dialog", { name: "Registro de validación", exact: true })).toBeVisible({ timeout: 20000 });
+  await page.getByRole("button", { name: "Cerrar registro de validación" }).click();
+  await page.getByRole("button", { name: "Cargar datos", exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: "Confirmación final de migración" });
+  await dialog.getByRole("checkbox").check();
+  await dialog.getByRole("button", { name: "Confirmar carga completa" }).click();
+  await expect(page.getByText(/Carga final en segundo plano\. El grupo/)).toBeVisible();
+  await expect(page.getByText(/Migración completada: 1/)).toHaveCount(0);
+  await expect(page.getByText(/Migración completada: 1/)).toBeVisible({ timeout: 20000 });
 });
 
 test("invalid template displays file sheet row and field without allowing final load", async ({ page }) => {
