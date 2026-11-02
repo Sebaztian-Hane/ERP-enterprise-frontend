@@ -1,3 +1,5 @@
+import { confirmSensitiveAction } from "./actionConfirmation";
+
 // Se puede sobrescribir en Vercel con VITE_API_URL por ambiente.
 // El valor público permite que el despliegue estándar funcione sin configuración manual.
 const baseUrl = (
@@ -45,6 +47,7 @@ function errorMessage(detail: unknown, status: number) {
 async function apiRequest(
   path: string,
   { accessToken, tenantId, ...init }: ApiOptions = {},
+  confirmationAttempt = false,
 ): Promise<Response> {
   const isFormData =
     typeof FormData !== "undefined" && init.body instanceof FormData;
@@ -69,6 +72,13 @@ async function apiRequest(
     const payload = (await response.json().catch(() => null)) as {
       detail?: unknown;
     } | null;
+    const detail = payload?.detail;
+    if (!confirmationAttempt && response.status === 403 && detail && typeof detail === "object" && "code" in detail && "action" in detail && "message" in detail && typeof detail.action === "string" && typeof detail.message === "string" && ["ACTION_CONFIRMATION_REQUIRED", "MFA_SESSION_REQUIRED"].includes(String(detail.code))) {
+      const prompt = detail as { action: string; message: string; challenge?: string; expires_in?: number };
+      const verifiedToken = await confirmSensitiveAction({ ...prompt, tenantId, signal: init.signal ?? undefined });
+      if (init.signal?.aborted) throw new Error("La operación fue cancelada.");
+      return apiRequest(path, { ...init, tenantId, accessToken: verifiedToken, headers: { ...init.headers, ...(prompt.challenge ? { "X-Action-Confirmation": prompt.challenge } : {}) } }, true);
+    }
     throw new ApiError(
       errorMessage(payload?.detail, response.status),
       response.status,

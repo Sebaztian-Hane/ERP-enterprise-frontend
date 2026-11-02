@@ -161,6 +161,85 @@ async function createMigration(page: Page) {
   await expect(page.getByText(/25 columnas/)).toBeVisible();
 }
 
+async function prepareSecuredMigration(page: Page, enrolled = true) {
+  await bootstrap(page, "owner");
+  const calls = { verified: 0, executed: 0, attempts: 0 };
+  const factorId = "00000000-0000-0000-0000-000000000099";
+  const factor = { id: factorId, factor_type: "totp", status: "verified", friendly_name: "Autenticador de prueba", created_at: user.created_at, updated_at: user.created_at };
+  await page.route("**/auth/v1/**", async route => {
+    const path = new URL(route.request().url()).pathname;
+    if (path.endsWith("/user")) return route.fulfill({ json: { ...user, factors: enrolled ? [factor] : [] } });
+    if (path.endsWith("/factors") && route.request().method() === "POST") return route.fulfill({ json: { id: factorId, type: "totp", totp: { qr_code: '<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100"><rect width="100" height="100" fill="white"/></svg>', secret: "TEST-ONLY-ENROLLMENT", uri: "otpauth://totp/Test" } } });
+    if (path.endsWith("/challenge")) return route.fulfill({ json: { id: "test-factor-challenge", type: "totp", expires_at: Math.floor(Date.now() / 1000) + 300 } });
+    if (path.endsWith("/verify")) {
+      if (route.request().postDataJSON().code !== "654321") return route.fulfill({ status: 422, json: { code: "mfa_verification_failed", message: "Invalid code" } });
+      calls.verified++; enrolled = true;
+      const encode = (value: unknown) => Buffer.from(JSON.stringify(value)).toString("base64url");
+      const now = Math.floor(Date.now() / 1000);
+      return route.fulfill({ json: { access_token: `${encode({ alg: "RS256" })}.${encode({ sub: user.id, aud: "authenticated", aal: "aal2", exp: now + 3600, iat: now, amr: [{ method: "totp", timestamp: now }] })}.${encode("test-signature")}`, refresh_token: "test-new-refresh", expires_in: 3600, token_type: "bearer", user: { ...user, factors: [factor] } } });
+    }
+    return route.fallback();
+  });
+  await page.route("**/migration-projects/*/commit?background=true", route => {
+    calls.attempts++;
+    if (route.request().headers()["x-action-confirmation"] !== "test-bound-command" || !calls.verified) return route.fulfill({ status: 403, json: { detail: { code: "ACTION_CONFIRMATION_REQUIRED", message: "Confirma con un código nuevo", action: "Cargar definitivamente el grupo de migración", challenge: "test-bound-command", expires_in: 300 } } });
+    calls.executed++;
+    return route.fallback();
+  });
+  await createMigration(page);
+  await page.getByRole("button", { name: "Carga masiva", exact: true }).click();
+  await page.getByLabel("Archivo de migración").setInputFiles({ name: "MM - Materiales y abastecimiento.xlsx", mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", buffer: Buffer.from("workbook tested by API") });
+  await page.getByRole("button", { name: "Cerrar registro de validación" }).click();
+  await page.getByRole("button", { name: "Simular grupo", exact: true }).click();
+  await page.getByRole("button", { name: "Cerrar registro de validación" }).click();
+  await page.getByRole("button", { name: "Cargar datos", exact: true }).click();
+  const final = page.getByRole("dialog", { name: "Confirmación final de migración" });
+  await final.getByRole("checkbox").check();
+  await final.getByRole("button", { name: "Confirmar carga completa" }).click();
+  await expect(page.getByRole("dialog", { name: "Confirmación de seguridad" })).toBeVisible();
+  return calls;
+}
+
+test("sensitive operation rejects wrong OTP and executes only after fresh verification", async ({ page }) => {
+  const calls = await prepareSecuredMigration(page);
+  const dialog = page.getByRole("dialog", { name: "Confirmación de seguridad" });
+  await expect(dialog).toContainText("DUNS - Evaluación ERP");
+  expect(calls.executed).toBe(0);
+  await dialog.getByLabel("Código del autenticador").fill("000000");
+  await dialog.getByRole("button", { name: "Verificar y continuar" }).click();
+  await expect(page.getByRole("region", { name: "Alertas del sistema" })).toContainText("Código incorrecto");
+  expect(calls.executed).toBe(0);
+  await dialog.getByLabel("Código del autenticador").fill("654321");
+  await page.screenshot({ path: "test-results/security-confirmation.png" });
+  await dialog.getByRole("button", { name: "Verificar y continuar" }).click();
+  await expect(dialog).toBeHidden();
+  await expect(page.getByText(/Migración completada: 1/)).toBeVisible();
+  expect(calls.executed).toBe(1); expect(calls.verified).toBe(1); expect(calls.attempts).toBe(2);
+});
+
+test("cancelling security confirmation never sends the pending command", async ({ page }) => {
+  const calls = await prepareSecuredMigration(page);
+  await page.getByRole("dialog", { name: "Confirmación de seguridad" }).getByRole("button", { name: "Cancelar", exact: true }).click();
+  await expect(page.getByRole("dialog", { name: "Confirmación de seguridad" })).toBeHidden();
+  await expect(page.getByRole("dialog", { name: "Confirmación final de migración" })).toBeVisible();
+  expect(calls.executed).toBe(0); expect(calls.verified).toBe(0); expect(calls.attempts).toBe(1);
+});
+
+test("account without a factor can enroll by QR before confirming", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  const calls = await prepareSecuredMigration(page, false);
+  const dialog = page.getByRole("dialog", { name: "Confirmación de seguridad" });
+  await dialog.getByRole("button", { name: "Configurar autenticador con QR" }).click();
+  await expect(dialog.getByRole("img", { name: "QR privado para vincular tu autenticador" })).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  expect(await page.locator(".action-confirmation-layer").evaluate(element => getComputedStyle(element).zIndex)).toBe("14000");
+  expect(calls.executed).toBe(0);
+  await dialog.getByLabel("Código del autenticador").fill("654321");
+  await dialog.getByRole("button", { name: "Verificar y continuar" }).click();
+  await expect(page.getByText(/Migración completada: 1/)).toBeVisible();
+  expect(calls.executed).toBe(1);
+});
+
 test("migration group stages, simulates and requires the final checkbox", async ({ page }) => {
   const requests = await bootstrap(page, "owner");
   await createMigration(page);

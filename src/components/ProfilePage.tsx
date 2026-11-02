@@ -3,6 +3,7 @@ import { type ChangeEvent, type FormEvent, useEffect, useRef, useState } from "r
 import { Camera, ChevronLeft, KeyRound, LoaderCircle, LogOut, ShieldCheck, Smartphone, Trash2, Upload } from "lucide-react";
 import { useAuth } from "../auth/AuthProvider";
 import { apiFetch } from "../lib/api";
+import { confirmSensitiveAction } from "../lib/actionConfirmation";
 import { supabase } from "../lib/supabase";
 import { UserAvatar } from "./UserAvatar";
 
@@ -168,6 +169,7 @@ export function ProfilePage({ goBack }: { goBack: () => void }) {
   const removeMfaFactor = async (factorId: string) => {
     setIsMfaLoading(true); setError(null); setSuccess(null);
     try {
+      await confirmSensitiveAction({ action: "Eliminar el autenticador registrado", message: "Confirma con tu código antes de quitar el autenticador", tenantId: tenantId ?? undefined });
       const { error: removeError } = await supabase.auth.mfa.unenroll({ factorId });
       if (removeError) throw removeError;
       await supabase.auth.refreshSession();

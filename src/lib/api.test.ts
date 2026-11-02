@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { apiDownload, apiFetch, postIdempotent } from "./api";
+import { registerActionConfirmation } from "./actionConfirmation";
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -38,5 +39,33 @@ describe("shared API transport", () => {
     await expect(postIdempotent("/imports/products/commit", { body: new FormData() })).rejects.toMatchObject({ status: 422 });
     expect(fetch).toHaveBeenCalledTimes(1);
     await expect(apiFetch("/empty")).resolves.toBeUndefined();
+  });
+
+  it("keeps the same command, company and idempotency key after MFA, without caching its proof", async () => {
+    const required = () => new Response(JSON.stringify({ detail: { code: "ACTION_CONFIRMATION_REQUIRED", action: "Confirmar carga", message: "Código requerido", challenge: "bound-proof" } }), { status: 403 });
+    const fetch = vi.fn().mockResolvedValueOnce(required()).mockResolvedValueOnce(new Response('{"ok":true}')).mockResolvedValueOnce(required()).mockResolvedValueOnce(new Response('{"ok":true}'));
+    vi.stubGlobal("fetch", fetch);
+    const confirm = vi.fn().mockResolvedValue("fresh-token");
+    const unregister = registerActionConfirmation(confirm);
+    try {
+      const body = new FormData(); body.append("file", new Blob(["code,name\nA,Name"]), "Datos.csv");
+      await postIdempotent("/imports/products/commit", { accessToken: "old-token", tenantId: "company-a", body });
+      const original = fetch.mock.calls[0][1], verified = fetch.mock.calls[1][1];
+      expect(verified.body).toBe(original.body);
+      expect(verified.headers).toMatchObject({ Authorization: "Bearer fresh-token", "X-Tenant-ID": "company-a", "Idempotency-Key": original.headers["Idempotency-Key"], "X-Action-Confirmation": "bound-proof" });
+      await postIdempotent("/imports/products/commit", { accessToken: "fresh-token", tenantId: "company-a", body });
+      expect(confirm).toHaveBeenCalledTimes(2);
+      expect(fetch.mock.calls[2][1].headers["X-Action-Confirmation"]).toBeUndefined();
+    } finally { unregister(); }
+  });
+
+  it("does not retry a cancelled security confirmation", async () => {
+    const fetch = vi.fn().mockResolvedValue(new Response(JSON.stringify({ detail: { code: "ACTION_CONFIRMATION_REQUIRED", action: "Confirmar carga", message: "Código requerido", challenge: "bound-proof" } }), { status: 403 }));
+    vi.stubGlobal("fetch", fetch);
+    const unregister = registerActionConfirmation(async () => { throw new Error("Operación cancelada"); });
+    try {
+      await expect(postIdempotent("/imports/products/commit", { body: new FormData() })).rejects.toThrow("Operación cancelada");
+      expect(fetch).toHaveBeenCalledTimes(1);
+    } finally { unregister(); }
   });
 });

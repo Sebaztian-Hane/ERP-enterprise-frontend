@@ -566,6 +566,10 @@ a {
 .password-change-panel > div > p:last-child { margin: 0; color: #66808e; font-size: 11px; line-height: 1.45; }
 .password-change-panel .customer-form { padding: 16px 0 0; }
 .mfa-panel { margin-top: 14px; }
+.modal-layer.action-confirmation-layer { z-index: 14000; }
+.customer-modal.action-confirmation-dialog { width: min(520px, calc(100vw - 32px)); max-height: 90dvh; overflow-y: auto; }
+.action-confirmation-dialog h2 { display: flex; align-items: center; gap: 8px; }
+.action-confirmation-dialog .customer-form > p { margin: 0; line-height: 1.5; }
 .mfa-enrollment { display: grid; gap: 12px; max-width: 360px; padding-top: 16px; }
 .mfa-enrollment img { width: 176px; height: 176px; padding: 8px; background: #fff; border: 1px solid #d8e7ed; border-radius: 8px; }
 .mfa-enrollment p { margin: 0; color: #66808e; font-size: 12px; line-height: 1.5; }
